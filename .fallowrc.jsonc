@@ -1,0 +1,9 @@
+{
+    "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json"
+    // 动态加载入口（2026-08-14 豁免）：client/ 是控制台前端，经
+    // `ctx.console.addEntry` 动态注册（src/bot/console-entry.ts），静态分析
+    // 看不到引用——fallow 误报 unused-files，标记为动态入口即正确。（待验证）
+    //"dynamicallyLoaded": [
+    //    "client/**"
+    //]
+}
