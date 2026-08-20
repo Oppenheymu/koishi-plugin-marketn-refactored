@@ -18,7 +18,7 @@
 | P5 | 宿主联调（dev + prod 双模式冒烟） | ⏳ |
 | P6 | 收尾（契约核对 / 删旧码 / 文档定稿） | ⏳ |
 
-详见 [docs/overview/路线图.md](docs/overview/路线图.md)。
+详见 [docs/overview/ROADMAP.md](docs/overview/ROADMAP.md)。
 
 ## 快速上手
 
@@ -42,10 +42,10 @@ node scripts/check-size.mjs
 ## 文档导航
 
 - [docs/README.md](docs/README.md) — 文档索引
-- [docs/overview/架构总览.md](docs/overview/架构总览.md) — 分层架构与依赖规则
-- [docs/overview/core层模块参考.md](docs/overview/core层模块参考.md) — core 层 8 个模块的职责与 API
-- [docs/overview/开发指南.md](docs/overview/开发指南.md) — 环境、门禁、编码约定、行数预算
-- [docs/overview/路线图.md](docs/overview/路线图.md) — P0–P6 阶段计划与状态
+- [docs/overview/ARCHITECTURE.md](docs/overview/ARCHITECTURE.md) — 分层架构与依赖规则
+- [docs/overview/CORE-MODULES.md](docs/overview/CORE-MODULES.md) — core 层 8 个模块的职责与 API
+- [docs/overview/DEVELOPMENT.md](docs/overview/DEVELOPMENT.md) — 环境、门禁、编码约定、行数预算
+- [docs/overview/ROADMAP.md](docs/overview/ROADMAP.md) — P0–P6 阶段计划与状态
 - [docs/design/](docs/design/) — P3–P6 设计文档（设计先行）
 - [docs/handover/P2交接P3.md](docs/handover/P2交接P3.md) — P2→P3 交接
 - [docs/reference/前后端调用契约.md](docs/reference/前后端调用契约.md) — 旧代码对外契约面清单（冻结基线）

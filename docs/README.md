@@ -4,7 +4,7 @@
 
 按文档类型分四个子目录：
 
-- `overview/` — 现状：路线图、架构总览、开发指南、core 模块参考（随实现更新）
+- `overview/` — 现状：ROADMAP、ARCHITECTURE、DEVELOPMENT、CORE-MODULES（随实现更新）
 - `design/` — 设计：各阶段开工前写定的目标结构与方案
 - `handover/` — 交接：每阶段完成时生成，命名 `P{n}交接P{n+1}.md`
 - `reference/` — 考据：旧代码 `Waiting_refactored/` 的探索记录（验收基线，P6 删旧码后唯一参照）
@@ -13,9 +13,9 @@
 
 **新接手本项目**（按顺序）：
 
-1. [overview/路线图.md](overview/路线图.md) — P0–P6 阶段划分与当前状态（5 分钟了解全局）
-2. [overview/架构总览.md](overview/架构总览.md) — 分层架构、依赖方向规则、各层职责
-3. [overview/开发指南.md](overview/开发指南.md) — 环境搭建、门禁命令、编码约定
+1. [overview/ROADMAP.md](overview/ROADMAP.md) — P0–P6 阶段划分与当前状态（5 分钟了解全局）
+2. [overview/ARCHITECTURE.md](overview/ARCHITECTURE.md) — 分层架构、依赖方向规则、各层职责
+3. [overview/DEVELOPMENT.md](overview/DEVELOPMENT.md) — 环境搭建、门禁命令、编码约定
 4. 按接下来要做的阶段，读对应的 `design/` 文档或 `handover/` 交接文档
 
 **接手 P3（node 适配层）**：
@@ -34,10 +34,10 @@
 
 | 文档 | 类型 | 内容 |
 |---|---|---|
-| [overview/路线图.md](overview/路线图.md) | 现状 | P0–P6 阶段计划、门禁、当前进度 |
-| [overview/架构总览.md](overview/架构总览.md) | 现状 | 分层架构、依赖方向、core 禁 koishi 规则、各层职责 |
-| [overview/core层模块参考.md](overview/core层模块参考.md) | 现状 | `src/shared` + `src/core` 全部模块的职责、关键导出、注入依赖 |
-| [overview/开发指南.md](overview/开发指南.md) | 现状 | 环境要求、门禁命令、编码约定、行数预算、已知坑 |
+| [overview/ROADMAP.md](overview/ROADMAP.md) | 现状 | P0–P6 阶段计划、门禁、当前进度 |
+| [overview/ARCHITECTURE.md](overview/ARCHITECTURE.md) | 现状 | 分层架构、依赖方向、core 禁 koishi 规则、各层职责 |
+| [overview/CORE-MODULES.md](overview/CORE-MODULES.md) | 现状 | `src/shared` + `src/core` 全部模块的职责、关键导出、注入依赖 |
+| [overview/DEVELOPMENT.md](overview/DEVELOPMENT.md) | 现状 | 环境要求、门禁命令、编码约定、行数预算、已知坑 |
 | [design/P3-node适配层设计.md](design/P3-node适配层设计.md) | 设计 | Koishi 适配层的目标结构、contracts/installer.service/listeners/commands 设计 |
 | [design/P4-client移植设计.md](design/P4-client移植设计.md) | 设计 | client feature-first 重组方案、lib 拆分、砍除清单 |
 | [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) | 设计 | 宿主联调冒烟清单、契约冻结核对表、收尾事项 |

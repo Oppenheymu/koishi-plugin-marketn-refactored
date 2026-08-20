@@ -117,4 +117,4 @@ node scripts/check-size.mjs
 
 **阶段完成**：`yarn check` 全量恢复可用（biome + tsc×2 + eslint + check-size）；`yarn build:client` 产出 `dist/index.js` + `dist/style.css`（CSS 产物名必须是 style.css，prod console 只探测它）。
 
-**完成后**：生成 `docs/handover/P4交接P5.md`，更新 [路线图.md](../overview/路线图.md) 状态。
+**完成后**：生成 `docs/handover/P4交接P5.md`，更新 [ROADMAP.md](../overview/ROADMAP.md) 状态。

@@ -50,14 +50,14 @@ node 端与 client 端**共用**的类型与纯逻辑，随包以 `./shared` 入
 
 | 模块 | 职责 | 详见 |
 |---|---|---|
-| `utils/` | 零依赖工具：格式化、数值、防抖 JSON 落盘（`JsonStore`）、异步、时间常量 | [core层模块参考](core层模块参考.md#coreutils) |
-| `racing/` | 端点竞速基础设施：`RequestScope`（serial 陈旧性 + AbortController）、`raceEndpoints`（错峰竞速）、`RouteStatsBook`（学习统计）、`routeScore`（评分） | [→](core层模块参考.md#coreracing) |
-| `registry/` | npm registry 元数据访问完整栈：多端点路由、重试、三层缓存、404 负缓存、路由探测 | [→](core层模块参考.md#coreregistry) |
-| `market/` | 市场索引源：11 端点竞速拉取、磁盘缓存（v3 拆分布局）、后台刷新、快照组装 | [→](core层模块参考.md#coremarket) |
-| `deps/` | 依赖解析：宿主 package.json 快照、latest 并发刷新、未绑定本地插件归类 | [→](core层模块参考.md#coredeps) |
-| `install/` | 安装编排：串行锁、package.json 快照/回滚、包管理器执行、安装日志三件套、环境快照操作、本地上传门面 | [→](core层模块参考.md#coreinstall) |
-| `upload/` | 本地 .tgz 分块上传会话、tar 安全校验、本地绑定（npm pack） | [→](core层模块参考.md#coreupload) |
-| `environment/` | 环境快照模型、diff、恢复规划（纯函数） | [→](core层模块参考.md#coreenvironment) |
+| `utils/` | 零依赖工具：格式化、数值、防抖 JSON 落盘（`JsonStore`）、异步、时间常量 | [CORE-MODULES](CORE-MODULES.md#coreutils) |
+| `racing/` | 端点竞速基础设施：`RequestScope`（serial 陈旧性 + AbortController）、`raceEndpoints`（错峰竞速）、`RouteStatsBook`（学习统计）、`routeScore`（评分） | [→](CORE-MODULES.md#coreracing) |
+| `registry/` | npm registry 元数据访问完整栈：多端点路由、重试、三层缓存、404 负缓存、路由探测 | [→](CORE-MODULES.md#coreregistry) |
+| `market/` | 市场索引源：11 端点竞速拉取、磁盘缓存（v3 拆分布局）、后台刷新、快照组装 | [→](CORE-MODULES.md#coremarket) |
+| `deps/` | 依赖解析：宿主 package.json 快照、latest 并发刷新、未绑定本地插件归类 | [→](CORE-MODULES.md#coredeps) |
+| `install/` | 安装编排：串行锁、package.json 快照/回滚、包管理器执行、安装日志三件套、环境快照操作、本地上传门面 | [→](CORE-MODULES.md#coreinstall) |
+| `upload/` | 本地 .tgz 分块上传会话、tar 安全校验、本地绑定（npm pack） | [→](CORE-MODULES.md#coreupload) |
+| `environment/` | 环境快照模型、diff、恢复规划（纯函数） | [→](CORE-MODULES.md#coreenvironment) |
 
 ### src/node —— Koishi 适配层（P3 进行中，设计见 design/P3）
 

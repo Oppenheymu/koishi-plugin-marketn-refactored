@@ -26,7 +26,7 @@
 
 ### P2 core 建设 ✅
 
-8 模块 53 文件全部建成（详见 [core层模块参考.md](core层模块参考.md)）：
+8 模块 53 文件全部建成（详见 [CORE-MODULES.md](CORE-MODULES.md)）：
 
 - **utils**（5 文件）：格式化/数值/防抖 JSON 落盘/异步/时间常量
 - **racing**（4）：竞速三件套——合并旧 Installer 与 MarketProvider 两套重复实现（最大单点收益）

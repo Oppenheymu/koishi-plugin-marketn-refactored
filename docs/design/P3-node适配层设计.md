@@ -129,4 +129,4 @@ P4 前禁止跑全量 `yarn check`（client/ 不存在，见开发指南 §2.1�
 
 ## 6. 完成后
 
-生成 `docs/handover/P3交接P4.md`（记录：实际偏差、lib 加载验证结果、留给 P4 的接口注意点），更新 [路线图.md](../overview/路线图.md) 状态。
+生成 `docs/handover/P3交接P4.md`（记录：实际偏差、lib 加载验证结果、留给 P4 的接口注意点），更新 [ROADMAP.md](../overview/ROADMAP.md) 状态。

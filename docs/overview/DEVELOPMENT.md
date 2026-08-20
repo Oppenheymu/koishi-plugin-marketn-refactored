@@ -85,7 +85,7 @@ node scripts/check-size.mjs
 | `src/node/`（P3） | 组装 core、注入 deps、Koishi API 全可用 | 业务逻辑（一律下沉 core） |
 | `client/`（P4） | `<script setup lang="ts">`；样式出仓同目录 .scss | 超大单文件（预算见 §3.4） |
 
-**core 的 I/O 模式**：构造函数收 `deps` 对象，字段是函数或接口（如 `httpFactory`、`broadcast`、`isActive`、`notifyRefresh`）。参考 [core层模块参考.md](core层模块参考.md) 各模块的 deps 签名。
+**core 的 I/O 模式**：构造函数收 `deps` 对象，字段是函数或接口（如 `httpFactory`、`broadcast`、`isActive`、`notifyRefresh`）。参考 [CORE-MODULES.md](CORE-MODULES.md) 各模块的 deps 签名。
 
 ## 6. 已知坑（历史经验，别再踩）
 
