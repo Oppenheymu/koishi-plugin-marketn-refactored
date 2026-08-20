@@ -8,9 +8,7 @@ import tsParser from '@typescript-eslint/parser';
  * 背景：项目用 biome 做 ts/js 的 lint/format，但 biome 不解析 .vue；本配置
  * 用 eslint-plugin-vue 补上 .vue 的模板/组件语义检查，与 biome 零重叠
  * （biome includes 只到 src/**）。核心是 vue/no-undef-components——
- * 根治「组件名大小写写错（<qrcode-panel> vs QrCodePanel）→ 未定义组件」。
  *
- * k-*（k-comment/k-button/k-icon）是 Koishi 控制台全局组件，用 ignorePatterns 放行。
  * 本配置不做类型感知（不接 tsconfig project），保持轻量、稳定。
  */
 export default [
