@@ -71,6 +71,18 @@
             }
         }
     },
+    "overrides": [
+        {
+            "includes": ["src/core/registry/manifest.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useNamingConvention": "off"
+                    }
+                }
+            }
+        }
+    ],
     "javascript": {
         "formatter": {
             "quoteStyle": "double",
