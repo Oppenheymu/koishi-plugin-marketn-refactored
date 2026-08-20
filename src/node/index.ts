@@ -86,7 +86,7 @@ export type {
   EnvironmentSnapshotSummary,
 } from './environment'
 
-const SELF_PACKAGE = 'koishi-plugin-market-next'
+const SELF_PACKAGE = 'koishi-plugin-marketn-refactored'
 const gzip = promisify(gzipCallback)
 const MAX_MARKET_SNAPSHOTS = 6
 
@@ -892,7 +892,7 @@ function findMarketNextConfigNode(plugins: any, currentConfig: Config): { parent
     const disabled = key.startsWith('~')
     const normalized = disabled ? key.slice(1) : key
     const [name] = normalized.split(':', 1)
-    if (value === currentConfig || name === 'market-next' || name === 'koishi-plugin-market-next') {
+    if (value === currentConfig || name === 'market-next' || name === 'koishi-plugin-marketn-refactored') {
       if (!disabled) return { parent: plugins, key, value }
       fallback ||= { parent: plugins, key, value }
     }
@@ -1398,7 +1398,7 @@ function setupIdleProbe(ctx: Context, config: Config) {
 
 export function apply(ctx: Context, config: Config = {}) {
   if (!ctx.loader?.writable) {
-    return ctx.logger('app').warn('koishi-plugin-market-next is only available for json/yaml config file')
+    return ctx.logger('app').warn('koishi-plugin-marketn-refactored is only available for json/yaml config file')
   }
 
   if (ensureMarketNextConfigDefaults(ctx, config)) {

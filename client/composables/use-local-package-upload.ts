@@ -3,7 +3,7 @@ import type {
   LocalPackageUploadCommitResult,
   LocalPackageUploadPreview,
   LocalPackageUploadStartResult,
-} from 'koishi-plugin-market-next'
+} from 'koishi-plugin-marketn-refactored'
 import { computed, onScopeDispose, ref } from 'vue'
 import { install } from '../components/utils'
 

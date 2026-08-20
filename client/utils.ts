@@ -401,7 +401,7 @@ function findMarketNextConfig(plugins: any): any {
       const disabled = rawKey.startsWith('~')
       const key = disabled ? rawKey.slice(1) : rawKey
       const name = key.split(':', 1)[0]
-      if (name === 'market-next' || name === 'koishi-plugin-market-next') {
+      if (name === 'market-next' || name === 'koishi-plugin-marketn-refactored') {
         if (!disabled) return value
         fallback ||= value
       }

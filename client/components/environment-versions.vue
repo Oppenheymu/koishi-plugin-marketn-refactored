@@ -122,7 +122,7 @@ import type {
   EnvironmentSnapshotPreview,
   EnvironmentSnapshotSource,
   EnvironmentSnapshotSummary,
-} from 'koishi-plugin-market-next'
+} from 'koishi-plugin-marketn-refactored'
 import { getFrontendMode } from '../utils'
 import { applyEnvironmentSnapshot, showEnvironmentVersions } from './utils'
 import { useMarketNextI18n } from '../i18n'
@@ -216,7 +216,7 @@ function applySnapshot() {
   if (!canApply.value || !preview.value) return
   const id = preview.value.snapshot.id
   const selfUpdate = preview.value.changes.some(change => {
-    return change.name === 'koishi-plugin-market-next' && change.status !== 'unchanged'
+    return change.name === 'koishi-plugin-marketn-refactored' && change.status !== 'unchanged'
   })
   confirmVisible.value = false
   void applyEnvironmentSnapshot(id, selfUpdate)

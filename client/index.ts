@@ -1,6 +1,6 @@
 import { defineComponent, h, isReactive, markRaw, ref, toRaw, watch } from 'vue'
 import { Context, Dict, global, message, receive, router, send, store, useConfig } from '@koishijs/client'
-import type { PluginBundleRecord, RegistryStatus } from 'koishi-plugin-market-next'
+import type { PluginBundleRecord, RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import type { DependencySource } from '../src/shared/dependency-source'
 import { getPendingOverrides, patchMarketNextData, type IgnoredUpdates } from './utils'
 import { registerMarketNextI18n, translate } from './i18n'

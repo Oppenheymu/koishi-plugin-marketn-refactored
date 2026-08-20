@@ -39,7 +39,7 @@ interface LocaleNamespaceGuard {
   ensure(): void
 }
 
-const guardRegistryKey = Symbol.for('koishi-plugin-market-next/i18n-namespace-guards')
+const guardRegistryKey = Symbol.for('koishi-plugin-marketn-refactored/i18n-namespace-guards')
 const guardRegistry = ((globalThis as any)[guardRegistryKey] ||= new WeakMap<object, LocaleNamespaceGuard>()) as WeakMap<object, LocaleNamespaceGuard>
 
 export function installLocaleNamespaceGuard(

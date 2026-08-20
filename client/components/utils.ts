@@ -1,6 +1,6 @@
 import { Awaitable, Context, Dict, loading, message, receive, send, socket, store, valueMap } from '@koishijs/client'
 import type { Registry, SearchObject } from '@koishijs/registry'
-import type { RegistryStatus } from 'koishi-plugin-market-next'
+import type { RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import { compare, satisfies } from 'semver'
 import { reactive, ref, watch } from 'vue'
 import { active } from '../utils'
@@ -246,7 +246,7 @@ export interface InstallOptions {
   installEndpoint?: string
 }
 
-export const MARKET_NEXT_PACKAGE = 'koishi-plugin-market-next'
+export const MARKET_NEXT_PACKAGE = 'koishi-plugin-marketn-refactored'
 
 export const installProgressState = reactive({
   visible: false,

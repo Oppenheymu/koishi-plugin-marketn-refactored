@@ -8,7 +8,7 @@ import { compare, satisfies, valid } from 'semver'
 import {} from '@koishijs/console'
 import {} from '@koishijs/loader'
 import getRegistry from 'get-registry'
-import which from 'which-pm-runs'
+import { detect } from 'package-manager-detector'
 import spawn from 'execa'
 import pMap from 'p-map'
 import {
@@ -67,7 +67,7 @@ const REGISTRY_FAST_ROUTE_THRESHOLD = Time.second * 0.8
 const REGISTRY_STATS_TTL = Time.day * 30
 const NOT_FOUND_CACHE_TTL = Time.minute * 5
 const FULL_RELOAD_DELAY = Time.second
-const SELF_PACKAGE = 'koishi-plugin-market-next'
+const SELF_PACKAGE = 'koishi-plugin-marketn-refactored'
 const DEFAULT_INSTALL_LOG_RETENTION = Time.day * 3
 const INSTALL_LOG_DIR = 'market-next-install-logs'
 const INSTALL_LOG_DETAIL_LIMIT = 512 * 1024
@@ -249,7 +249,7 @@ class Installer extends Service {
   public registryStatus: Dict<RegistryStatus> = {}
 
   private pkgTasks: Dict<Promise<Dict<Pick<RemotePackage, DependencyMetaKey>>>> = {}
-  private agent = which()
+  private agent = detect()
   private manifest: PackageJson
   private depCache: Dict<Dependency> = {}
   private depTask?: Promise<Dict<Dependency>>

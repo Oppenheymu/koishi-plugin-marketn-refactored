@@ -1,10 +1,15 @@
 import { SearchObject, User } from '@koishijs/registry'
 import { InjectionKey, ref } from 'vue'
 import { Dict } from 'cosmokit'
-import * as md5 from 'spark-md5'
+import { md5 } from '@noble/hashes/legacy.js'
+import { toHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { send } from '@koishijs/client'
 import { hasBundleKeyword, isBundlePackageName } from '../../src/shared/bundle'
 import { useMarketNextI18n } from '../i18n'
+
+function md5Hex(input: string) {
+  return toHex(md5(utf8ToBytes(input)))
+}
 
 export function useMarketI18n() {
   const { t: baseT, locale } = useMarketNextI18n()
@@ -88,11 +93,11 @@ function toBase64Url(value: string) {
 
 function getEmailHash(user: User) {
   if (!user.email) return ''
-  return md5.hash(user.email.trim().toLowerCase())
+  return md5Hex(user.email.trim().toLowerCase())
 }
 
 function createAvatarUrlCacheKey(url: string) {
-  return `url:${md5.hash(normalizeAvatarUrl(url))}`
+  return `url:${md5Hex(normalizeAvatarUrl(url))}`
 }
 
 function createGravatarUrls(hash: string, gravatar?: string) {
@@ -113,7 +118,7 @@ function baseAvatarCandidates(user: User, gravatar?: string): AvatarCandidate[] 
   const hash = getEmailHash(user)
   const fallbackKey = hash
     ? `gravatar:${hash}`
-    : `user:${md5.hash(getUserKey(user) || JSON.stringify(user) || 'anonymous')}`
+    : `user:${md5Hex(getUserKey(user) || JSON.stringify(user) || 'anonymous')}`
   const candidates: AvatarCandidate[] = []
   const avatar = (user as User & { avatar?: string, url?: string }).avatar
   if (avatar?.trim() && (isHttpUrl(avatar) || avatar.trim().startsWith('data:'))) {
