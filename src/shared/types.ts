@@ -3,88 +3,88 @@ import type { Dict } from "koishi";
 
 /** 单个 npm 端点的近期状态（registry/registryStatus 通道与路由评分的共享语言）。 */
 export interface RegistryStatus {
-    loading?: boolean;
-    reason?: "timeout" | "not-found" | "network" | "invalid" | "http" | "unknown";
-    error?: string;
-    endpoint?: string;
-    attempts?: number;
-    elapsed?: number;
-    updatedAt?: number;
+    loading?: boolean | undefined;
+    reason?: "timeout" | "not-found" | "network" | "invalid" | "http" | "unknown" | undefined;
+    error?: string | undefined;
+    endpoint?: string | undefined;
+    attempts?: number | undefined;
+    elapsed?: number | undefined;
+    updatedAt?: number | undefined;
 }
 
 /** 一次索引/元数据请求的性能快照（市场页 debug 卡的数据来源）。 */
 export interface MarketPerformanceSnapshot {
-    source?: "network" | "disk-cache" | "http-304" | "hash-cache" | "legacy";
-    endpoint?: string;
-    preferredEndpoint?: string;
-    fallbackReason?: "primary-failed" | "primary-slow" | "rescue";
-    candidates?: number;
-    size?: number;
-    wireSize?: number;
-    contentEncoding?: string;
-    objects?: number;
-    hash?: string;
-    etag?: string;
-    lastModified?: string;
-    cachedAt?: number;
-    validatedAt?: number;
-    timings?: Dict<number>;
+    source?: "network" | "disk-cache" | "http-304" | "hash-cache" | "legacy" | undefined;
+    endpoint?: string | undefined;
+    preferredEndpoint?: string | undefined;
+    fallbackReason?: "primary-failed" | "primary-slow" | "rescue" | undefined;
+    candidates?: number | undefined;
+    size?: number | undefined;
+    wireSize?: number | undefined;
+    contentEncoding?: string | undefined;
+    objects?: number | undefined;
+    hash?: string | undefined;
+    etag?: string | undefined;
+    lastModified?: string | undefined;
+    cachedAt?: number | undefined;
+    validatedAt?: number | undefined;
+    timings?: Dict<number> | undefined;
 }
 
 export interface MarketRouteScore {
     endpoint: string;
     score: number;
-    successes?: number;
-    failures?: number;
-    consecutiveFailures?: number;
-    cooldownUntil?: number;
-    coolingDown?: boolean;
-    averageElapsed?: number;
-    lastSuccess?: number;
-    contentEncoding?: string;
-    cached?: boolean;
-    cachedAt?: number;
+    successes?: number | undefined;
+    failures?: number | undefined;
+    consecutiveFailures?: number | undefined;
+    cooldownUntil?: number | undefined;
+    coolingDown?: boolean | undefined;
+    averageElapsed?: number | undefined;
+    lastSuccess?: number | undefined;
+    contentEncoding?: string | undefined;
+    cached?: boolean | undefined;
+    cachedAt?: number | undefined;
 }
 
 export interface MarketPerformance extends MarketPerformanceSnapshot {
-    initial?: MarketPerformanceSnapshot;
-    refresh?: MarketPerformanceSnapshot;
-    routeScores?: MarketRouteScore[];
+    initial?: MarketPerformanceSnapshot | undefined;
+    refresh?: MarketPerformanceSnapshot | undefined;
+    routeScores?: MarketRouteScore[] | undefined;
 }
 
 export interface MarketLookupRequest {
-    names?: string[];
-    services?: string[];
+    names?: string[] | undefined;
+    services?: string[] | undefined;
 }
 
 export interface MarketLookupResult {
     data: Dict<SearchObject>;
     services: Dict<string[]>;
-    dataVersion?: number;
+    dataVersion?: number | undefined;
 }
 
 export interface MarketSnapshotRequest {
-    transport?: "inline" | "http-gzip";
+    transport?: "inline" | "http-gzip" | undefined;
 }
 
 /** market 通道的完整 payload（MarketProvider.Payload 的结构性定义）。 */
 export interface MarketPayload {
-    registry?: string;
-    data?: Dict<SearchObject>;
-    dataVersion?: number;
+    registry?: string | undefined;
+    data?: Dict<SearchObject> | undefined;
+    dataVersion?: number | undefined;
     total: number;
     failed: number;
     progress: number;
-    gravatar?: string;
-    stale?: boolean;
-    error?: string;
-    cached?: boolean;
-    cachedAt?: number;
-    validatedAt?: number;
-    serverNow?: number;
-    refreshing?: boolean;
-    loading?: boolean;
-    debug?: MarketPerformance;
+    gravatar?: string | undefined;
+    stale?: boolean | undefined;
+    error?: string | undefined;
+    cached?: boolean | undefined;
+    cachedAt?: number | undefined;
+    validatedAt?: number | undefined;
+    serverNow?: number | undefined;
+    refreshing?: boolean | undefined;
+    loading?: boolean | undefined;
+    debug?: MarketPerformance | undefined;
 }
 
 export interface MarketSnapshotTransfer {

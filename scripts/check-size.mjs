@@ -37,8 +37,10 @@ function countVueLines(content) {
 function checkCoreImports(file, content, problems) {
   const rel = relative(ROOT, file)
   if (!rel.includes(join('src', 'core'))) return
+  // 允许 @koishijs/registry（框架无关的领域类型与扫描器）；禁止 koishi 运行时与其余 @koishijs/* 框架面
   for (const [index, line] of content.split('\n').entries()) {
-    if (!/from ['"](koishi|@koishijs\/[^'"]*)['"]/.test(line)) continue
+    const banned = /from ['"]koishi['"]|from ['"]@koishijs\/(?!registry)['"]/.test(line)
+    if (!banned) continue
     if (/^\s*import\s+type\b/.test(line)) continue
     if (/^\s*export\s+type\s*\{/.test(line)) continue
     problems.push(`${rel}:${index + 1} core 层禁止运行时依赖 koishi: ${line.trim()}`)

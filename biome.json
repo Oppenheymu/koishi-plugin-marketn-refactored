@@ -28,6 +28,7 @@
                 "useLiteralKeys": "off"
             },
             "style": {
+                "noNonNullAssertion": "off",
                 "useNamingConvention": {
                     "level": "error",
                     "options": {

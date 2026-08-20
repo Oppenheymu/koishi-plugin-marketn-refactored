@@ -15,26 +15,26 @@ export interface DependencySourceInfo {
 }
 
 export interface DependencySourceOptions {
-    workspace?: boolean;
-    installed?: boolean;
-    discoveredLocal?: boolean;
-    registryNotFound?: boolean;
+    workspace?: boolean | undefined;
+    installed?: boolean | undefined;
+    discoveredLocal?: boolean | undefined;
+    registryNotFound?: boolean | undefined;
 }
 
 export interface DependencySourceState {
-    request?: string;
-    resolved?: string;
-    source?: DependencySource;
-    local?: boolean;
-    bound?: boolean;
-    workspace?: boolean;
+    request?: string | undefined;
+    resolved?: string | undefined;
+    source?: DependencySource | undefined;
+    local?: boolean | undefined;
+    bound?: boolean | undefined;
+    workspace?: boolean | undefined;
 }
 
 export interface DiscoveredLocalPluginOptions {
-    declared?: boolean;
-    configured?: boolean;
-    running?: boolean;
-    workspace?: boolean;
+    declared?: boolean | undefined;
+    configured?: boolean | undefined;
+    running?: boolean | undefined;
+    workspace?: boolean | undefined;
 }
 
 const LOCAL_PROTOCOLS = ["file", "link", "portal", "workspace"] as const;
