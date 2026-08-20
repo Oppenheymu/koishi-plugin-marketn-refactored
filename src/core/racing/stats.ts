@@ -47,7 +47,11 @@ export class RouteStatsBook {
     }
 
     recordSuccess(endpoint: string, elapsed: number, options: { contentEncoding?: string } = {}) {
-        const stats = (this.stats[endpoint] ??= { score: 0, successes: 0, failures: 0 });
+        let stats = this.stats[endpoint];
+        if (!stats) {
+            stats = { score: 0, successes: 0, failures: 0 };
+            this.stats[endpoint] = stats;
+        }
         stats.successes++;
         stats.consecutiveFailures = 0;
         stats.cooldownUntil = undefined;
@@ -72,7 +76,11 @@ export class RouteStatsBook {
         endpoint: string,
         options: { reason?: string | undefined; rescue?: boolean | undefined } = {},
     ) {
-        const stats = (this.stats[endpoint] ??= { score: 0, successes: 0, failures: 0 });
+        let stats = this.stats[endpoint];
+        if (!stats) {
+            stats = { score: 0, successes: 0, failures: 0 };
+            this.stats[endpoint] = stats;
+        }
         stats.failures++;
         if (options.rescue) {
             stats.score = clamp(

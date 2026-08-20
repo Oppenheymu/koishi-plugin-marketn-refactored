@@ -59,7 +59,8 @@ export class DependencyResolver {
 
     getLocalDepsSnapshot(): Dict<Dependency> {
         const start = Date.now();
-        const manifest = (this.manifest ??= loadManifest(this.deps.cwd()));
+        this.manifest ??= loadManifest(this.deps.cwd());
+        const manifest = this.manifest;
         const result: Dict<Dependency> = {};
         for (const [name, request] of Object.entries(manifest.dependencies ?? {})) {
             result[name] = { request: request.replace(/^[~^]/, "") };
@@ -218,7 +219,7 @@ export class DependencyResolver {
             this.depCache = this.getLocalDepsSnapshot();
         }
         if (options.metadata) return this.refreshDependencyMetadata(true);
-        if (options.background !== false) this.refreshDependencyMetadata(false);
+        if (options.background !== false) void this.refreshDependencyMetadata(false);
         return this.depCache;
     }
 

@@ -50,7 +50,7 @@ export function restoreRegistryStats(
     store: RegistryStatsStore | undefined,
     log?: (message: string) => void,
 ) {
-    if (!store || store.version !== 1 || !store.stats) return;
+    if (!store?.stats || store.version !== 1) return;
     if (Date.now() - store.savedAt > 30 * DAY) return;
     for (const [endpoint, stats] of Object.entries(store.stats)) {
         if (!stats) continue;

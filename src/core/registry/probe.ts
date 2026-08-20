@@ -68,7 +68,7 @@ export class RouteProbe {
             const result = await fetchByRoute(name, endpoints, serial);
             if (this.deps.scope.isStale(serial)) return;
             this.apply(name, result, serial, start);
-        } catch (error) {
+        } catch {
             if (this.deps.scope.isStale(serial)) return;
             this.deps.log.warn(
                 `npm registry route probe failed: probe=${name}, candidates=${endpoints.length}, elapsed=${Date.now() - start}ms`,

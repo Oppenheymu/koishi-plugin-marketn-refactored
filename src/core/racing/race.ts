@@ -105,7 +105,9 @@ export function raceEndpoints<T>(params: RaceParams<T>): Promise<RaceAttempt<T>>
             if (settled) return;
             if (scope.isStale(serial) || isInternalAbort(error)) {
                 settled = true;
-                controllers.forEach((item) => item.abort(new Error("endpoint race cancelled")));
+                controllers.forEach((item) => {
+                    item.abort(new Error("endpoint race cancelled"));
+                });
                 finish();
                 reject(error);
                 return;
