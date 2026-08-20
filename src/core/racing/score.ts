@@ -7,8 +7,8 @@ export interface RouteScoreOptions {
     /** 与 stats 记录一致的快速阈值（registry 800ms / 市场 500ms） */
     fastThreshold: number;
     /** 调用方附加分（市场：磁盘缓存新鲜度 + contentEncoding 加分） */
-    extraScore?: number;
-    now?: number;
+    extraScore?: number | undefined;
+    now?: number | undefined;
 }
 
 /**

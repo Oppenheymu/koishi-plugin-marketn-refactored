@@ -46,7 +46,11 @@ export class RouteStatsBook {
         return this.stats[endpoint];
     }
 
-    recordSuccess(endpoint: string, elapsed: number, options: { contentEncoding?: string } = {}) {
+    recordSuccess(
+        endpoint: string,
+        elapsed: number,
+        options: { contentEncoding?: string | undefined } = {},
+    ) {
         let stats = this.stats[endpoint];
         if (!stats) {
             stats = { score: 0, successes: 0, failures: 0 };

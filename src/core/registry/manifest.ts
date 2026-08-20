@@ -17,7 +17,32 @@ export const Scanner = ScannerModule as unknown as {
     isCompatible(range: string, remote: Pick<RemotePackage, "peerDependencies">): boolean;
 };
 
-export const ScannerClass = ScannerModule;
+export interface ScannerLike {
+    objects: import("@koishijs/registry").SearchObject[];
+    total: number;
+    progress: number;
+    version?: string | undefined;
+    collect(config?: { timeout?: number }): Promise<void>;
+    analyze(config: {
+        version: string;
+        onFailure?: (name: string, reason: unknown) => void;
+        onRegistry?: (registry: { name: string }, versions: unknown[]) => void;
+        onSuccess?: (
+            object: import("@koishijs/registry").SearchObject,
+            versions: unknown[],
+        ) => void;
+        after?: () => void;
+    }): Promise<unknown>;
+}
+
+export function createScanner(
+    request: (url: string, config?: { timeout?: number }) => Promise<unknown>,
+): ScannerLike {
+    const ctor = ScannerModule as unknown as new (
+        request: (url: string, config?: { timeout?: number }) => Promise<unknown>,
+    ) => ScannerLike;
+    return new ctor(request);
+}
 
 export interface LocalPackage extends PackageJson {
     private?: boolean;
