@@ -3,9 +3,6 @@
     "name": "koishi-plugin-marketn-refactored",
     "version": "0.1.0",
     "description": "Next-generation Koishi plugin market and dependency management center (refactored)",
-    "contributors": [
-        "Oppenheymu <oppenheymu@gmail.com>"
-    ],
     "type": "module",
     "main": "./lib/node/index.js",
     "types": "./lib/node/index.d.ts",
@@ -30,13 +27,6 @@
         "lib",
         "dist"
     ],
-    "engines": {
-        "node": ">=20.19"
-    },
-    "license": "MIT",
-    "publishConfig": {
-        "access": "public"
-    },
     "homepage": "https://github.com/Oppenheymu/koishi-plugin-marketn-refactored#readme",
     "repository": {
         "type": "git",
@@ -45,14 +35,10 @@
     "bugs": {
         "url": "https://github.com/Oppenheymu/koishi-plugin-marketn-refactored/issues"
     },
-    "scripts": {
-        "dev": "tsdown --watch",
-        "build": "tsdown",
-        "typecheck": "tsc -p tsconfig.json && tsc -p client/tsconfig.json",
-        "check": "biome check . && tsc -p tsconfig.json && tsc -p client/tsconfig.json",
-        "audit:package": "npm audit --audit-level=high --omit=dev --omit=peer",
-        "audit:high": "npm audit --audit-level=high --omit=peer"
-    },
+    "license": "MIT",
+    "contributors": [
+        "Oppenheymu <oppenheymu@gmail.com>"
+    ],
     "keywords": [
         "bot",
         "chatbot",
@@ -62,6 +48,15 @@
         "manager",
         "server"
     ],
+    "engines": {
+        "node": ">=20.19"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsdown"
+    },
     "koishi": {
         "public": [
             "dist"
@@ -80,19 +75,6 @@
             ]
         }
     },
-    "peerDependencies": {
-        "@koishijs/plugin-console": "^5.30.11",
-        "koishi": "^4.18.11",
-        "koishi-plugin-chatluna": "^1.4.0-alpha.20"
-    },
-    "peerDependenciesMeta": {
-        "@koishijs/plugin-console": {
-            "optional": true
-        },
-        "koishi-plugin-chatluna": {
-            "optional": true
-        }
-    },
     "dependencies": {
         "@koishijs/components": "^1.5.22",
         "@koishijs/console": "^5.30.11",
@@ -107,6 +89,19 @@
         "semver": "^7.8.5",
         "tar": "^7.5.22",
         "zod": "^4.4.3"
+    },
+    "peerDependencies": {
+        "@koishijs/plugin-console": "^5.30.11",
+        "koishi": "^4.18.11",
+        "koishi-plugin-chatluna": "^1.4.0-alpha.20"
+    },
+    "peerDependenciesMeta": {
+        "@koishijs/plugin-console": {
+            "optional": true
+        },
+        "koishi-plugin-chatluna": {
+            "optional": true
+        }
     },
     "devDependencies": {
         "@biomejs/biome": "^2.5.6",
