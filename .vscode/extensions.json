@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "biomejs.biome",
+        "editorconfig.editorconfig",
+        "fallow-rs.fallow-vscode",
+        "typescriptteam.native-preview"
+    ]
+}
