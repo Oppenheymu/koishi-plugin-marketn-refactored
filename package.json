@@ -1,0 +1,127 @@
+{
+  "name": "koishi-plugin-market-next",
+  "description": "Next-generation Koishi plugin market and dependency management center",
+  "version": "3.6.2",
+  "homepage": "https://github.com/qinfeng365/koishi-plugin-market-next#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qinfeng365/koishi-plugin-market-next.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qinfeng365/koishi-plugin-market-next/issues"
+  },
+  "main": "lib/node/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "audit:package": "npm audit --audit-level=high --omit=dev --omit=peer",
+    "audit:high": "npm audit --audit-level=high --omit=peer",
+    "build": "tsc -p tsconfig.json && node build.mjs",
+    "build:dts": "tsc -p tsconfig.json",
+    "build:js": "node build.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs && node scripts/check-i18n-lifecycle.mjs",
+    "check:package": "node scripts/check-package.mjs && npm run check:i18n",
+    "test:dependency-source": "tsx --test scripts/dependency-source.test.mjs scripts/environment-local.test.mjs scripts/local-package-upload.test.mjs",
+    "deploy:local": "powershell -ExecutionPolicy Bypass -File scripts/deploy-local-koishi.ps1"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "node": "./lib/node/index.js",
+      "browser": "./lib/browser/index.mjs"
+    },
+    "./shared": {
+      "require": "./lib/shared/index.js",
+      "import": "./lib/shared/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "dist",
+    "src",
+    "scripts",
+    "CHANGELOG.md"
+  ],
+  "license": "AGPL-3.0",
+  "keywords": [
+    "bot",
+    "chatbot",
+    "koishi",
+    "plugin",
+    "market",
+    "manager",
+    "server"
+  ],
+  "koishi": {
+    "public": [
+      "dist"
+    ],
+    "description": {
+      "en": "Next-generation Koishi plugin market and dependency management center",
+      "zh": "下一代 Koishi 插件市场与依赖管理中心"
+    },
+    "service": {
+      "optional": [
+        "console",
+        "chatluna"
+      ],
+      "implements": [
+        "installer"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@koishijs/plugin-console": "^5.30.11",
+    "koishi": "^4.18.11",
+    "koishi-plugin-chatluna": "^1.4.0-alpha.20"
+  },
+  "peerDependenciesMeta": {
+    "@koishijs/plugin-console": {
+      "optional": true
+    },
+    "koishi-plugin-chatluna": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@koishijs/client": "^5.30.11",
+    "@koishijs/plugin-config": "^2.8.6",
+    "@types/semver": "^7.5.8",
+    "@types/spark-md5": "^3.0.4",
+    "@types/which-pm-runs": "^1.0.2",
+    "esbuild": "^0.28.1",
+    "js-yaml": "^4.2.0",
+    "lottie-web": "^5.13.0",
+    "typescript": "^5.6.2",
+    "yml-register": "^1.2.5"
+  },
+  "dependencies": {
+    "@koishijs/components": "^1.5.22",
+    "@koishijs/console": "^5.30.11",
+    "@koishijs/registry": "^7.0.3",
+    "@langchain/core": "^1.1.48",
+    "cosmokit": "^1.8.1",
+    "execa": "^5.1.1",
+    "get-registry": "^1.2.0",
+    "ns-require": "^1.1.4",
+    "p-map": "^4.0.0",
+    "semver": "^7.6.3",
+    "spark-md5": "^3.0.2",
+    "tar": "^7.5.22",
+    "which-pm-runs": "^1.1.0",
+    "zod": "^3.25.76"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "@koishijs/client": {
+      "element-plus": "^2.14.1",
+      "vite": "^6.4.2"
+    },
+    "@koishijs/plugin-console": {
+      "uuid": "^11.1.1"
+    },
+    "@maikolib/vite-plugin-yaml": {
+      "js-yaml": "^4.2.0"
+    }
+  }
+}

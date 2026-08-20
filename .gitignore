@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.tgz
+*.log
+tsconfig.tsbuildinfo
+FRONTEND_HANDOFF.md
+.history/
+.omo/
+.tmp/
+suggest/
+changelog_handoff.md
+read_styles.js
+test_write.txt
+image/
