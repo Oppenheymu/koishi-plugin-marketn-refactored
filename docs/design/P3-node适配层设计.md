@@ -5,7 +5,7 @@
 ## 1. 目标与范围
 
 - 实现 `src/node/`（当前是 2 行占位），替换为真实 node 入口。
-- 保持对外契约面不变：DataService ×5、RPC listener ×23、广播 ×5、HTTP ×1、命令 ×4、`ctx.installer` public 签名、导出面。验收基线：[前后端调用契约.md](../前后端调用契约.md)。
+- 保持对外契约面不变：DataService ×5、RPC listener ×23、广播 ×5、HTTP ×1、命令 ×4、`ctx.installer` public 签名、导出面。验收基线：[前后端调用契约.md](../reference/前后端调用契约.md)。
 - `apply(ctx, config)` 变薄接线（<120 行），编排顺序与旧代码一致。
 
 **不做**：业务逻辑修改（除非发现 core bug）、client、宿主联调（P5）、browser 入口（已砍，同时删 package.json exports 相关分支与 tsdown browser entry 的残留——P0 已删）。
@@ -129,4 +129,4 @@ P4 前禁止跑全量 `yarn check`（client/ 不存在，见开发指南 §2.1�
 
 ## 6. 完成后
 
-生成 `docs/handover/P3交接P4.md`（记录：实际偏差、lib 加载验证结果、留给 P4 的接口注意点），更新 [路线图.md](../路线图.md) 状态。
+生成 `docs/handover/P3交接P4.md`（记录：实际偏差、lib 加载验证结果、留给 P4 的接口注意点），更新 [路线图.md](../overview/路线图.md) 状态。

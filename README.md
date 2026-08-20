@@ -18,7 +18,7 @@
 | P5 | 宿主联调（dev + prod 双模式冒烟） | ⏳ |
 | P6 | 收尾（契约核对 / 删旧码 / 文档定稿） | ⏳ |
 
-详见 [docs/路线图.md](docs/路线图.md)。
+详见 [docs/overview/路线图.md](docs/overview/路线图.md)。
 
 ## 快速上手
 
@@ -37,20 +37,20 @@ yarn biome check src
 node scripts/check-size.mjs
 ```
 
-宿主联调方式见 [docs/构建与宿主接线.md](docs/构建与宿主接线.md)。
+宿主联调方式见 [docs/reference/构建与宿主接线.md](docs/reference/构建与宿主接线.md)。
 
 ## 文档导航
 
 - [docs/README.md](docs/README.md) — 文档索引
-- [docs/架构总览.md](docs/架构总览.md) — 分层架构与依赖规则
-- [docs/core层模块参考.md](docs/core层模块参考.md) — core 层 8 个模块的职责与 API
-- [docs/开发指南.md](docs/开发指南.md) — 环境、门禁、编码约定、行数预算
-- [docs/路线图.md](docs/路线图.md) — P0–P6 阶段计划与状态
+- [docs/overview/架构总览.md](docs/overview/架构总览.md) — 分层架构与依赖规则
+- [docs/overview/core层模块参考.md](docs/overview/core层模块参考.md) — core 层 8 个模块的职责与 API
+- [docs/overview/开发指南.md](docs/overview/开发指南.md) — 环境、门禁、编码约定、行数预算
+- [docs/overview/路线图.md](docs/overview/路线图.md) — P0–P6 阶段计划与状态
 - [docs/design/](docs/design/) — P3–P6 设计文档（设计先行）
 - [docs/handover/P2交接P3.md](docs/handover/P2交接P3.md) — P2→P3 交接
-- [docs/前后端调用契约.md](docs/前后端调用契约.md) — 旧代码对外契约面清单（冻结基线）
-- [docs/client端全量结构.md](docs/client端全量结构.md) — 旧 client 全量结构（P4 移植底册）
-- [docs/构建与宿主接线.md](docs/构建与宿主接线.md) — 构建链路与宿主集成考据
+- [docs/reference/前后端调用契约.md](docs/reference/前后端调用契约.md) — 旧代码对外契约面清单（冻结基线）
+- [docs/reference/client端全量结构.md](docs/reference/client端全量结构.md) — 旧 client 全量结构（P4 移植底册）
+- [docs/reference/构建与宿主接线.md](docs/reference/构建与宿主接线.md) — 构建链路与宿主集成考据
 
 ## 核心原则
 

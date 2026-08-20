@@ -1,6 +1,6 @@
 # P4 设计：client 移植与拆分
 
-> 状态：**设计定稿，待实现**。移植底册：[client端全量结构.md](../client端全量结构.md)（旧 client 全量结构，逐文件职责）；构建链路：[构建与宿主接线.md](../构建与宿主接线.md)。原则：组件结构重组、逻辑成块移植不发明、`<script setup lang="ts">` 全维持、样式出仓、逻辑下沉 composable/lib。
+> 状态：**设计定稿，待实现**。移植底册：[client端全量结构.md](../reference/client端全量结构.md)（旧 client 全量结构，逐文件职责）；构建链路：[构建与宿主接线.md](../reference/构建与宿主接线.md)。原则：组件结构重组、逻辑成块移植不发明、`<script setup lang="ts">` 全维持、样式出仓、逻辑下沉 composable/lib。
 
 ## 1. 目标与范围
 
@@ -117,4 +117,4 @@ node scripts/check-size.mjs
 
 **阶段完成**：`yarn check` 全量恢复可用（biome + tsc×2 + eslint + check-size）；`yarn build:client` 产出 `dist/index.js` + `dist/style.css`（CSS 产物名必须是 style.css，prod console 只探测它）。
 
-**完成后**：生成 `docs/handover/P4交接P5.md`，更新 [路线图.md](../路线图.md) 状态。
+**完成后**：生成 `docs/handover/P4交接P5.md`，更新 [路线图.md](../overview/路线图.md) 状态。
