@@ -1,20 +1,6 @@
-现在处理大型组件文件。我先读取 package.vue。
+# client 端全量结构（旧 client 底册）
 
-接下来处理 `bundle-install.vue`。
-
-`bundle-install` 脚本在第 720 行结束，其余部分为样式。接下来处理 `dependencies.vue`。
-
-dependencies.vue 脚本在第 409 行结束。现在来看 market.vue。
-
-现在处理剩余的组件。正在并行读取 install.vue 和 install-progress.vue。
-
-现在处理 extensions、composable 和图标。
-
-现在我来查看 `market/` 子组件。
-
-我来检查一下 `filter.vue` 的其余脚本、locale key 的数量以及样式。
-
-调研完成。以下是完整清单。基准目录：`C:/Dev/Bot-Dev/koishi-app/external/marketn-refactored/Waiting_refactored/client`（下文用 `client/` 缩写）。
+> 状态：考据文档。对象是旧 `Waiting_refactored/client/`（P4 移植底册），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照，不随重构更新。基准目录：`Waiting_refactored/client`（下文用 `client/` 缩写）。
 
 # 1. 入口与路由 — `client/index.ts` (420 行)
 
