@@ -1,0 +1,98 @@
+import { promises as fsp } from "node:fs";
+import { resolve } from "node:path";
+import type { PackageJson } from "@koishijs/registry";
+import type { Dict } from "koishi";
+import { classifyDependencySource } from "../../shared/dependency-source.js";
+import type { Dependency } from "../deps/types.js";
+import { loadManifest } from "../registry/manifest.js";
+import { formatDeps } from "./planner.js";
+import type { InstallLogger } from "./types.js";
+
+export interface PackageManifestSnapshot {
+    manifest: PackageJson;
+    content: string;
+    dependencies: Dict<string>;
+}
+
+/** 读取并快照 package.json（含原始内容，供回滚）。 */
+export async function snapshotPackageManifest(cwd: string): Promise<PackageManifestSnapshot> {
+    const filename = resolve(cwd, "package.json");
+    const content = await fsp.readFile(filename, "utf8");
+    const manifest: PackageJson = JSON.parse(content);
+    manifest.dependencies ||= {};
+    return { manifest, content, dependencies: { ...manifest.dependencies } };
+}
+
+/** 把请求变化合并进 manifest.dependencies（null/'' 为删除），并按键排序。 */
+export function overrideDependencies(manifest: PackageJson, deps: Dict<string>) {
+    manifest.dependencies ||= {};
+    for (const key in deps) {
+        if (deps[key]) manifest.dependencies[key] = deps[key];
+        else delete manifest.dependencies[key];
+    }
+    manifest.dependencies = Object.fromEntries(
+        Object.entries(manifest.dependencies).sort((a, b) => a[0].localeCompare(b[0])),
+    );
+}
+
+export async function writeManifest(cwd: string, manifest: PackageJson) {
+    const filename = resolve(cwd, "package.json");
+    await fsp.writeFile(filename, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+/** 安装失败时按快照回滚指定请求，返回回滚后的 manifest。 */
+export async function restorePackageManifest(
+    cwd: string,
+    snapshot: PackageManifestSnapshot,
+    deps: Dict<string>,
+    reason: string,
+    log: InstallLogger,
+): Promise<PackageJson> {
+    const filename = resolve(cwd, "package.json");
+    let manifest: PackageJson;
+    try {
+        manifest = JSON.parse(await fsp.readFile(filename, "utf8"));
+    } catch {
+        manifest = JSON.parse(snapshot.content);
+    }
+    manifest.dependencies ||= {};
+    for (const key of Object.keys(deps)) {
+        if (Object.hasOwn(snapshot.dependencies, key)) {
+            manifest.dependencies[key] = snapshot.dependencies[key]!;
+        } else {
+            delete manifest.dependencies[key];
+        }
+    }
+    manifest.dependencies = Object.fromEntries(
+        Object.entries(manifest.dependencies).sort((a, b) => a[0].localeCompare(b[0])),
+    );
+    await writeManifest(cwd, manifest);
+    log.warn(
+        `package dependencies rolled back: reason=${reason}, changes=${formatDeps(deps)}, total=${Object.keys(manifest.dependencies ?? {}).length}`,
+    );
+    return manifest;
+}
+
+/** 解析即将写入的请求对应的本地包状态（旧 _getLocalDeps）。 */
+export function resolveLocalDeps(override: Dict<string>, cwd: string): Dict<Dependency> {
+    const result: Dict<Dependency> = {};
+    for (const [name, request] of Object.entries(override)) {
+        const dep: Dependency = { request };
+        try {
+            const meta = loadManifest(name, cwd);
+            dep.resolved = meta.version;
+            dep.workspace = meta.$workspace;
+        } catch {
+            // 尚未安装：留空，由 classifyDependencySource 归类
+        }
+        Object.assign(
+            dep,
+            classifyDependencySource(request, {
+                workspace: dep.workspace,
+                installed: !!dep.resolved,
+            }),
+        );
+        result[name] = dep;
+    }
+    return result;
+}

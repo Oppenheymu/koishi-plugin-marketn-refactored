@@ -223,13 +223,18 @@ export class DependencyResolver {
         return this.depCache;
     }
 
-    /** 全量重置（refresh/probe 入口调用）：清缓存与元数据状态，重建本地快照。 */
-    resetForRefresh() {
+    /** 轻量重建：重载 manifest + 重建本地快照（不清包缓存），用于安装回滚后。 */
+    reload() {
         this.reloadManifest();
-        this.deps.cache.clear();
-        this.depTask = undefined;
         this.depMetadataFresh = false;
         this.depCache = this.getLocalDepsSnapshot();
         return this.depCache;
+    }
+
+    /** 全量重置（refresh/probe 入口调用）：清缓存与元数据状态，重建本地快照。 */
+    resetForRefresh() {
+        this.deps.cache.clear();
+        this.depTask = undefined;
+        return this.reload();
     }
 }
