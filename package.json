@@ -55,7 +55,9 @@
         "access": "public"
     },
     "scripts": {
-        "build": "tsdown"
+        "check": "biome check . && tsc --noEmit && tsc --noEmit -p client/tsconfig.json && eslint \"client/**/*.vue\"",
+        "build": "tsdown",
+        "lint:client": "eslint \"client/**/*.vue\""
     },
     "koishi": {
         "public": [
