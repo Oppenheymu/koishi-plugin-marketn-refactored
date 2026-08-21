@@ -39,6 +39,7 @@
 | [overview/CORE-MODULES.md](overview/CORE-MODULES.md) | 现状 | `src/shared` + `src/core` 全部模块的职责、关键导出、注入依赖 |
 | [overview/DEVELOPMENT.md](overview/DEVELOPMENT.md) | 现状 | 环境要求、门禁命令、编码约定、行数预算、已知坑 |
 | [overview/CLIENT-STRUCTURE.md](overview/CLIENT-STRUCTURE.md) | 现状 | 重构后 client 端目录结构规范：分层、约定、"新文件放哪"决策表、变更纪律 |
+| [overview/精简重构计划.md](overview/精简重构计划.md) | 计划 | 精简目标、已完成项、阶段任务、收益指标与不采用的架构方案 |
 | [design/P3-node适配层设计.md](design/P3-node适配层设计.md) | 设计 | Koishi 适配层的目标结构、contracts/installer.service/listeners/commands 设计 |
 | [design/P4-client移植设计.md](design/P4-client移植设计.md) | 设计 | client feature-first 重组方案、lib 拆分、砍除清单 |
 | [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) | 设计 | 宿主联调冒烟清单、契约冻结核对表、收尾事项 |
