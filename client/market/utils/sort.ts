@@ -122,15 +122,16 @@ function getQualityScore(data: SearchObject, index: MarketSearchIndex) {
   const packageDescription = (data.package as SearchObject['package'] & { description?: string }).description
   const keywords = data.package.keywords ?? []
   const license = data.license || (data.package as SearchObject['package'] & { license?: string }).license
-  let score = 0
-  if (hasManifestDescription) score += 0.22
-  if (packageDescription?.trim()) score += 0.18
-  if (index.category && index.category !== 'other') score += 0.14
-  if (keywords.length >= 3) score += 0.12
-  if (data.package.maintainers?.length) score += 0.10
-  if (license) score += 0.08
-  if (!index.bundle) score += 0.08
-  return clamp(score)
+  const signals: Array<[boolean, number]> = [
+    [hasManifestDescription, 0.22],
+    [!!packageDescription?.trim(), 0.18],
+    [!!index.category && index.category !== 'other', 0.14],
+    [keywords.length >= 3, 0.12],
+    [!!data.package.maintainers?.length, 0.10],
+    [!!license, 0.08],
+    [!index.bundle, 0.08],
+  ]
+  return clamp(signals.reduce((score, [enabled, weight]) => score + (enabled ? weight : 0), 0))
 }
 
 function getTrustScore(data: SearchObject) {

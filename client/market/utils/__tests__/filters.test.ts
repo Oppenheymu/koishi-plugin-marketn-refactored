@@ -1,6 +1,6 @@
 import type { SearchObject } from '@koishijs/registry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MarketSearchIndex } from './search-index'
+import type { MarketSearchIndex } from '../search-index'
 
 vi.mock('../avatar/avatars', () => ({
   getUsers: vi.fn(() => []),
@@ -13,8 +13,8 @@ vi.mock('./search-index', () => ({
   normalizePackageName: (name: string) => name,
 }))
 
-import { getSimilarityByIndex } from './search-index'
-import { validate } from './filters'
+import { getSimilarityByIndex } from '../search-index'
+import { validate } from '../filters'
 
 const NOW = new Date('2026-08-21T12:00:00.000Z')
 
