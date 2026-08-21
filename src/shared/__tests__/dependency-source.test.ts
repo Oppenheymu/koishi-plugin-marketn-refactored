@@ -114,16 +114,20 @@ describe("classifyDependencySource", () => {
             local: false,
             bound: true,
         });
-        expect(classifyDependencySource("foo", { installed: true, registryNotFound: true })).toEqual({
+        expect(
+            classifyDependencySource("foo", { installed: true, registryNotFound: true }),
+        ).toEqual({
             source: "unbound",
             local: true,
             bound: false,
         });
-        expect(classifyDependencySource("foo", { installed: true, discoveredLocal: true })).toEqual({
-            source: "unbound",
-            local: true,
-            bound: false,
-        });
+        expect(classifyDependencySource("foo", { installed: true, discoveredLocal: true })).toEqual(
+            {
+                source: "unbound",
+                local: true,
+                bound: false,
+            },
+        );
         expect(classifyDependencySource("foo", { installed: true })).toEqual({
             source: "registry",
             local: false,
@@ -145,7 +149,10 @@ describe("classifyRegistryNotFoundDependency", () => {
     it("非插件、无 resolved 或非 registry 源时返回 undefined", () => {
         expect(classifyRegistryNotFoundDependency(undefined, true)).toBeUndefined();
         expect(
-            classifyRegistryNotFoundDependency({ request: "koishi-plugin-x", source: "registry" }, true),
+            classifyRegistryNotFoundDependency(
+                { request: "koishi-plugin-x", source: "registry" },
+                true,
+            ),
         ).toBeUndefined();
         expect(
             classifyRegistryNotFoundDependency(
@@ -195,7 +202,9 @@ describe("reuseConfirmedDependencySource", () => {
                 true,
             ),
         ).toBeUndefined();
-        expect(reuseConfirmedDependencySource({ ...previous, source: "registry" }, previous, true)).toBeUndefined();
+        expect(
+            reuseConfirmedDependencySource({ ...previous, source: "registry" }, previous, true),
+        ).toBeUndefined();
     });
 });
 

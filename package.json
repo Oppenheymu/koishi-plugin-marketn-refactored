@@ -58,6 +58,8 @@
         "build": "tsdown && vite build",
         "build:client": "vite build",
         "test": "vitest run",
+        "format": "biome format --write .",
+        "lint": "biome lint .",
         "lint:client": "eslint \"client/**/*.vue\"",
         "ts7": "node ../../node_modules/@typescript/native/bin/tsc",
         "ts7:typecheck": "yarn ts7 --noEmit && yarn ts7 --noEmit -p client/tsconfig.json",

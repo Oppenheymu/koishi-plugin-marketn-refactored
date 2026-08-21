@@ -36,7 +36,12 @@ describe("normalizeCacheStore", () => {
             version: 3,
             entries: {},
             routeStats: {
-                a: { score: 99, averageElapsed: 500, consecutiveFailures: 2, contentEncoding: "br" },
+                a: {
+                    score: 99,
+                    averageElapsed: 500,
+                    consecutiveFailures: 2,
+                    contentEncoding: "br",
+                },
                 bad: { score: "not-a-number" },
             },
         });

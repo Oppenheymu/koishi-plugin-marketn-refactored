@@ -79,7 +79,12 @@ describe("parseBundleManifest", () => {
                     required: true,
                     config: { foo: 1 },
                 },
-                { package: "koishi-plugin-echo", plugin: "echo", version: "1.0.0", required: false },
+                {
+                    package: "koishi-plugin-echo",
+                    plugin: "echo",
+                    version: "1.0.0",
+                    required: false,
+                },
                 "not-a-record",
                 null,
             ],
@@ -117,7 +122,9 @@ describe("parseBundleManifest", () => {
 
 describe("validateBundleManifest", () => {
     it("合法 bundle（带 keyword）校验通过", () => {
-        const result = validateBundleManifest("koishi-plugin-pa-demo", makeBundle(), { keyword: true });
+        const result = validateBundleManifest("koishi-plugin-pa-demo", makeBundle(), {
+            keyword: true,
+        });
         expect(result.valid).toBe(true);
         expect(result.errors).toEqual([]);
         expect(result.warnings).toEqual([]);
@@ -130,13 +137,17 @@ describe("validateBundleManifest", () => {
     });
 
     it("缺少 koishi.bundle 直接判失败", () => {
-        const result = validateBundleManifest("koishi-plugin-pa-demo", undefined, { keyword: true });
+        const result = validateBundleManifest("koishi-plugin-pa-demo", undefined, {
+            keyword: true,
+        });
         expect(result.valid).toBe(false);
         expect(result.errors).toEqual(["missing koishi.bundle"]);
     });
 
     it("非 bundle 命名即使带 bundle 也报错", () => {
-        const result = validateBundleManifest("koishi-plugin-chat", makeBundle(), { keyword: true });
+        const result = validateBundleManifest("koishi-plugin-chat", makeBundle(), {
+            keyword: true,
+        });
         expect(result.valid).toBe(false);
         expect(result.errors).toContain(
             "bundle package name must be koishi-plugin-pa-* or @scope/koishi-plugin-pa-*",
@@ -144,13 +155,17 @@ describe("validateBundleManifest", () => {
     });
 
     it("包名非小写报错", () => {
-        const result = validateBundleManifest("KOISHI-PLUGIN-PA-DEMO", makeBundle(), { keyword: true });
+        const result = validateBundleManifest("KOISHI-PLUGIN-PA-DEMO", makeBundle(), {
+            keyword: true,
+        });
         expect(result.valid).toBe(false);
         expect(result.errors).toContain("package name must be lowercase");
     });
 
     it("空 members 报错", () => {
-        const result = validateBundleManifest("koishi-plugin-pa-demo", makeBundle([]), { keyword: true });
+        const result = validateBundleManifest("koishi-plugin-pa-demo", makeBundle([]), {
+            keyword: true,
+        });
         expect(result.errors).toContain("koishi.bundle.members must not be empty");
     });
 
@@ -208,10 +223,7 @@ describe("validateBundleManifest", () => {
     it("插件名非小写包形键与潜在冲突给警告", () => {
         const result = validateBundleManifest(
             "koishi-plugin-pa-demo",
-            makeBundle([
-                makeMember({ plugin: "chat" }),
-                makeMember({ plugin: "Chat" }),
-            ]),
+            makeBundle([makeMember({ plugin: "chat" }), makeMember({ plugin: "Chat" })]),
             { keyword: true },
         );
         expect(result.warnings).toContain(

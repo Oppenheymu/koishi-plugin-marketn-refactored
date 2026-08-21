@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import { getEnvironmentDiff, getEnvironmentInstallChanges } from "../diff.js";
 import type { EnvironmentDependencySnapshot, EnvironmentSnapshot } from "../snapshot.js";
 
-function dep(overrides: Partial<EnvironmentDependencySnapshot> = {}): EnvironmentDependencySnapshot {
+function dep(
+    overrides: Partial<EnvironmentDependencySnapshot> = {},
+): EnvironmentDependencySnapshot {
     return { request: "1.0.0", ...overrides };
 }
 
-function snapshot(deps: Record<string, EnvironmentDependencySnapshot | undefined>): EnvironmentSnapshot {
+function snapshot(
+    deps: Record<string, EnvironmentDependencySnapshot | undefined>,
+): EnvironmentSnapshot {
     const cleaned: Record<string, EnvironmentDependencySnapshot> = {};
     for (const [name, value] of Object.entries(deps)) {
         if (value) cleaned[name] = value;
@@ -71,7 +75,9 @@ describe("getEnvironmentDiff", () => {
     });
 
     it("本地依赖差异 → unsupported（含被移除场景）", () => {
-        const current = snapshot({ local: dep({ request: "file:../x", source: "file", local: true }) });
+        const current = snapshot({
+            local: dep({ request: "file:../x", source: "file", local: true }),
+        });
         const target = snapshot({});
         expect(getEnvironmentDiff(current, target)[0]).toMatchObject({
             name: "local",
@@ -107,7 +113,11 @@ describe("getEnvironmentInstallChanges", () => {
             }),
             target,
         );
-        expect(getEnvironmentInstallChanges(diff, target)).toEqual({ a: "1.2.0", b: "2.0.0", c: "" });
+        expect(getEnvironmentInstallChanges(diff, target)).toEqual({
+            a: "1.2.0",
+            b: "2.0.0",
+            c: "",
+        });
     });
 
     it("unsupported 不产生安装变化", () => {

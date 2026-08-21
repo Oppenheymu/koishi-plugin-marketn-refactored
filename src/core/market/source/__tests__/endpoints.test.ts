@@ -77,16 +77,16 @@ describe("marketRouteScore", () => {
             config: { endpoint: "https://a" },
             cacheEntries: { "https://a": { fetchedAt: NOW - 60_000 } },
         });
-        expect(marketRouteScore("https://a", fresh) - marketRouteScore("https://a", plain)).toBeCloseTo(
-            1.5,
-        );
+        expect(
+            marketRouteScore("https://a", fresh) - marketRouteScore("https://a", plain),
+        ).toBeCloseTo(1.5);
         const stale = makeContext({
             config: { endpoint: "https://a" },
             cacheEntries: { "https://a": { fetchedAt: NOW - 2 * DAY } },
         });
-        expect(marketRouteScore("https://a", stale) - marketRouteScore("https://a", plain)).toBeCloseTo(
-            0.5,
-        );
+        expect(
+            marketRouteScore("https://a", stale) - marketRouteScore("https://a", plain),
+        ).toBeCloseTo(0.5);
     });
 
     it("压缩编码加分（相对无编码）", () => {
@@ -94,14 +94,14 @@ describe("marketRouteScore", () => {
         plain.stats.recordSuccess("https://a", 100);
         const br = makeContext({ config: { endpoint: "https://a" } });
         br.stats.recordSuccess("https://a", 100, { contentEncoding: "br" });
-        expect(marketRouteScore("https://a", br) - marketRouteScore("https://a", plain)).toBeCloseTo(
-            0.5,
-        );
+        expect(
+            marketRouteScore("https://a", br) - marketRouteScore("https://a", plain),
+        ).toBeCloseTo(0.5);
         const gzip = makeContext({ config: { endpoint: "https://a" } });
         gzip.stats.recordSuccess("https://a", 100, { contentEncoding: "gzip" });
-        expect(marketRouteScore("https://a", gzip) - marketRouteScore("https://a", plain)).toBeCloseTo(
-            0.2,
-        );
+        expect(
+            marketRouteScore("https://a", gzip) - marketRouteScore("https://a", plain),
+        ).toBeCloseTo(0.2);
     });
 });
 
@@ -115,7 +115,9 @@ describe("getRaceEndpoints", () => {
     });
 
     it("autoRoute=false 原样返回候选", () => {
-        const context = makeContext({ config: { endpoint: "https://custom.example", autoRoute: false } });
+        const context = makeContext({
+            config: { endpoint: "https://custom.example", autoRoute: false },
+        });
         expect(getRaceEndpoints(context)).toEqual(["https://custom.example"]);
     });
 

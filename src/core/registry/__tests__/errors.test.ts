@@ -16,7 +16,10 @@ describe("formatRegistryError", () => {
     it("透传挂载的 marketNextReason", () => {
         const error = new Error("boom") as Error & { marketNextReason?: string };
         error.marketNextReason = "timeout";
-        expect(formatRegistryError(error, () => false)).toEqual({ reason: "timeout", error: "boom" });
+        expect(formatRegistryError(error, () => false)).toEqual({
+            reason: "timeout",
+            error: "boom",
+        });
     });
 
     it("HTTP 404 → not-found，其余状态 → http", () => {
@@ -28,13 +31,15 @@ describe("formatRegistryError", () => {
     });
 
     it("按消息分类超时/网络/格式/未知", () => {
-        expect(formatRegistryError(new Error("request timeout"), () => false).reason).toBe("timeout");
+        expect(formatRegistryError(new Error("request timeout"), () => false).reason).toBe(
+            "timeout",
+        );
         expect(formatRegistryError(new Error("socket hang up ENOTFOUND"), () => false).reason).toBe(
             "network",
         );
-        expect(formatRegistryError(new Error("invalid registry metadata"), () => false).reason).toBe(
-            "invalid",
-        );
+        expect(
+            formatRegistryError(new Error("invalid registry metadata"), () => false).reason,
+        ).toBe("invalid");
         expect(formatRegistryError(new Error("boom"), () => false).reason).toBe("unknown");
     });
 
@@ -46,7 +51,9 @@ describe("formatRegistryError", () => {
     });
 
     it("isHttpError 无 status 时回退消息判定", () => {
-        expect(formatRegistryError(httpError(undefined, "boom"), () => true).reason).toBe("unknown");
+        expect(formatRegistryError(httpError(undefined, "boom"), () => true).reason).toBe(
+            "unknown",
+        );
     });
 });
 

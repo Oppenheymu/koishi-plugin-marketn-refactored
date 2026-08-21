@@ -38,7 +38,9 @@ describe("buildEnvironmentDependencies", () => {
     });
 
     it("非法范围标记 invalid", () => {
-        expect(buildEnvironmentDependencies({ foo: "not-a-version" }, {})["foo"]!.invalid).toBe(true);
+        expect(buildEnvironmentDependencies({ foo: "not-a-version" }, {})["foo"]!.invalid).toBe(
+            true,
+        );
     });
 });
 

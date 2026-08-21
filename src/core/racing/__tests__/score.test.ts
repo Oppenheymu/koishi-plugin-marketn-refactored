@@ -20,16 +20,25 @@ describe("routeScore", () => {
 
     it("成功率加权与高成功率奖励", () => {
         expect(
-            routeScore(stats({ successes: 3, failures: 1 }), { isPrimary: true, fastThreshold: 500 }),
+            routeScore(stats({ successes: 3, failures: 1 }), {
+                isPrimary: true,
+                fastThreshold: 500,
+            }),
         ).toBeCloseTo(3.05);
         expect(
-            routeScore(stats({ successes: 4, failures: 1 }), { isPrimary: true, fastThreshold: 500 }),
+            routeScore(stats({ successes: 4, failures: 1 }), {
+                isPrimary: true,
+                fastThreshold: 500,
+            }),
         ).toBeCloseTo(5.1);
     });
 
     it("低成功率惩罚", () => {
         expect(
-            routeScore(stats({ successes: 1, failures: 3 }), { isPrimary: true, fastThreshold: 500 }),
+            routeScore(stats({ successes: 1, failures: 3 }), {
+                isPrimary: true,
+                fastThreshold: 500,
+            }),
         ).toBeCloseTo(-2.85);
     });
 
@@ -59,7 +68,10 @@ describe("routeScore", () => {
             routeScore(stats({ consecutiveFailures: 4 }), { isPrimary: false, fastThreshold: 500 }),
         ).toBe(-5);
         expect(
-            routeScore(stats({ consecutiveFailures: 10 }), { isPrimary: false, fastThreshold: 500 }),
+            routeScore(stats({ consecutiveFailures: 10 }), {
+                isPrimary: false,
+                fastThreshold: 500,
+            }),
         ).toBe(-5);
     });
 });
