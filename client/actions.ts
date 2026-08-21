@@ -5,6 +5,7 @@ import { translate } from './i18n'
 import { getPendingOverrides } from './shared/config/data-store'
 import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './shared/ui/dialogs'
 import type { MarketStore } from './shared/sync/store-sync'
+import { marketSnapshot } from './market/state'
 
 export function registerActions(ctx: Context) {
   const refreshingMarket = ref(false)
@@ -14,7 +15,7 @@ export function registerActions(ctx: Context) {
   function finishMarketRefreshFeedback() {
     if (!pendingMarketRefreshFeedback.value) return
     pendingMarketRefreshFeedback.value = false
-    if (store.market?.stale || store.market?.error) {
+    if (marketSnapshot.value?.stale || marketSnapshot.value?.error) {
       message.error(translate('common.messages.refreshMarketFailed'))
     } else {
       message.success(translate('common.messages.refreshMarketSuccess'))
@@ -38,7 +39,7 @@ export function registerActions(ctx: Context) {
         } else {
           message.success(translate('common.messages.refreshMarketSubmitted'))
           setTimeout(() => {
-            if (!store.market?.refreshing) finishMarketRefreshFeedback()
+            if (!marketSnapshot.value?.refreshing) finishMarketRefreshFeedback()
           }, 300)
         }
       } catch (error) {
@@ -84,7 +85,7 @@ export function registerActions(ctx: Context) {
     id: '.refresh',
     icon: 'refresh',
     label: () => translate('common.actions.refresh'),
-    type: () => refreshingMarket.value || !store.market || store.market.refreshing || store.market.progress < store.market.total ? 'spin disabled' : '',
+    type: () => refreshingMarket.value || !marketSnapshot.value || marketSnapshot.value.refreshing || marketSnapshot.value.progress < marketSnapshot.value.total ? 'spin disabled' : '',
   }])
 
   const registryRefreshing = () => {
@@ -120,7 +121,7 @@ export function registerActions(ctx: Context) {
   }])
 
   ctx.effect(() => {
-    return watch(() => store.market?.refreshing, (refreshing, previous) => {
+    return watch(() => marketSnapshot.value?.refreshing, (refreshing, previous) => {
       if (!pendingMarketRefreshFeedback.value || refreshing || previous !== true) return
       finishMarketRefreshFeedback()
     })
