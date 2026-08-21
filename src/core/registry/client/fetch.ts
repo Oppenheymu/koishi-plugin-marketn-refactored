@@ -1,6 +1,7 @@
 import { getRegistryAttemptReasons } from "../../../shared/dependency-source.js";
 import type { RegistryStatus } from "../../../shared/types.js";
 import type { RaceAttempt } from "../../racing/race.js";
+import { sleep } from "../../utils/async.js";
 import type { RegistryErrorDetail, RegistryReason } from "../errors.js";
 import { mergeFailureDetail } from "../errors.js";
 import type { Registry } from "../manifest.js";
@@ -235,8 +236,4 @@ function reportFetchFailure(
             configurable: true,
         });
     }
-}
-
-function sleep(ms: number) {
-    return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }

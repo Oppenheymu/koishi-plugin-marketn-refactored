@@ -81,8 +81,7 @@ export class MarketProvider extends BaseMarketProvider {
             500,
         );
         return {
-            http: ((endpoint: string) =>
-                createMarketHttp(ctx, config)(endpoint)) as MarketSourceDeps["http"],
+            http: createMarketHttp(ctx, config),
             scannerRequest: (url, cfg) => ctx.http.get(url, cfg),
             cacheFile: resolve(ctx.baseDir, "cache", "market-next-index.json"),
             cacheDir: resolve(ctx.baseDir, "cache", "market-next-index"),

@@ -2,6 +2,7 @@ import type { SearchObject } from "@koishijs/registry";
 import type { Dict } from "koishi";
 import type { MarketPerformance } from "../../../shared/types.js";
 import { RouteStatsBook } from "../../racing/stats.js";
+import type { MarketHttp } from "./fetch-endpoint.js";
 
 export interface MarketSourceConfig {
     endpoint?: string | undefined;
@@ -12,7 +13,7 @@ export interface MarketSourceConfig {
 
 export interface MarketSourceDeps {
     /** koishi HTTP 适配（按端点创建） */
-    http: (endpoint: string) => { getText: never } | never;
+    http: (endpoint: string) => MarketHttp;
     scannerRequest: (url: string, config?: { timeout?: number }) => Promise<unknown>;
     cacheFile: string;
     cacheDir: string;

@@ -12,6 +12,7 @@ import type { MarketProvider } from "../../market/index.js";
 import type { MarketSnapshotTransport } from "../../market/snapshot-transport.js";
 import { assertContract } from "../contracts.js";
 import { lookupMarket } from "../lookup.js";
+import { refreshConsole } from "./helpers.js";
 
 /** 市场查询/配置类 listener：环境快照、配置与数据补丁、索引查询、头像。 */
 export function registerMarketListeners(
@@ -43,11 +44,7 @@ export function registerMarketListeners(
         async (id, options) => {
             assertContract("market/environment-snapshot-apply", id, options);
             const code = await ctx.installer.applyEnvironmentSnapshot(id, options);
-            await Promise.all([
-                ctx.get("console")?.refresh("dependencies"),
-                ctx.get("console")?.refresh("registry"),
-                ctx.get("console")?.refresh("packages"),
-            ]);
+            await refreshConsole(ctx, ["dependencies", "registry", "packages"]);
             return code;
         },
         { authority: 4 },
