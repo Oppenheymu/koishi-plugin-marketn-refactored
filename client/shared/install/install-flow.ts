@@ -139,50 +139,102 @@ async function runInstallFlow(
       ? translate('operations.progress.waitingSelf')
       : translate('operations.progress.waitingDependencies')))
   }, 8000)
-  try {
-    const task = send('market/install', override, forced, options ?? {}) ?? Promise.resolve(1)
-    const code = await Promise.race([task, tracker.disconnected])
-    if (tracker.disconnectedBeforeResponse && !selfUpdate && !messages.allowDisconnectSuccess) {
-      installProgressState.status = 'error'
-      pushInstallLog(translate('operations.progress.disconnected'), 'stderr')
-      message.warning(translate('operations.progress.disconnectedShort'))
-      return undefined
+    try {
+        const task = send('market/install', override, forced, options ?? {}) ?? Promise.resolve(1)
+        const code = await Promise.race([task, tracker.disconnected])
+        if (isUnexpectedDisconnect(tracker, selfUpdate, messages)) {
+            reportUnexpectedDisconnect()
+            return undefined
+        }
+        if (code) {
+            return handleInstallFailure(
+                code,
+                tracker,
+                override,
+                forced,
+                callback,
+                messages,
+                selfUpdate,
+                options?.installEndpoint,
+            )
+        }
+        return completeInstall(tracker, callback, messages, selfUpdate)
+    } finally {
+        clearTimeout(waitTimer)
+        tracker.dispose()
     }
-    if (code) {
-      installProgressState.status = 'error'
-      message.error(messages.errorText ?? translate('operations.progress.installError'))
-      if (!tracker.disconnectedBeforeResponse) await prepareInstallFallbackRetry(
-        (nextOptions) => runInstallFlow(override, forced, callback, messages, selfUpdate, nextOptions),
-        options?.installEndpoint,
-      )
-      return code
+}
+
+function isUnexpectedDisconnect(
+    tracker: ReturnType<typeof createSocketDisconnectTracker>,
+    selfUpdate: boolean,
+    messages: InstallMessages,
+) {
+    return tracker.disconnectedBeforeResponse && !selfUpdate && !messages.allowDisconnectSuccess
+}
+
+function reportUnexpectedDisconnect() {
+    installProgressState.status = 'error'
+    pushInstallLog(translate('operations.progress.disconnected'), 'stderr')
+    message.warning(translate('operations.progress.disconnectedShort'))
+}
+
+async function handleInstallFailure(
+    code: number,
+    tracker: ReturnType<typeof createSocketDisconnectTracker>,
+    override: Dict<string>,
+    forced: boolean | undefined,
+    callback: (() => Awaitable<void>) | undefined,
+    messages: InstallMessages,
+    selfUpdate: boolean,
+    failedEndpoint?: string,
+) {
+    installProgressState.status = 'error'
+    message.error(messages.errorText ?? translate('operations.progress.installError'))
+    if (!tracker.disconnectedBeforeResponse) {
+        await prepareInstallFallbackRetry(
+            (nextOptions) => runInstallFlow(override, forced, callback, messages, selfUpdate, nextOptions),
+            failedEndpoint,
+        )
     }
+    return code
+}
+
+async function completeInstall(
+    tracker: ReturnType<typeof createSocketDisconnectTracker>,
+    callback: (() => Awaitable<void>) | undefined,
+    messages: InstallMessages,
+    selfUpdate: boolean,
+) {
     installProgressState.status = 'success'
     const shouldSkipCallback = selfUpdate
-      && tracker.disconnectedBeforeResponse
-      && messages.skipCallbackOnDisconnect !== false
+        && tracker.disconnectedBeforeResponse
+        && messages.skipCallbackOnDisconnect !== false
     if (!shouldSkipCallback) {
-      try {
-        await callback?.()
-      } catch (error) {
-        if (!tracker.disconnectedBeforeResponse) throw error
-        console.warn(error)
-      }
+        try {
+            await callback?.()
+        } catch (error) {
+            if (!tracker.disconnectedBeforeResponse) throw error
+            console.warn(error)
+        }
     }
-    if (tracker.disconnectedBeforeResponse && !socket.value) {
-      message.success(messages.successText ?? (selfUpdate
-        ? translate('operations.progress.selfSubmittedSuccess')
-        : translate('operations.progress.dependenciesSubmittedSuccess')))
-    } else {
-      message.success(messages.successText ?? (selfUpdate
-        ? translate('operations.progress.selfSuccessToast')
-        : translate('operations.progress.successToast')))
-    }
+    message.success(getInstallSuccessMessage(tracker, messages, selfUpdate))
     return 0
-  } finally {
-    clearTimeout(waitTimer)
-    tracker.dispose()
-  }
+}
+
+function getInstallSuccessMessage(
+    tracker: ReturnType<typeof createSocketDisconnectTracker>,
+    messages: InstallMessages,
+    selfUpdate: boolean,
+) {
+    if (tracker.disconnectedBeforeResponse && !socket.value) {
+        return messages.successText ?? (selfUpdate
+            ? translate('operations.progress.selfSubmittedSuccess')
+            : translate('operations.progress.dependenciesSubmittedSuccess'))
+    }
+    return messages.successText ?? (selfUpdate
+        ? translate('operations.progress.selfSuccessToast')
+        : translate('operations.progress.successToast'))
 }
 
 export async function install(override: Dict<string>, callback?: () => Awaitable<void>, forced?: boolean, messages: InstallMessages = {}) {
