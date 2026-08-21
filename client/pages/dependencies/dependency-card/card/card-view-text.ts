@@ -59,19 +59,28 @@ export function useCardText(input: CardViewContext) {
     return dep.value.resolved ?? t('dependencyCard.current.installError')
   })
 
-  const targetText = computed(() => {
-    if (pendingRemove.value) return t('dependencyCard.target.remove')
-    if (overrideValue.value) return overrideValue.value
-    if (updatable.value && latestVersion.value) return latestVersion.value
-    if (ignoredUpdate.value && latestVersion.value) return latestVersion.value
-    if (localDependency.value) return t('dependencyCard.target.keepLocal')
-    if (statusClass.value === 'installed' && dep.value && !dep.value.local && !dep.value.workspace) {
-      if (dep.value.latest) return dep.value.latest
-      if (status.value?.loading) return t('dependencyCard.target.loading')
-    }
-    if (latestVersion.value) return latestVersion.value
-    return dep.value || local.value ? t('dependencyCard.target.waitingData') : t('dependencyCard.target.waitingInstall')
-  })
+  const targetTextRules = [
+    { when: () => pendingRemove.value, value: () => t('dependencyCard.target.remove') },
+    { when: () => !!overrideValue.value, value: () => overrideValue.value! },
+    { when: () => updatable.value && !!latestVersion.value, value: () => latestVersion.value! },
+    { when: () => ignoredUpdate.value && !!latestVersion.value, value: () => latestVersion.value! },
+    { when: () => localDependency.value, value: () => t('dependencyCard.target.keepLocal') },
+    {
+      when: () => statusClass.value === 'installed' && !!dep.value && !dep.value.local && !dep.value.workspace && !!dep.value.latest,
+      value: () => dep.value!.latest!,
+    },
+    {
+      when: () => statusClass.value === 'installed' && !!dep.value && !dep.value.local && !dep.value.workspace && !dep.value.latest && !!status.value?.loading,
+      value: () => t('dependencyCard.target.loading'),
+    },
+    { when: () => !!latestVersion.value, value: () => latestVersion.value! },
+  ]
+  const targetText = computed(() => resolveFirst(
+    targetTextRules,
+    () => dep.value || local.value
+      ? t('dependencyCard.target.waitingData')
+      : t('dependencyCard.target.waitingInstall'),
+  ))
 
   const targetLabel = computed(() => {
     if (pending.value) return t('dependencyCard.label.pending')
@@ -121,19 +130,32 @@ export function useCardText(input: CardViewContext) {
     return unconfigured.value ? t('dependencyCard.config.unconfigured') : t('dependencyCard.config.configured')
   })
 
-  const sourceText = computed(() => {
-    if (bundleOrigin.value) return t('dependencyCard.source.bundle', { name: bundleOrigin.value.label || formatPackageDisplayName(bundleOrigin.value.package) })
-    if (bundleRecord.value) return t('dependencyCard.source.bundleSelf')
-    if (dep.value?.source) return t(`dependencyCard.source.${dep.value.source}`)
-    if (localDependency.value) return local.value?.workspace
-      ? t('dependencyCard.source.workspace')
-      : t('dependencyCard.source.local')
-    if (dep.value?.workspace || local.value?.workspace) return t('dependencyCard.source.workspace')
-    if (pending.value && !dep.value) return t('dependencyCard.source.pending')
-    if (!dep.value && local.value) return t('dependencyCard.source.local')
-    if (!dep.value) return t('dependencyCard.source.manual')
-    return t('dependencyCard.source.packageJson')
-  })
+  const sourceTextRules = [
+    {
+      when: () => !!bundleOrigin.value,
+      value: () => t('dependencyCard.source.bundle', {
+        name: bundleOrigin.value!.label || formatPackageDisplayName(bundleOrigin.value!.package),
+      }),
+    },
+    { when: () => !!bundleRecord.value, value: () => t('dependencyCard.source.bundleSelf') },
+    { when: () => !!dep.value?.source, value: () => t(`dependencyCard.source.${dep.value!.source}`) },
+    {
+      when: () => localDependency.value && !!local.value?.workspace,
+      value: () => t('dependencyCard.source.workspace'),
+    },
+    { when: () => localDependency.value, value: () => t('dependencyCard.source.local') },
+    {
+      when: () => !!dep.value?.workspace || !!local.value?.workspace,
+      value: () => t('dependencyCard.source.workspace'),
+    },
+    { when: () => pending.value && !dep.value, value: () => t('dependencyCard.source.pending') },
+    { when: () => !dep.value && !!local.value, value: () => t('dependencyCard.source.local') },
+    { when: () => !dep.value, value: () => t('dependencyCard.source.manual') },
+  ]
+  const sourceText = computed(() => resolveFirst(
+    sourceTextRules,
+    () => t('dependencyCard.source.packageJson'),
+  ))
 
   const removeButtonText = computed(() => bundleRecord.value ? t('dependencyCard.actions.uninstallBundle') : t('dependencyCard.actions.uninstall'))
 
