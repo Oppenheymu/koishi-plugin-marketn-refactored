@@ -10,6 +10,7 @@ import { resolvePackageManifest, Scanner } from "../../registry/manifest.js";
 import {
     createHashedLocalBindingFilename,
     createLocalBindingRequest,
+    type LocalBindingPackResult,
     MAX_LOCAL_BINDING_PACK_SIZE,
     parseNpmPackOutput,
 } from "../../upload/local-binding.js";
@@ -26,7 +27,7 @@ import {
 } from "../../upload/types.js";
 import { MINUTE } from "../../utils/time.js";
 import type { InstallLogger, LocalBindingResult } from "../types.js";
-import { snapshotPackageManifest } from "./manifest-restore.js";
+import { type PackageManifestSnapshot, snapshotPackageManifest } from "./manifest-restore.js";
 
 export interface LocalPackageUploadServiceDeps {
     cwd: string;
@@ -97,12 +98,15 @@ export class LocalPackageUploadService {
         };
     }
 
-    async prepareLocalBinding(name: string): Promise<LocalBindingResult> {
-        const packageSnapshot = await snapshotPackageManifest(this.deps.cwd);
+    /** 前置校验：name 必须是 package.json 中来源未绑定的本地插件依赖。 */
+    private assertBindableDependency(
+        name: string,
+        packageSnapshot: PackageManifestSnapshot,
+        depCache: Dict<Dependency>,
+    ): Dependency & { resolved: string } {
         if (!Scanner.isPlugin(name) || !Object.hasOwn(packageSnapshot.dependencies, name)) {
             throw new Error("只能绑定当前 package.json 中的 Koishi 插件依赖。");
         }
-        const depCache = this.deps.resolver.getDeps({ background: false }) as Dict<Dependency>;
         const dependency = depCache[name];
         if (!dependency?.resolved || dependency.source !== "unbound") {
             throw new Error("该插件不是来源未绑定的本地插件。");
@@ -111,86 +115,141 @@ export class LocalPackageUploadService {
         if (dependency.request !== currentRequest) {
             throw new Error("package.json 已发生变化，请刷新依赖后重试。");
         }
+        return dependency as Dependency & { resolved: string };
+    }
 
+    /** 定位并读取本地插件清单，校验与当前依赖状态一致。 */
+    private async readLocalPluginManifest(
+        name: string,
+        expectedVersion: string,
+    ): Promise<{ manifestFile: string; manifest: PackageJson }> {
         let manifestFile: string;
         try {
             manifestFile = resolvePackageManifest(name, this.deps.cwd);
         } catch {
             throw new Error("无法定位本地插件目录；请确认插件仍可被当前 Koishi 实例加载。");
         }
-        const sourceDir = dirname(manifestFile);
         const manifest = JSON.parse(await fsp.readFile(manifestFile, "utf8")) as PackageJson;
-        if (manifest.name !== name || manifest.version !== dependency.resolved) {
+        if (manifest.name !== name || manifest.version !== expectedVersion) {
             throw new Error("本地插件清单与当前依赖状态不一致，请刷新依赖后重试。");
         }
+        return { manifestFile, manifest };
+    }
+
+    /** npm pack 落地临时目录并校验打包产物。 */
+    private async packLocalPluginArchive(
+        name: string,
+        expectedVersion: string,
+        sourceDir: string,
+        temporary: string,
+    ): Promise<{ pack: LocalBindingPackResult; packedFile: string; stat: Stats }> {
+        const { stdout } = await execa(
+            "npm",
+            ["pack", sourceDir, "--ignore-scripts", "--json", "--pack-destination", temporary],
+            { cwd: this.deps.cwd, timeout: Math.max(MINUTE, this.deps.timeout ?? 0) },
+        );
+        const pack = parseNpmPackOutput(stdout);
+        if (
+            (pack.name && pack.name !== name) ||
+            (pack.version && pack.version !== expectedVersion)
+        ) {
+            throw new Error("本地插件打包结果与当前依赖不一致。");
+        }
+        const packedFile = resolve(temporary, pack.filename);
+        if (dirname(packedFile) !== temporary || relative(temporary, packedFile).startsWith("..")) {
+            throw new Error("本地插件打包路径无效。");
+        }
+        const stat = await fsp.stat(packedFile);
+        if (
+            !stat.isFile() ||
+            stat.size <= 0 ||
+            stat.size > MAX_LOCAL_BINDING_PACK_SIZE ||
+            stat.size !== pack.size
+        ) {
+            throw new Error("本地插件打包文件无效或过大。");
+        }
+        return { pack, packedFile, stat };
+    }
+
+    /** 计算内容哈希与最终归档文件名/路径。 */
+    private async resolveFinalArchive(
+        pack: LocalBindingPackResult,
+        packedFile: string,
+        destination: string,
+    ): Promise<{ hash: string; filename: string; target: string }> {
+        const content = await fsp.readFile(packedFile);
+        const hash = createHash("sha256").update(content).digest("hex");
+        const filename = createHashedLocalBindingFilename(pack.filename, hash.slice(0, 12));
+        const target = resolve(destination, filename);
+        if (dirname(target) !== destination || relative(destination, target).startsWith("..")) {
+            throw new Error("本地插件目标路径无效。");
+        }
+        return { hash, filename, target };
+    }
+
+    /** 目标归档已存在时校验一致性；不存在/不一致返回 false 或抛错。 */
+    private async validateExistingTarget(
+        target: string,
+        stat: Stats,
+        hash: string,
+    ): Promise<boolean> {
+        let targetStat: Stats;
+        try {
+            targetStat = await fsp.stat(target);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+            throw error;
+        }
+        if (!targetStat.isFile() || targetStat.size !== stat.size) {
+            throw new Error("同名本地插件归档已存在，但文件状态不一致。");
+        }
+        const targetHash = createHash("sha256")
+            .update(await fsp.readFile(target))
+            .digest("hex");
+        if (targetHash !== hash) {
+            throw new Error("同名本地插件归档已存在，但文件内容不一致。");
+        }
+        return true;
+    }
+
+    /** 移动打包产物到最终归档位置（目标已就绪则跳过，竞态时重试校验）。 */
+    private async installArchiveToTarget(
+        packedFile: string,
+        target: string,
+        stat: Stats,
+        hash: string,
+    ) {
+        if (await this.validateExistingTarget(target, stat, hash)) return;
+        try {
+            await fsp.rename(packedFile, target);
+        } catch (error) {
+            if (!(await this.validateExistingTarget(target, stat, hash))) throw error;
+        }
+    }
+
+    async prepareLocalBinding(name: string): Promise<LocalBindingResult> {
+        const packageSnapshot = await snapshotPackageManifest(this.deps.cwd);
+        const depCache = this.deps.resolver.getDeps({ background: false }) as Dict<Dependency>;
+        const dependency = this.assertBindableDependency(name, packageSnapshot, depCache);
+        const { manifestFile } = await this.readLocalPluginManifest(name, dependency.resolved);
+        const sourceDir = dirname(manifestFile);
 
         const destination = resolve(this.deps.cwd, ".yarn", "local");
         await fsp.mkdir(destination, { recursive: true });
         const temporary = await fsp.mkdtemp(resolve(destination, ".market-next-pack-"));
         try {
-            const { stdout } = await execa(
-                "npm",
-                ["pack", sourceDir, "--ignore-scripts", "--json", "--pack-destination", temporary],
-                { cwd: this.deps.cwd, timeout: Math.max(MINUTE, this.deps.timeout ?? 0) },
+            const { pack, packedFile, stat } = await this.packLocalPluginArchive(
+                name,
+                dependency.resolved,
+                sourceDir,
+                temporary,
             );
-            const pack = parseNpmPackOutput(stdout);
-            if (
-                (pack.name && pack.name !== name) ||
-                (pack.version && pack.version !== dependency.resolved)
-            ) {
-                throw new Error("本地插件打包结果与当前依赖不一致。");
-            }
-            const packedFile = resolve(temporary, pack.filename);
-            if (
-                dirname(packedFile) !== temporary ||
-                relative(temporary, packedFile).startsWith("..")
-            ) {
-                throw new Error("本地插件打包路径无效。");
-            }
-            const stat = await fsp.stat(packedFile);
-            if (
-                !stat.isFile() ||
-                stat.size <= 0 ||
-                stat.size > MAX_LOCAL_BINDING_PACK_SIZE ||
-                stat.size !== pack.size
-            ) {
-                throw new Error("本地插件打包文件无效或过大。");
-            }
-            const content = await fsp.readFile(packedFile);
-            const hash = createHash("sha256").update(content).digest("hex");
-            const filename = createHashedLocalBindingFilename(pack.filename, hash.slice(0, 12));
-            const target = resolve(destination, filename);
-            if (dirname(target) !== destination || relative(destination, target).startsWith("..")) {
-                throw new Error("本地插件目标路径无效。");
-            }
-
-            const validateExistingTarget = async () => {
-                let targetStat: Stats;
-                try {
-                    targetStat = await fsp.stat(target);
-                } catch (error) {
-                    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-                    throw error;
-                }
-                if (!targetStat.isFile() || targetStat.size !== stat.size) {
-                    throw new Error("同名本地插件归档已存在，但文件状态不一致。");
-                }
-                const targetHash = createHash("sha256")
-                    .update(await fsp.readFile(target))
-                    .digest("hex");
-                if (targetHash !== hash) {
-                    throw new Error("同名本地插件归档已存在，但文件内容不一致。");
-                }
-                return true;
-            };
-
-            if (!(await validateExistingTarget())) {
-                try {
-                    await fsp.rename(packedFile, target);
-                } catch (error) {
-                    if (!(await validateExistingTarget())) throw error;
-                }
-            }
+            const { hash, filename, target } = await this.resolveFinalArchive(
+                pack,
+                packedFile,
+                destination,
+            );
+            await this.installArchiveToTarget(packedFile, target, stat, hash);
             this.deps.log.info(
                 `local plugin source prepared: ${name}@${dependency.resolved}, file=${filename}, size=${pack.size}`,
             );

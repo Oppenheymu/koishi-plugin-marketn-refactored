@@ -13,55 +13,17 @@ import type {
 } from "../../shared/bundle.js";
 import {
     BUNDLE_KEYWORD,
-    getBundleGroupIdent,
-    getBundleMemberIdent,
     getPluginShortname,
     parseBundleManifest,
     validateBundleManifest,
 } from "../../shared/bundle.js";
-import { findPluginConfigKey } from "../config/plugins-map.js";
+import type { PluginConfigMap } from "../config/plugins-map.js";
+import {
+    type BundleConfigWriter,
+    createBundleConfigWriter,
+    getBundleGroup,
+} from "./bundle-config.js";
 import type { MarketDataStore } from "./data-store.js";
-
-type PluginConfigMap = Record<string, any>;
-
-interface BundleGroup {
-    key: string;
-    plugins: PluginConfigMap;
-    changed?: boolean;
-}
-
-function getBundleGroup(ctx: Context, packageName: string): BundleGroup | undefined {
-    const plugins = ctx.loader.config?.plugins as PluginConfigMap | undefined;
-    if (!plugins) return;
-    const key = `group:${getBundleGroupIdent(packageName)}`;
-    if (!plugins[key]) return;
-    return { key, plugins: plugins[key] };
-}
-
-function ensureBundleGroup(
-    ctx: Context,
-    packageName: string,
-    bundle: PluginBundleManifest,
-): BundleGroup | undefined {
-    const plugins = ctx.loader.config?.plugins as PluginConfigMap | undefined;
-    if (!plugins || !ctx.loader.writable) return;
-    const ident = getBundleGroupIdent(packageName);
-    const key = `group:${ident}`;
-    let changed = false;
-    if (!plugins[key]) {
-        plugins[key] = {};
-        changed = true;
-    }
-    if (!plugins[key].$label) {
-        plugins[key].$label = bundle.label || getPluginShortname(packageName);
-        changed = true;
-    }
-    if (plugins[key].$collapsed === undefined) {
-        plugins[key].$collapsed = false;
-        changed = true;
-    }
-    return { key, plugins: plugins[key], changed };
-}
 
 export async function removeBundleConfigs(
     ctx: Context,
@@ -143,14 +105,10 @@ async function assertNoDirectBundleCycles(
     }
 }
 
-export async function installBundle(
+async function resolveBundleManifest(
     ctx: Context,
-    dataStore: MarketDataStore,
     request: BundleInstallRequest,
-    forced?: boolean,
-    options: InstallOptions = {},
-): Promise<BundleInstallResult> {
-    options ||= {};
+): Promise<PluginBundleManifest> {
     if (!request.version) throw new Error("bundle package version is required");
     const registry = await ctx.installer.getRegistry(request.package);
     if (!registry?.versions)
@@ -167,12 +125,17 @@ export async function installBundle(
     if (!validation.valid) {
         throw new Error(`invalid plugin bundle: ${validation.errors.join("; ")}`);
     }
-    const manifest = bundle!;
+    return bundle!;
+}
 
+function resolveSelectedMembers(
+    request: BundleInstallRequest,
+    manifest: PluginBundleManifest,
+): BundleInstallMember[] {
     const requestMembers = new Map(
         (request.members ?? []).map((member) => [`${member.package}\n${member.plugin}`, member]),
     );
-    const selected = manifest.members
+    return manifest.members
         .map((member) => {
             const option = requestMembers.get(`${member.package}\n${member.plugin}`);
             return {
@@ -185,70 +148,66 @@ export async function installBundle(
             };
         })
         .filter((member) => member.selected);
-    if (!selected.length) throw new Error("plugin bundle has no selected members");
-    await assertNoDirectBundleCycles(ctx, request.package, selected);
+}
 
-    const beforeDeps = loadManifest(ctx.baseDir).dependencies ?? {};
+function buildInstallDeps(request: BundleInstallRequest, selected: BundleInstallMember[]) {
     const deps: Dict<string> = { [request.package]: request.version };
     for (const member of selected) {
         deps[member.package] = member.version;
     }
+    return deps;
+}
 
-    const configured: string[] = [];
-    const moved: string[] = [];
-    const skipped: string[] = [];
-    let group: BundleGroup | undefined;
-    let groupChanged = false;
-    let wroteConfig = false;
-    const writeBundleConfigs = async () => {
-        if (wroteConfig) return;
-        group =
-            ensureBundleGroup(ctx, request.package, manifest) ??
-            getBundleGroup(ctx, request.package);
-        groupChanged ||= !!group?.changed;
-        for (const member of selected) {
-            if (!member.createConfig) {
-                skipped.push(member.package);
-                continue;
-            }
-            const shortname = member.plugin || getPluginShortname(member.package);
-            group ||= ensureBundleGroup(ctx, request.package, manifest);
-            groupChanged ||= !!group?.changed;
-            if (!group) {
-                skipped.push(member.package);
-                continue;
-            }
-
-            if (hasPluginConfigInGroup(group.plugins, shortname)) continue;
-
-            const existing = findPluginConfig(ctx.loader.config?.plugins, shortname, group.plugins);
-            if (existing && existing.parent !== group.plugins && member.move) {
-                const ident = getBundleMemberIdent(request.package, member);
-                const fallbackKey = `~${shortname}:${ident}`;
-                const targetKey = existing.key in group.plugins ? fallbackKey : existing.key;
-                if (targetKey in group.plugins) {
-                    skipped.push(member.package);
-                    continue;
-                }
-                group.plugins[targetKey] = existing.value ?? {};
-                delete existing.parent[existing.key];
-                moved.push(member.package);
-                continue;
-            }
-
-            const ident = getBundleMemberIdent(request.package, member);
-            const key = `~${shortname}:${ident}`;
-            if (group.plugins[key]) continue;
-            group.plugins[key] = member.usePreset ? member.config || {} : {};
-            configured.push(member.package);
-        }
-        if (groupChanged || configured.length || moved.length) await ctx.loader.writeConfig();
-        wroteConfig = true;
+function buildBundleRecord(
+    request: BundleInstallRequest,
+    manifest: PluginBundleManifest,
+    selected: BundleInstallMember[],
+    beforeDeps: Dict<string>,
+    code: number,
+    writer: BundleConfigWriter,
+): PluginBundleRecord | undefined {
+    if (code) return;
+    return {
+        package: request.package,
+        version: request.version,
+        label: manifest.label,
+        groupKey: writer.group?.key,
+        installedAt: Date.now(),
+        members: selected.map((member) => ({
+            package: member.package,
+            plugin: member.plugin,
+            version: member.version,
+            required: member.required,
+            selected: true,
+            installedByBundle: !beforeDeps[member.package],
+            configured: writer.configured.includes(member.package),
+            moved: writer.moved.includes(member.package),
+            skipped: writer.skipped.includes(member.package),
+            usePreset: member.usePreset,
+        })),
     };
+}
 
-    const code = await ctx.installer.install(deps, forced, writeBundleConfigs, options);
+export async function installBundle(
+    ctx: Context,
+    dataStore: MarketDataStore,
+    request: BundleInstallRequest,
+    forced?: boolean,
+    options: InstallOptions = {},
+): Promise<BundleInstallResult> {
+    options ||= {};
+    const manifest = await resolveBundleManifest(ctx, request);
+    const selected = resolveSelectedMembers(request, manifest);
+    if (!selected.length) throw new Error("plugin bundle has no selected members");
+    await assertNoDirectBundleCycles(ctx, request.package, selected);
+
+    const beforeDeps = loadManifest(ctx.baseDir).dependencies ?? {};
+    const deps = buildInstallDeps(request, selected);
+    const writer = createBundleConfigWriter(ctx, request, manifest, selected);
+
+    const code = await ctx.installer.install(deps, forced, writer.write, options);
     if (!code) {
-        await writeBundleConfigs();
+        await writer.write();
     }
 
     await Promise.all([
@@ -257,58 +216,15 @@ export async function installBundle(
         ctx.get("console")?.refresh("packages"),
         ctx.get("console")?.refresh("config"),
     ]);
-    const record: PluginBundleRecord | undefined = code
-        ? undefined
-        : {
-              package: request.package,
-              version: request.version,
-              label: manifest.label,
-              groupKey: group?.key,
-              installedAt: Date.now(),
-              members: selected.map((member) => ({
-                  package: member.package,
-                  plugin: member.plugin,
-                  version: member.version,
-                  required: member.required,
-                  selected: true,
-                  installedByBundle: !beforeDeps[member.package],
-                  configured: configured.includes(member.package),
-                  moved: moved.includes(member.package),
-                  skipped: skipped.includes(member.package),
-                  usePreset: member.usePreset,
-              })),
-          };
+    const record = buildBundleRecord(request, manifest, selected, beforeDeps, code, writer);
     if (record) await dataStore.setBundleRecord(record);
     return {
         code,
         installed: Object.keys(deps),
-        configured,
-        moved,
-        skipped,
-        groupKey: group?.key,
+        configured: writer.configured,
+        moved: writer.moved,
+        skipped: writer.skipped,
+        groupKey: writer.group?.key,
         record,
     };
-}
-
-function hasPluginConfigInGroup(plugins: PluginConfigMap, shortname: string) {
-    return findPluginConfigKey(plugins, shortname) !== undefined;
-}
-
-function findPluginConfig(
-    plugins: unknown,
-    shortname: string,
-    group?: unknown,
-): { key: string; parent: PluginConfigMap; value: unknown } | undefined {
-    for (const key in (plugins as PluginConfigMap) ?? {}) {
-        if (key.startsWith("$")) continue;
-        const value = (plugins as PluginConfigMap)[key];
-        const prefix = key.split(":", 1)[0]!;
-        const name = prefix.replace(/^~/, "");
-        if (name === shortname) return { key, parent: plugins as PluginConfigMap, value };
-        if (name === "group") {
-            const found = findPluginConfig(value, shortname, group);
-            if (found) return found;
-        }
-    }
-    return;
 }

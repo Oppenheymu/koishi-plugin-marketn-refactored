@@ -48,6 +48,211 @@ export interface FetchEndpointDeps {
     log: { debug(message: string): void; warn(message: string): void };
 }
 
+interface EndpointRequest {
+    response: Awaited<ReturnType<MarketHttp["getText"]>>;
+    requestElapsed: number;
+    etag?: string | undefined;
+    lastModified?: string | undefined;
+    contentEncoding?: string | undefined;
+    headerWireSize: number | undefined;
+}
+
+/** 发起条件请求（etag/last-modified），返回统一请求上下文。 */
+async function requestMarketIndex(
+    deps: FetchEndpointDeps,
+    endpoint: string,
+    serial: number,
+    signal?: AbortSignal,
+): Promise<EndpointRequest> {
+    const conditional = deps.conditionalHeaders(endpoint);
+    const headers = { "accept-encoding": "br,gzip,deflate", ...conditional };
+    const requestStart = Date.now();
+    const response = await deps.http(endpoint).getText("", {
+        headers,
+        signal,
+        validateStatus: (status) => status === 304 || (status >= 200 && status < 300),
+    });
+    if (deps.scope.isStale(serial)) throw new Error("market provider disposed");
+    return {
+        response,
+        requestElapsed: Date.now() - requestStart,
+        etag: response.headers.get("etag") || undefined,
+        lastModified: response.headers.get("last-modified") || undefined,
+        contentEncoding: response.headers.get("content-encoding") || undefined,
+        headerWireSize: parseContentLength(response.headers.get("content-length")),
+    };
+}
+
+/** 304 命中：复用磁盘缓存条目。 */
+async function resolveFrom304Cache(
+    deps: FetchEndpointDeps,
+    endpoint: string,
+    total: number,
+    start: number,
+    request: EndpointRequest,
+    cachedEntry: CacheEntry | undefined,
+): Promise<EndpointFetchResult> {
+    const cache = cachedEntry && (await deps.loadCacheEntryResult(cachedEntry));
+    if (!cache) throw new Error(`market index from ${endpoint} returned 304 without cache`);
+    const elapsed = Date.now() - start;
+    return {
+        endpoint,
+        result: cache.result,
+        elapsed,
+        candidates: total,
+        source: "http-304",
+        timings: { request: request.requestElapsed, total: elapsed },
+        size: cache.size,
+        wireSize: request.headerWireSize ?? cache.wireSize,
+        contentEncoding: request.contentEncoding ?? cache.contentEncoding,
+        hash: cache.hash,
+        etag: request.etag || cache.etag,
+        lastModified: request.lastModified || cache.lastModified,
+        cachedAt: cache.fetchedAt,
+        validatedAt: Date.now(),
+    };
+}
+
+/** 内容哈希比对复用（同内容不再重复解析）。 */
+async function matchHashCache(
+    deps: FetchEndpointDeps,
+    text: string,
+    cachedEntry: CacheEntry | undefined,
+): Promise<{ hash: string; hashElapsed: number; cache?: CacheFile | undefined }> {
+    const hashStart = Date.now();
+    const hash = createHash("sha256").update(text).digest("hex");
+    const hashElapsed = Date.now() - hashStart;
+    const cache =
+        cachedEntry && cachedEntry.hash === hash
+            ? await deps.loadCacheEntryResult(cachedEntry)
+            : undefined;
+    return { hash, hashElapsed, cache };
+}
+
+/** 内容哈希命中：复用缓存条目并构建 hash-cache 结果。 */
+function buildHashCacheResult(
+    deps: FetchEndpointDeps,
+    endpoint: string,
+    total: number,
+    start: number,
+    request: EndpointRequest,
+    hash: string,
+    hashElapsed: number,
+    size: number,
+    wireSize: number | undefined,
+    hashCache: CacheFile,
+): EndpointFetchResult {
+    const elapsed = Date.now() - start;
+    deps.log.debug(`market index hash-cache: endpoint=${endpoint}, hash=${shortHash(hash)}`);
+    return {
+        endpoint,
+        result: hashCache.result,
+        elapsed,
+        candidates: total,
+        source: "hash-cache",
+        timings: {
+            request: request.requestElapsed,
+            hash: hashElapsed,
+            total: elapsed,
+        },
+        size,
+        wireSize,
+        contentEncoding: request.contentEncoding,
+        hash,
+        etag: request.etag,
+        lastModified: request.lastModified,
+        cachedAt: hashCache.fetchedAt,
+        validatedAt: Date.now(),
+    };
+}
+
+/** 网络体解析并构建 network 结果。 */
+function parseNetworkResult(
+    deps: FetchEndpointDeps,
+    endpoint: string,
+    total: number,
+    start: number,
+    request: EndpointRequest,
+    text: string,
+    size: number,
+    wireSize: number | undefined,
+    hash: string,
+    hashElapsed: number,
+): EndpointFetchResult {
+    const parseStart = Date.now();
+    const result = JSON.parse(text) as SearchResult;
+    if (!Array.isArray(result?.objects)) {
+        throw new Error(`invalid market index from ${endpoint}`);
+    }
+    const parseElapsed = Date.now() - parseStart;
+    const elapsed = Date.now() - start;
+    deps.log.debug(
+        `market index fetched: endpoint=${endpoint}, elapsed=${elapsed}ms, objects=${result.objects.length}, size=${formatBytes(size)}, hash=${shortHash(hash)}`,
+    );
+    return {
+        endpoint,
+        result,
+        elapsed,
+        candidates: total,
+        source: "network",
+        timings: {
+            request: request.requestElapsed,
+            hash: hashElapsed,
+            parse: parseElapsed,
+            total: elapsed,
+        },
+        size,
+        wireSize,
+        contentEncoding: request.contentEncoding,
+        hash,
+        etag: request.etag,
+        lastModified: request.lastModified,
+        cachedAt: undefined,
+        validatedAt: undefined,
+    };
+}
+
+/** 处理 200 响应体：哈希比对 → hash-cache 复用或网络解析。 */
+async function resolveNetworkBody(
+    deps: FetchEndpointDeps,
+    endpoint: string,
+    total: number,
+    start: number,
+    request: EndpointRequest,
+    cachedEntry: CacheEntry | undefined,
+): Promise<EndpointFetchResult> {
+    const text = request.response.data;
+    const size = Buffer.byteLength(text);
+    const wireSize = normalizeWireSize(request.headerWireSize, size);
+    const { hash, hashElapsed, cache: hashCache } = await matchHashCache(deps, text, cachedEntry);
+    if (hashCache) {
+        return buildHashCacheResult(
+            deps,
+            endpoint,
+            total,
+            start,
+            request,
+            hash,
+            hashElapsed,
+            size,
+            wireSize,
+            hashCache,
+        );
+    }
+    return parseNetworkResult(
+        deps,
+        endpoint,
+        total,
+        start,
+        request,
+        text,
+        size,
+        wireSize,
+        hash,
+        hashElapsed,
+    );
+}
+
 /**
  * 单端点索引拉取：条件请求（etag/last-modified）→ 304 复用 → 内容哈希比对复用 →
  * 解析网络体。成块移植自旧 MarketProvider.fetchEndpoint。
@@ -64,109 +269,12 @@ export async function fetchMarketEndpoint(
     if (deps.scope.isStale(serial)) throw new Error("market provider disposed");
     const start = Date.now();
     try {
-        const conditional = deps.conditionalHeaders(endpoint);
-        const headers = { "accept-encoding": "br,gzip,deflate", ...conditional };
-        const requestStart = Date.now();
-        const response = await deps.http(endpoint).getText("", {
-            headers,
-            signal,
-            validateStatus: (status) => status === 304 || (status >= 200 && status < 300),
-        });
-        if (deps.scope.isStale(serial)) throw new Error("market provider disposed");
-        const requestElapsed = Date.now() - requestStart;
-        const etag = response.headers.get("etag") || undefined;
-        const lastModified = response.headers.get("last-modified") || undefined;
-        const contentEncoding = response.headers.get("content-encoding") || undefined;
-        const headerWireSize = parseContentLength(response.headers.get("content-length"));
+        const request = await requestMarketIndex(deps, endpoint, serial, signal);
         const cachedEntry = deps.getCachedEntry(endpoint);
-
-        if (response.status === 304) {
-            const cache = cachedEntry && (await deps.loadCacheEntryResult(cachedEntry));
-            if (!cache) throw new Error(`market index from ${endpoint} returned 304 without cache`);
-            const elapsed = Date.now() - start;
-            return {
-                endpoint,
-                result: cache.result,
-                elapsed,
-                candidates: total,
-                source: "http-304",
-                timings: { request: requestElapsed, total: elapsed },
-                size: cache.size,
-                wireSize: headerWireSize ?? cache.wireSize,
-                contentEncoding: contentEncoding ?? cache.contentEncoding,
-                hash: cache.hash,
-                etag: etag || cache.etag,
-                lastModified: lastModified || cache.lastModified,
-                cachedAt: cache.fetchedAt,
-                validatedAt: Date.now(),
-            };
+        if (request.response.status === 304) {
+            return await resolveFrom304Cache(deps, endpoint, total, start, request, cachedEntry);
         }
-
-        const text = response.data;
-        const size = Buffer.byteLength(text);
-        const wireSize = normalizeWireSize(headerWireSize, size);
-        const hashStart = Date.now();
-        const hash = createHash("sha256").update(text).digest("hex");
-        const hashElapsed = Date.now() - hashStart;
-
-        const hashCache =
-            cachedEntry && cachedEntry.hash === hash
-                ? await deps.loadCacheEntryResult(cachedEntry)
-                : undefined;
-        if (hashCache) {
-            const elapsed = Date.now() - start;
-            deps.log.debug(
-                `market index hash-cache: endpoint=${endpoint}, hash=${shortHash(hash)}`,
-            );
-            return {
-                endpoint,
-                result: hashCache.result,
-                elapsed,
-                candidates: total,
-                source: "hash-cache",
-                timings: { request: requestElapsed, hash: hashElapsed, total: elapsed },
-                size,
-                wireSize,
-                contentEncoding,
-                hash,
-                etag,
-                lastModified,
-                cachedAt: hashCache.fetchedAt,
-                validatedAt: Date.now(),
-            };
-        }
-
-        const parseStart = Date.now();
-        const result = JSON.parse(text) as SearchResult;
-        if (!Array.isArray(result?.objects)) {
-            throw new Error(`invalid market index from ${endpoint}`);
-        }
-        const parseElapsed = Date.now() - parseStart;
-        const elapsed = Date.now() - start;
-        deps.log.debug(
-            `market index fetched: endpoint=${endpoint}, elapsed=${elapsed}ms, objects=${result.objects.length}, size=${formatBytes(size)}, hash=${shortHash(hash)}`,
-        );
-        return {
-            endpoint,
-            result,
-            elapsed,
-            candidates: total,
-            source: "network",
-            timings: {
-                request: requestElapsed,
-                hash: hashElapsed,
-                parse: parseElapsed,
-                total: elapsed,
-            },
-            size,
-            wireSize,
-            contentEncoding,
-            hash,
-            etag,
-            lastModified,
-            cachedAt: undefined,
-            validatedAt: undefined,
-        };
+        return await resolveNetworkBody(deps, endpoint, total, start, request, cachedEntry);
     } catch (error) {
         if (deps.scope.isStale(serial)) throw new Error("market provider disposed");
         if (warnFailure) {

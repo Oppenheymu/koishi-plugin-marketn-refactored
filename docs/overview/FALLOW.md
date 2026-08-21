@@ -120,3 +120,52 @@ ignorePatterns 忽略 `Waiting_refactored/`、`原版参考/`、`lib/`、`dist/`
 | bundle-install/index.scss ↔ bundle-uninstall/index.scss bulk-row 片段 | 14 | 两弹窗用不同 CSS 变量体系（--bundle-color vs --bundle-uninstall-primary），抽 mixin 需参数化 |
 | commands.ts install/uninstall 的 installed 守卫 | 6 | 语义相反（.already-installed vs .not-installed），已是共享 helper 的两个不同分支 |
 
+
+## 9. 批次 6：函数拆分 + SFC 组件化（2026-08-21，fallow 续优）
+
+> 目标：unit size（-10.0）与 coupling 扣分。本轮完成 15 个超 60 行非模板函数拆分 +
+> 大 .vue SFC 组件化（<script setup> 模板 + script 均计入 fallow 的单元行数，需整文件 < 60 行）。
+
+### 非模板函数拆分（unit_size 从 15 个 → 0 个 >60 行代码函数）
+
+| 函数 | 拆分方式 |
+|---|---|
+| installBundle（bundle.ts，146 行） | 抽 resolveBundleManifest/resolveSelectedMembers/buildInstallDeps/createBundleConfigWriter/buildBundleRecord |
+| fetchMarketEndpoint（fetch-endpoint.ts，128 行） | 抽 requestMarketIndex/resolveFrom304Cache/matchHashCache/parseNetworkResult/resolveNetworkBody/buildHashCacheResult |
+| prepareLocalBinding（upload.ts，110 行） | 抽 assertBindableDependency/readLocalPluginManifest/packLocalPluginArchive/resolveFinalArchive/validateExistingTarget/installArchiveToTarget |
+| orchestrator run（105 行） | 抽 beginInstallLog/runPackageManagerPhase/prepareInstallRun/finalizeSuccessRun/prepareAndApplyChanges |
+| fetchRegistryWithRetry（100 行） | 抽 reportLoadingStatus/tryReuseProbePayload/logRetryCandidates/completeFetchAttempt/recordRoutedFetchFailure |
+| buildMarketSnapshot（93 行） | 抽 buildBackgroundPayload/buildCurrentPayload/warmCacheForFirstPayload/waitForFirstPayload/buildErrorPayload |
+| apply（node/index.ts，103 行） | 抽 normalizeConfigDefaults/createDataStore/setupSnapshotRoute/setupReadyTasks |
+| commands upgrade action（66 行） | 抽 collectUpgradeTargets/confirmUpgrade/performUpgrade |
+| install/runInstall（install-flow.ts，76 行） | 抽 runInstallFlow |
+| loadMarketLookup（lookup.ts，65 行） | 抽 applyLocalSnapshot/computePendingLookups/runLookupTask |
+| loadBundle（use-bundle-install.ts，64 行） | 抽 buildMemberEntries |
+| validateBundleManifest / resolveLocalSources / runProbe | 子代理拆分（validateBundleMember / checkUnresolvedSources+checkUnboundLocalDeps / getProbeWait+runProbeTasks+handleProbeOutcome） |
+
+### SFC 组件化（fallow 把整个 .vue 计为一个单元，需整文件 < 60 行）
+
+- card/index.vue 259 → 35 行：拆 card-header/card-summary/card-meta/card-actions（含 card-version-control/card-action-buttons）/card-dialogs，
+  use-card.ts 新增 cardContextKey（provide/inject 共享 useCard 结果，避免 70+ props 传递）。
+- market/index.vue 276 → 45 行：拆 market-loading/market-error/market-result-list（含 market-list-header/market-action-button），
+  逻辑入 composables/use-market-page.ts（useMarketDataState/useMarketLoadingState/useMarketActions 三个子 composable 均 < 60 行，provide marketPageContextKey）。
+- peer-table.vue 76 → 52 行：拆 peer-version-cell.vue（props 模式）。
+- 其余全部完成：environment-versions 224→41、version 204→17、debug-panel 194→51、filter 188→31、row 142→25、install 141→39、member-row 126→46、bundle-uninstall 123→44、
+  peer-table 76→58（子代理 + 主代理混合完成；filter/row/member-row 由主代理在子代理失败后亲自完成）。
+- 拆分模式：父组件 useXxx() → provide(contextKey, ctx)（context 文件如 bundle-context.ts / environment-context.ts / filter-context.ts），子组件 inject 后**解构成顶层绑定**
+  （Vue 3 普通对象内嵌套 ref 不会自动解包）；简单场景用 props + v-bind（member-row 的 v-bind="props" + inheritAttrs: false）。
+
+### 结果（fallow 复扫，全部 12 个 SFC 拆分完成）
+
+- unit size：>60 行函数 **27 → 0**（findings 全清零）；functions_over_60_loc_per_k：33.5 → 22
+- maintainability_avg：**87.9 → 88.7**
+- health 评分稳定 88 A（unit size -10.0 为该配置下固定校准下限、coupling -2.5 受 i18n 枢纽扇入 58 主导，非本轮可继续收敛项）
+- yarn check ✅（tsc 双通道 / biome / eslint / size 全绿，仅预存 koa any 警告与 >300 行警告）
+- yarn test ✅ 242/242；yarn build ✅（vite 364 modules，dist/style.css 161.09 kB 不增反降）
+- 注意：.vue 的 script setup 不被 tsc 检查（tsc 只收 .ts），拆分到 .ts composable 时会暴露潜藏类型错误，需一并修复（如 use-market-page 的 Config 类型收窄）。
+- eslint：member-row 拆分后子组件需沿用 member-row.vue 的 no-mutating-props 豁免（eslint.config.mjs 已扩为 member-row*.vue）。
+
+### dead-code 收尾（本轮）
+
+- 删除 8 个测试遗留 .tmp-* 根目录文件（子代理测试产物，已清理并提醒勿再创建）。
+- bundle-config.ts：PluginConfigMap/ensureBundleGroup 改私有（避免与 plugins-map.ts 的 PluginConfigMap 重复导出）。

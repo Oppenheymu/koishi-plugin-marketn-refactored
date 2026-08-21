@@ -54,25 +54,25 @@ function normalizeLookupValues(values: Iterable<string>) {
     .filter(Boolean)))
 }
 
-async function loadMarketLookup(request: MarketLookupRequest, force = false) {
-  const names = normalizeLookupValues(request.names ?? [])
-  const services = normalizeLookupValues(request.services ?? [])
-  if (!names.length && !services.length) return
-
+/** 快照数据已就绪时本地填充：记录缺失对象、合并服务提供方。 */
+function applyLocalSnapshot(names: string[], services: string[]) {
   const fullData = getCurrentSnapshotData()
-  if (fullData && !force) {
-    for (const name of names) {
-      if (!fullData[name]) missingMarketObjects.add(name)
-    }
-    if (services.length) {
-      marketLookupServices.value = {
-        ...marketLookupServices.value,
-        ...collectServiceProviders(fullData, services),
-      }
-    }
-    return
+  if (!fullData) return false
+  for (const name of names) {
+    if (!fullData[name]) missingMarketObjects.add(name)
   }
+  if (services.length) {
+    marketLookupServices.value = {
+      ...marketLookupServices.value,
+      ...collectServiceProviders(fullData, services),
+    }
+  }
+  return true
+}
 
+/** 计算真正需要网络请求的 names/services（结合本地快照、版本与已请求记录去重）。 */
+function computePendingLookups(names: string[], services: string[], force: boolean) {
+  const fullData = getCurrentSnapshotData()
   const currentVersion = store.market?.dataVersion
   const lookupCurrent = currentVersion == null || lookupDataVersion == null || lookupDataVersion === currentVersion
   const pendingNames = force ? names : names.filter(name => {
@@ -83,11 +83,16 @@ async function loadMarketLookup(request: MarketLookupRequest, force = false) {
   const pendingServices = force ? services : services.filter(name => {
     return !Object.prototype.hasOwnProperty.call(marketLookupServices.value, name)
   })
-  if (!pendingNames.length && !pendingServices.length) return
+  return { pendingNames, pendingServices }
+}
 
-  const key = JSON.stringify([pendingNames.slice().sort(), pendingServices.slice().sort(), force])
-  if (lookupTasks.has(key)) return lookupTasks.get(key)
-  const generation = lookupGeneration
+/** 发起单次 lookup 请求并合并结果；数据版本落后时标记 superseded。 */
+function runLookupTask(
+  key: string,
+  pendingNames: string[],
+  pendingServices: string[],
+  generation: number,
+) {
   let superseded = false
   const task = (async () => {
     const response = await send('market/lookup', {
@@ -116,6 +121,23 @@ async function loadMarketLookup(request: MarketLookupRequest, force = false) {
     if (lookupTasks.get(key) === task) lookupTasks.delete(key)
   })
   lookupTasks.set(key, task)
+  return { task, superseded }
+}
+
+async function loadMarketLookup(request: MarketLookupRequest, force = false) {
+  const names = normalizeLookupValues(request.names ?? [])
+  const services = normalizeLookupValues(request.services ?? [])
+  if (!names.length && !services.length) return
+
+  if (!force && applyLocalSnapshot(names, services)) return
+
+  const { pendingNames, pendingServices } = computePendingLookups(names, services, force)
+  if (!pendingNames.length && !pendingServices.length) return
+
+  const key = JSON.stringify([pendingNames.slice().sort(), pendingServices.slice().sort(), force])
+  if (lookupTasks.has(key)) return lookupTasks.get(key)
+  const generation = lookupGeneration
+  const { task, superseded } = runLookupTask(key, pendingNames, pendingServices, generation)
   await task
   if (superseded) return loadMarketLookup({ names: pendingNames, services: pendingServices }, true)
 }

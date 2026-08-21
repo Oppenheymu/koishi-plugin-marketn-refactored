@@ -158,47 +158,67 @@ export function validateBundleManifest(
     const seenPackages = new Set<string>();
     const seenPlugins = new Set<string>();
     for (const [index, member] of bundle.members.entries()) {
-        const prefix = `members[${index}]`;
-        const normalizedPackage = member.package.toLowerCase();
-        if (!member.package) errors.push(`${prefix}.package is required`);
-        else if (member.package !== normalizedPackage)
-            errors.push(`${prefix}.package must be lowercase`);
-        else if (!PLUGIN_PACKAGE_RE.test(member.package)) {
-            errors.push(`${prefix}.package is not a valid Koishi plugin package name`);
-        } else if (normalizedPackage === packageName.toLowerCase()) {
-            errors.push(`${prefix}.package must not reference the bundle package itself`);
-        }
-
-        if (!member.plugin) errors.push(`${prefix}.plugin is required`);
-        else if (
-            !/^(?:@[^/]+\/)?[0-9a-z][0-9a-z-]*(?:\/[0-9a-z][0-9a-z-]*)?$/.test(member.plugin)
-        ) {
-            warnings.push(
-                `${prefix}.plugin should use lowercase package-like keys to avoid config conflicts`,
-            );
-        }
-
-        if (!member.version) errors.push(`${prefix}.version is required`);
-        else if (!validRange(member.version.trim()))
-            errors.push(`${prefix}.version is not a valid semver range`);
-
-        const key = `${member.package}\n${member.plugin}`;
-        if (seen.has(key)) errors.push(`${prefix} duplicates another member`);
-        seen.add(key);
-        if (member.package) {
-            if (seenPackages.has(normalizedPackage))
-                warnings.push(`${prefix}.package is listed more than once`);
-            seenPackages.add(normalizedPackage);
-        }
-        if (member.plugin) {
-            const normalizedPlugin = member.plugin.toLowerCase();
-            if (seenPlugins.has(normalizedPlugin))
-                warnings.push(`${prefix}.plugin may conflict with another member`);
-            seenPlugins.add(normalizedPlugin);
-        }
+        validateBundleMember(
+            member,
+            index,
+            seen,
+            seenPackages,
+            seenPlugins,
+            errors,
+            warnings,
+            packageName,
+        );
     }
 
     return { valid: !errors.length, errors, warnings };
+}
+
+function validateBundleMember(
+    member: PluginBundleMember,
+    index: number,
+    seen: Set<string>,
+    seenPackages: Set<string>,
+    seenPlugins: Set<string>,
+    errors: string[],
+    warnings: string[],
+    packageName: string,
+) {
+    const prefix = `members[${index}]`;
+    const normalizedPackage = member.package.toLowerCase();
+    if (!member.package) errors.push(`${prefix}.package is required`);
+    else if (member.package !== normalizedPackage)
+        errors.push(`${prefix}.package must be lowercase`);
+    else if (!PLUGIN_PACKAGE_RE.test(member.package)) {
+        errors.push(`${prefix}.package is not a valid Koishi plugin package name`);
+    } else if (normalizedPackage === packageName.toLowerCase()) {
+        errors.push(`${prefix}.package must not reference the bundle package itself`);
+    }
+
+    if (!member.plugin) errors.push(`${prefix}.plugin is required`);
+    else if (!/^(?:@[^/]+\/)?[0-9a-z][0-9a-z-]*(?:\/[0-9a-z][0-9a-z-]*)?$/.test(member.plugin)) {
+        warnings.push(
+            `${prefix}.plugin should use lowercase package-like keys to avoid config conflicts`,
+        );
+    }
+
+    if (!member.version) errors.push(`${prefix}.version is required`);
+    else if (!validRange(member.version.trim()))
+        errors.push(`${prefix}.version is not a valid semver range`);
+
+    const key = `${member.package}\n${member.plugin}`;
+    if (seen.has(key)) errors.push(`${prefix} duplicates another member`);
+    seen.add(key);
+    if (member.package) {
+        if (seenPackages.has(normalizedPackage))
+            warnings.push(`${prefix}.package is listed more than once`);
+        seenPackages.add(normalizedPackage);
+    }
+    if (member.plugin) {
+        const normalizedPlugin = member.plugin.toLowerCase();
+        if (seenPlugins.has(normalizedPlugin))
+            warnings.push(`${prefix}.plugin may conflict with another member`);
+        seenPlugins.add(normalizedPlugin);
+    }
 }
 
 export function getPluginShortname(name: string) {

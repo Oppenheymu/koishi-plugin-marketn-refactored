@@ -174,6 +174,93 @@ export const usage = `
 
 要浏览更多社区镜像，请访问 [Koishi 论坛上的镜像一览](https://k.ilharp.cc/4000)。`;
 
+/** 归一化显示配置缺省值并落盘刷新（失败只记日志）。 */
+function normalizeConfigDefaults(ctx: Context, config: Config) {
+    if (!ensureMarketNextConfigDefaults(ctx, config)) return;
+    ctx.logger("market").info("normalized market-next display config in Koishi config");
+    void ctx.loader
+        .writeConfig(true)
+        .then(() => ctx.get("console")?.refresh("config"))
+        .catch((error) => ctx.logger("market").warn(error));
+}
+
+/** 创建 DataStore 并登记激活引用（同一时刻只有一个活跃实例）。 */
+function createDataStore(
+    ctx: Context,
+    active: { dataStore?: MarketDataStore | undefined },
+): MarketDataStore {
+    const dataStore = new MarketDataStore(ctx);
+    active.dataStore = dataStore;
+    ctx.effect(() => () => {
+        if (active.dataStore === dataStore) active.dataStore = undefined;
+    });
+    return dataStore;
+}
+
+/** 挂载市场快照 HTTP 路由（gzip + 强缓存 + ETag）。 */
+function setupSnapshotRoute(ctx: Context): MarketSnapshotTransport {
+    const uiPath = String(
+        (ctx.console as unknown as { config?: { uiPath?: string } }).config?.uiPath ?? "",
+    ).replace(/\/+$/, "");
+    const marketSnapshotRoute = `${uiPath}/market-next/snapshot`;
+    const marketSnapshotTransport = new MarketSnapshotTransport(ctx, marketSnapshotRoute);
+    const server = (ctx as Context & { server: unknown }).server as {
+        get(path: string, handler: (koa: any) => void): void;
+    };
+    server.get(`${marketSnapshotRoute}/:id`, (koa: any) => {
+        const entry = marketSnapshotTransport.get(koa.params.id);
+        if (!entry) {
+            koa.status = 404;
+            koa.body = "market snapshot not found";
+            return;
+        }
+        koa.type = "application/json";
+        koa.set("Content-Encoding", "gzip");
+        koa.set("Cache-Control", "public, max-age=31536000, immutable");
+        koa.set("ETag", `"${entry.id}"`);
+        koa.set("X-Content-Type-Options", "nosniff");
+        koa.body = entry.body;
+    });
+    return marketSnapshotTransport;
+}
+
+/** ready 阶段任务：数据迁移、配置补齐、头像缓存清扫（含定时器清理）。 */
+function setupReadyTasks(ctx: Context, config: Config, dataStore: MarketDataStore) {
+    ctx.on("ready", () => {
+        void dataStore
+            .migrateFromConfig(config)
+            .then(() => {
+                if (!removeLegacyCollapsedGroupsConfig(ctx, config)) return;
+                return ctx.loader
+                    .writeConfig(true)
+                    .then(() => ctx.get("console")?.refresh("config"));
+            })
+            .catch((error) =>
+                ctx
+                    .logger("market")
+                    .warn(
+                        `failed to migrate market-next data: ${error instanceof Error ? error.message : error}`,
+                    ),
+            );
+        const timer = setTimeout(() => {
+            if (!ctx.scope.isActive) return;
+            void ensureInstalledPluginConfigs(ctx).catch((error) =>
+                ctx.logger("market").warn(error),
+            );
+        }, 1000);
+        void cleanupAvatarCaches(ctx);
+        const avatarTimer = setInterval(
+            () => cleanupAvatarCaches(ctx),
+            AVATAR_CACHE_SWEEP_INTERVAL,
+        );
+        ctx.effect(() => () => {
+            clearTimeout(timer);
+            clearInterval(avatarTimer);
+            clearAvatarMemoryCache();
+        });
+    });
+}
+
 export function apply(ctx: Context, config: Config = {}) {
     if (!ctx.loader?.writable) {
         return ctx
@@ -181,16 +268,10 @@ export function apply(ctx: Context, config: Config = {}) {
             .warn("koishi-plugin-marketn-refactored is only available for json/yaml config file");
     }
 
-    if (ensureMarketNextConfigDefaults(ctx, config)) {
-        ctx.logger("market").info("normalized market-next display config in Koishi config");
-        void ctx.loader
-            .writeConfig(true)
-            .then(() => ctx.get("console")?.refresh("config"))
-            .catch((error) => ctx.logger("market").warn(error));
-    }
+    normalizeConfigDefaults(ctx, config);
 
-    let activeDataStore: MarketDataStore | undefined;
-    const getDataStore = () => activeDataStore;
+    const active: { dataStore?: MarketDataStore | undefined } = {};
+    const getDataStore = () => active.dataStore;
 
     ctx.plugin(Installer, config.registry ?? {});
 
@@ -202,11 +283,7 @@ export function apply(ctx: Context, config: Config = {}) {
         ctx.plugin(DependencyProvider);
         ctx.plugin(RegistryProvider);
         ctx.plugin(RegistryStatusProvider);
-        const dataStore = new MarketDataStore(ctx);
-        activeDataStore = dataStore;
-        ctx.effect(() => () => {
-            if (activeDataStore === dataStore) activeDataStore = undefined;
-        });
+        const dataStore = createDataStore(ctx, active);
         ctx.plugin(MarketProvider, config.search ?? {});
         setupIdleProbe(ctx, config);
 
@@ -216,64 +293,10 @@ export function apply(ctx: Context, config: Config = {}) {
             prod: resolve(here, "../../dist"),
         });
 
-        const uiPath = String(
-            (ctx.console as unknown as { config?: { uiPath?: string } }).config?.uiPath ?? "",
-        ).replace(/\/+$/, "");
-        const marketSnapshotRoute = `${uiPath}/market-next/snapshot`;
-        const marketSnapshotTransport = new MarketSnapshotTransport(ctx, marketSnapshotRoute);
-        const server = (ctx as Context & { server: unknown }).server as {
-            get(path: string, handler: (koa: any) => void): void;
-        };
-        server.get(`${marketSnapshotRoute}/:id`, (koa: any) => {
-            const entry = marketSnapshotTransport.get(koa.params.id);
-            if (!entry) {
-                koa.status = 404;
-                koa.body = "market snapshot not found";
-                return;
-            }
-            koa.type = "application/json";
-            koa.set("Content-Encoding", "gzip");
-            koa.set("Cache-Control", "public, max-age=31536000, immutable");
-            koa.set("ETag", `"${entry.id}"`);
-            koa.set("X-Content-Type-Options", "nosniff");
-            koa.body = entry.body;
-        });
+        const marketSnapshotTransport = setupSnapshotRoute(ctx);
         ctx.effect(() => () => marketSnapshotTransport.clear());
 
         registerListeners(ctx, config, dataStore, marketSnapshotTransport);
-
-        ctx.on("ready", () => {
-            void dataStore
-                .migrateFromConfig(config)
-                .then(() => {
-                    if (!removeLegacyCollapsedGroupsConfig(ctx, config)) return;
-                    return ctx.loader
-                        .writeConfig(true)
-                        .then(() => ctx.get("console")?.refresh("config"));
-                })
-                .catch((error) =>
-                    ctx
-                        .logger("market")
-                        .warn(
-                            `failed to migrate market-next data: ${error instanceof Error ? error.message : error}`,
-                        ),
-                );
-            const timer = setTimeout(() => {
-                if (!ctx.scope.isActive) return;
-                void ensureInstalledPluginConfigs(ctx).catch((error) =>
-                    ctx.logger("market").warn(error),
-                );
-            }, 1000);
-            void cleanupAvatarCaches(ctx);
-            const avatarTimer = setInterval(
-                () => cleanupAvatarCaches(ctx),
-                AVATAR_CACHE_SWEEP_INTERVAL,
-            );
-            ctx.effect(() => () => {
-                clearTimeout(timer);
-                clearInterval(avatarTimer);
-                clearAvatarMemoryCache();
-            });
-        });
+        setupReadyTasks(ctx, config, dataStore);
     });
 }

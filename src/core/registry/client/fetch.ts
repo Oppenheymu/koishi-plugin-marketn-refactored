@@ -29,6 +29,126 @@ export interface RegistryFetchHost {
     ): Promise<RaceAttempt<Registry>>;
 }
 
+/** 上报 loading 状态。 */
+function reportLoadingStatus(
+    name: string,
+    endpoint: string,
+    attempts: number,
+    serial: number,
+    host: RegistryFetchHost,
+) {
+    host.statusSink(
+        name,
+        {
+            loading: true,
+            error: undefined,
+            reason: undefined,
+            endpoint,
+            attempts,
+            elapsed: undefined,
+        },
+        serial,
+    );
+}
+
+/** 路由探测负载匹配当前请求时直接复用，避免重复请求。 */
+function tryReuseProbePayload(
+    name: string,
+    serial: number,
+    start: number,
+    host: RegistryFetchHost,
+): Registry | undefined {
+    const probeResult = host.probeResult;
+    if (
+        probeResult?.serial !== serial ||
+        probeResult.name !== name ||
+        probeResult.endpoint !== host.metadataEndpoint
+    ) {
+        return;
+    }
+    host.statusSink(
+        name,
+        {
+            loading: false,
+            error: undefined,
+            reason: undefined,
+            endpoint: probeResult.endpoint,
+            attempts: 1,
+            elapsed: Date.now() - start,
+        },
+        serial,
+    );
+    host.log.debug(
+        `reuse npm registry route probe payload for ${name}: endpoint=${probeResult.endpoint}, probeElapsed=${probeResult.elapsed}ms`,
+    );
+    return probeResult.registry;
+}
+
+function logRetryCandidates(
+    name: string,
+    endpoints: string[],
+    retry: number,
+    maxRetry: number,
+    host: RegistryFetchHost,
+) {
+    host.log.debug(
+        `registry metadata candidates for ${name}: endpoints=${endpoints.join(", ")}, retry=${retry + 1}/${maxRetry + 1}`,
+    );
+}
+
+/** 竞速成功：必要时切换端点、上报成功状态并返回负载。 */
+function completeFetchAttempt(
+    name: string,
+    result: RaceAttempt<Registry>,
+    attempts: number,
+    start: number,
+    serial: number,
+    host: RegistryFetchHost,
+): Registry {
+    if (result.endpoint !== host.metadataEndpoint) {
+        host.log.info(
+            `npm registry route selected for ${name}: endpoint=${result.endpoint}, previous=${host.metadataEndpoint}, reason=${result.fallbackReason ?? "same-priority"}, elapsed=${result.elapsed}ms`,
+        );
+        host.setMetadataEndpoint(result.endpoint);
+    }
+    host.statusSink(
+        name,
+        {
+            loading: false,
+            error: undefined,
+            reason: undefined,
+            endpoint: result.endpoint,
+            attempts,
+            elapsed: Date.now() - start,
+        },
+        serial,
+    );
+    return result.payload;
+}
+
+/** 记录失败归因并按需退避重试。 */
+async function recordRoutedFetchFailure(
+    name: string,
+    retry: number,
+    maxRetry: number,
+    error: unknown,
+    lastEndpoint: string,
+    attempts: number,
+    failureReasons: RegistryReason[],
+    host: RegistryFetchHost,
+) {
+    const detail = host.formatError(error);
+    failureReasons.push(
+        ...getRegistryAttemptReasons(error, detail.reason).filter(
+            (reason): reason is RegistryReason => !!reason,
+        ),
+    );
+    host.log.debug(
+        `failed routed registry metadata for ${name}, attempt=${retry + 1}/${maxRetry + 1}, endpoint=${lastEndpoint}, attempts=${attempts}: ${detail.error}`,
+    );
+    if (retry < maxRetry) await sleep(300 * (retry + 1));
+}
+
 /**
  * 带重试的元数据获取主循环（旧 Installer.getRegistry 主体）：
  * 预热路由探测 → 复用探测负载 → 逐轮竞速 → 失败归因上抛。
@@ -44,52 +164,17 @@ export async function fetchRegistryWithRetry(
     let lastError: unknown;
     let lastEndpoint = host.metadataEndpoint;
     const failureReasons: RegistryReason[] = [];
-    host.statusSink(
-        name,
-        {
-            loading: true,
-            error: undefined,
-            reason: undefined,
-            endpoint: lastEndpoint,
-            attempts,
-            elapsed: undefined,
-        },
-        serial,
-    );
+    reportLoadingStatus(name, lastEndpoint, attempts, serial, host);
 
     await host.ensureMetadataEndpoint(name, serial);
     if (host.scope.isStale(serial)) return undefined;
 
-    const probeResult = host.probeResult;
-    if (
-        probeResult?.serial === serial &&
-        probeResult.name === name &&
-        probeResult.endpoint === host.metadataEndpoint
-    ) {
-        attempts = 1;
-        host.statusSink(
-            name,
-            {
-                loading: false,
-                error: undefined,
-                reason: undefined,
-                endpoint: probeResult.endpoint,
-                attempts,
-                elapsed: Date.now() - start,
-            },
-            serial,
-        );
-        host.log.debug(
-            `reuse npm registry route probe payload for ${name}: endpoint=${probeResult.endpoint}, probeElapsed=${probeResult.elapsed}ms`,
-        );
-        return probeResult.registry;
-    }
+    const reused = tryReuseProbePayload(name, serial, start, host);
+    if (reused) return reused;
 
     for (let retry = 0; retry <= maxRetry; retry++) {
         const endpoints = host.retryEndpoints();
-        host.log.debug(
-            `registry metadata candidates for ${name}: endpoints=${endpoints.join(", ")}, retry=${retry + 1}/${maxRetry + 1}`,
-        );
+        logRetryCandidates(name, endpoints, retry, maxRetry, host);
         try {
             const result = await host.fetchByRoute(name, endpoints, serial, (endpoint) => {
                 attempts++;
@@ -97,37 +182,19 @@ export async function fetchRegistryWithRetry(
                 host.statusSink(name, { loading: true, endpoint, attempts }, serial);
             });
             if (host.scope.isStale(serial)) return undefined;
-            if (result.endpoint !== host.metadataEndpoint) {
-                host.log.info(
-                    `npm registry route selected for ${name}: endpoint=${result.endpoint}, previous=${host.metadataEndpoint}, reason=${result.fallbackReason ?? "same-priority"}, elapsed=${result.elapsed}ms`,
-                );
-                host.setMetadataEndpoint(result.endpoint);
-            }
-            host.statusSink(
-                name,
-                {
-                    loading: false,
-                    error: undefined,
-                    reason: undefined,
-                    endpoint: result.endpoint,
-                    attempts,
-                    elapsed: Date.now() - start,
-                },
-                serial,
-            );
-            return result.payload;
+            return completeFetchAttempt(name, result, attempts, start, serial, host);
         } catch (error) {
             lastError = error;
-            const detail = host.formatError(error);
-            failureReasons.push(
-                ...getRegistryAttemptReasons(error, detail.reason).filter(
-                    (reason): reason is RegistryReason => !!reason,
-                ),
+            await recordRoutedFetchFailure(
+                name,
+                retry,
+                maxRetry,
+                error,
+                lastEndpoint,
+                attempts,
+                failureReasons,
+                host,
             );
-            host.log.debug(
-                `failed routed registry metadata for ${name}, attempt=${retry + 1}/${maxRetry + 1}, endpoint=${lastEndpoint}, attempts=${attempts}: ${detail.error}`,
-            );
-            if (retry < maxRetry) await sleep(300 * (retry + 1));
         }
     }
     reportFetchFailure(name, lastError, failureReasons, lastEndpoint, attempts, start, host);

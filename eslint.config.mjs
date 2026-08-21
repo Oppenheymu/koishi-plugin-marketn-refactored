@@ -65,10 +65,10 @@ export default [
     },
   },
   {
-    // member-row 的复选项（createConfig/move/usePreset）直接 v-model 写回 prop 对象，
-    // 是 bundle-install 对话框父子共享可变成员状态的设计（旧版原样），非误用
+    // member-row 及其拆分子组件的复选项（createConfig/move/usePreset/config）直接 v-model
+    // 写回 prop 对象，是 bundle-install 对话框父子共享可变成员状态的设计（旧版原样），非误用
     name: 'napuketto/member-row-shared-state',
-    files: ['client/dialogs/bundle-install/member-row.vue'],
+    files: ['client/dialogs/bundle-install/member-row*.vue'],
     rules: {
       'vue/no-mutating-props': 'off',
     },

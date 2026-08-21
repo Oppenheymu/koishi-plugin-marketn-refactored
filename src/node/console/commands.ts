@@ -1,4 +1,4 @@
-import { type Context, type Dict, pick } from "koishi";
+import { type Context, type Dict, pick, type Session } from "koishi";
 import {
     getLatestAllowedUpdate,
     getUpdateCandidates,
@@ -15,6 +15,78 @@ async function findInstalledName(ctx: Context, name: string): Promise<string | u
     const names = ctx.installer.resolveName(name);
     const deps = (await ctx.installer.getDeps()) ?? {};
     return names.find((candidate) => deps[candidate]);
+}
+
+interface UpgradeTarget {
+    name: string;
+    resolved: string;
+    target: string;
+}
+
+/** 依据更新策略计算可升级的依赖列表（update ignore 策略 + force 覆盖）。 */
+async function collectUpgradeTargets(
+    ctx: Context,
+    config: Config,
+    deps: Dict<import("../../core/deps/types.js").Dependency>,
+    requested: string[],
+    force: boolean,
+    getDataStore: () => MarketDataStore | undefined,
+    now: number,
+): Promise<UpgradeTarget[]> {
+    const dataStore = getDataStore();
+    const runtimeData = dataStore ? await dataStore.get() : await readMarketDataStore(ctx);
+    const policy: UpdateIgnorePolicy = {
+        updateIgnoredPackages: config.updateIgnoredPackages,
+        updateIgnoreVersions: config.updateIgnoreVersions,
+        updateIgnorePrerelease: config.updateIgnorePrerelease,
+        updateIgnored: runtimeData.updateIgnored,
+    };
+    return Array.from(new Set(requested)).flatMap((name) => {
+        const dep = deps[name];
+        if (!dep?.resolved || dep.local || dep.workspace || dep.invalid) return [];
+        const versions = Object.keys(ctx.installer.fullCache[name] ?? {});
+        if (!versions.length && dep.latest) versions.push(dep.latest);
+        const target = force
+            ? getUpdateCandidates(versions, dep.resolved)[0]
+            : getLatestAllowedUpdate(name, versions, dep.resolved, policy, now);
+        return target ? [{ name, resolved: dep.resolved, target }] : [];
+    });
+}
+
+/** 展示待升级清单并等待用户确认。 */
+async function confirmUpgrade(session: Session, updates: UpgradeTarget[]): Promise<boolean> {
+    const output = updates.map(({ name, resolved, target }) => `${name}: ${resolved} -> ${target}`);
+    output.unshift(session.text(".available"));
+    output.push(session.text(".prompt"));
+    await session.send(output.join("\n"));
+    const result = await session.prompt();
+    return ["Y", "y"].includes(result?.trim());
+}
+
+/** 执行升级安装，返回包管理器退出码（0 为成功）。 */
+async function performUpgrade(
+    ctx: Context,
+    session: Session,
+    updates: UpgradeTarget[],
+): Promise<number | undefined> {
+    ctx.loader.envData.message = {
+        ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
+        content: session.text(".success"),
+    };
+    const installNames = updates.map((update) => update.name);
+    const installDeps = updates.reduce<Dict<string>>((result, update) => {
+        result[update.name] = update.target;
+        return result;
+    }, {});
+    try {
+        const code = await ctx.installer.install(installDeps, undefined, () =>
+            ensurePluginConfigs(ctx, installNames),
+        );
+        if (!code) await ensurePluginConfigs(ctx, installNames);
+        return code;
+    } finally {
+        ctx.loader.envData.message = null;
+    }
 }
 
 /** 注册 plugin.install / plugin.uninstall / plugin.upgrade / plugin.clear-avatar-cache 四个命令。 */
@@ -79,56 +151,19 @@ export function registerCommands(
                 : Object.keys(deps);
             if (options.self && !requested.includes("koishi")) requested.push("koishi");
 
-            const dataStore = getDataStore();
-            const runtimeData = dataStore ? await dataStore.get() : await readMarketDataStore(ctx);
-            const policy: UpdateIgnorePolicy = {
-                updateIgnoredPackages: config.updateIgnoredPackages,
-                updateIgnoreVersions: config.updateIgnoreVersions,
-                updateIgnorePrerelease: config.updateIgnorePrerelease,
-                updateIgnored: runtimeData.updateIgnored,
-            };
-            const now = Date.now();
-            const updates = Array.from(new Set(requested)).flatMap((name) => {
-                const dep = deps[name];
-                if (!dep?.resolved || dep.local || dep.workspace || dep.invalid) return [];
-                const versions = Object.keys(ctx.installer.fullCache[name] ?? {});
-                if (!versions.length && dep.latest) versions.push(dep.latest);
-                const target = options.force
-                    ? getUpdateCandidates(versions, dep.resolved)[0]
-                    : getLatestAllowedUpdate(name, versions, dep.resolved, policy, now);
-                return target ? [{ name, resolved: dep.resolved, target }] : [];
-            });
-            if (!updates.length) return session.text(".all-updated");
-
-            const output = updates.map(
-                ({ name, resolved, target }) => `${name}: ${resolved} -> ${target}`,
+            const updates = await collectUpgradeTargets(
+                ctx,
+                config,
+                deps,
+                requested,
+                !!options.force,
+                getDataStore,
+                Date.now(),
             );
-            output.unshift(session.text(".available"));
-            output.push(session.text(".prompt"));
-            await session.send(output.join("\n"));
-            const result = await session.prompt();
-            if (!["Y", "y"].includes(result?.trim())) {
-                return session.text(".cancelled");
-            }
-
-            ctx.loader.envData.message = {
-                ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
-                content: session.text(".success"),
-            };
-            const installNames = updates.map((update) => update.name);
-            const installDeps = updates.reduce<Dict<string>>((result, update) => {
-                result[update.name] = update.target;
-                return result;
-            }, {});
-            try {
-                const code = await ctx.installer.install(installDeps, undefined, () =>
-                    ensurePluginConfigs(ctx, installNames),
-                );
-                if (code) return session.text(".failed", [code]);
-                await ensurePluginConfigs(ctx, installNames);
-            } finally {
-                ctx.loader.envData.message = null;
-            }
+            if (!updates.length) return session.text(".all-updated");
+            if (!(await confirmUpgrade(session, updates))) return session.text(".cancelled");
+            const code = await performUpgrade(ctx, session, updates);
+            if (code) return session.text(".failed", [code]);
             return session.text(".success");
         });
 

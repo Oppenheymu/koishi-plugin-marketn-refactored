@@ -33,6 +33,56 @@ export function setupIdleProbe(ctx: Context, config: Config) {
         logger.debug(`idle background probe scheduled: delay=${Math.max(0, delay)}ms`);
     };
 
+    /** 计算需要延后调度的时间：boot 延迟 / 失败重试间隔 / 成功间隔，无需延后时返回 undefined。 */
+    const getProbeWait = (): number | undefined => {
+        const bootWait = getBootDelay() - (Date.now() - startedAt);
+        if (bootWait > 0) return bootWait;
+        const retryWait = lastFailure
+            ? Math.min(Time.minute * 5, getInterval()) - (Date.now() - lastFailure)
+            : 0;
+        if (!lastProbe && retryWait > 0) return retryWait;
+        const intervalWait = lastProbe ? getInterval() - (Date.now() - lastProbe) : 0;
+        if (intervalWait > 0) return intervalWait;
+        return undefined;
+    };
+
+    const runProbeTasks = async (): Promise<{ succeeded: boolean; reason?: unknown }> => {
+        const [depsResult, marketResult] = await Promise.allSettled([
+            ctx.installer.probeDependenciesInBackground("idle").then(() => true),
+            ctx.console.services.market?.probeInBackground?.("idle probe") ??
+                Promise.resolve(false),
+        ]);
+        const succeeded =
+            (depsResult.status === "fulfilled" && depsResult.value === true) ||
+            (marketResult.status === "fulfilled" && marketResult.value !== false);
+        if (succeeded) return { succeeded };
+        const reason =
+            depsResult.status === "rejected"
+                ? depsResult.reason
+                : marketResult.status === "rejected"
+                  ? marketResult.reason
+                  : "no probe result";
+        return { succeeded, reason };
+    };
+
+    const handleProbeOutcome = (
+        outcome: { succeeded: boolean; reason?: unknown },
+        probeStartedAt: number,
+    ) => {
+        if (outcome.succeeded) {
+            lastProbe = Date.now();
+            lastFailure = 0;
+            logger.info(
+                `idle background probe completed: elapsed=${Date.now() - probeStartedAt}ms`,
+            );
+        } else {
+            lastFailure = Date.now();
+            logger.warn(
+                `idle background probe failed: ${outcome.reason instanceof Error ? outcome.reason.message : outcome.reason}`,
+            );
+        }
+    };
+
     const runProbe = async () => {
         clearIdleTimer();
         if (!ctx.scope.isActive) return;
@@ -42,21 +92,9 @@ export function setupIdleProbe(ctx: Context, config: Config) {
             schedule(getDelay());
             return;
         }
-        const bootWait = getBootDelay() - (Date.now() - startedAt);
-        if (bootWait > 0) {
-            schedule(bootWait);
-            return;
-        }
-        const retryWait = lastFailure
-            ? Math.min(Time.minute * 5, getInterval()) - (Date.now() - lastFailure)
-            : 0;
-        if (!lastProbe && retryWait > 0) {
-            schedule(retryWait);
-            return;
-        }
-        const intervalWait = lastProbe ? getInterval() - (Date.now() - lastProbe) : 0;
-        if (intervalWait > 0) {
-            schedule(intervalWait);
+        const wait = getProbeWait();
+        if (wait !== undefined) {
+            schedule(wait);
             return;
         }
         if (running) return;
@@ -64,32 +102,7 @@ export function setupIdleProbe(ctx: Context, config: Config) {
         running = true;
         const probeStartedAt = Date.now();
         try {
-            const [depsResult, marketResult] = await Promise.allSettled([
-                ctx.installer.probeDependenciesInBackground("idle").then(() => true),
-                ctx.console.services.market?.probeInBackground?.("idle probe") ??
-                    Promise.resolve(false),
-            ]);
-            const succeeded =
-                (depsResult.status === "fulfilled" && depsResult.value === true) ||
-                (marketResult.status === "fulfilled" && marketResult.value !== false);
-            if (succeeded) {
-                lastProbe = Date.now();
-                lastFailure = 0;
-                logger.info(
-                    `idle background probe completed: elapsed=${Date.now() - probeStartedAt}ms`,
-                );
-            } else {
-                lastFailure = Date.now();
-                const reason =
-                    depsResult.status === "rejected"
-                        ? depsResult.reason
-                        : marketResult.status === "rejected"
-                          ? marketResult.reason
-                          : "no probe result";
-                logger.warn(
-                    `idle background probe failed: ${reason instanceof Error ? reason.message : reason}`,
-                );
-            }
+            handleProbeOutcome(await runProbeTasks(), probeStartedAt);
         } catch (error) {
             lastFailure = Date.now();
             logger.warn(

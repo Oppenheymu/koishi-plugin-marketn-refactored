@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, type InjectionKey } from 'vue'
 import { store, useContext } from '@koishijs/client'
 import { isLocalDependency } from '../../../../../src/shared/dependency-source'
 import { getMarketNextPolicy } from '../../../../shared/config/market-config'
@@ -24,6 +24,12 @@ export interface DependencyCardProps {
   kind?: ItemKind
   listMode?: boolean
 }
+
+/** 卡片子组件共享的上下文（useCard 结果 + 传入 props），经 provide/inject 下发。 */
+export const cardContextKey: InjectionKey<{
+  card: ReturnType<typeof useCard>
+  props: DependencyCardProps
+}> = Symbol('dep-card')
 
 export function useCard(props: DependencyCardProps) {
   const removeValue = '__market_next_remove__'
