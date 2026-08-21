@@ -5,6 +5,7 @@ import { getConfigWriter } from '../../../../shared/install/config-writer'
 import { formatEndpoint, getRegistryStatusText } from '../../../../shared/install/registry-status'
 import { formatPackageDisplayName, isPluginPackage } from '../identity'
 import type { CardViewContext } from './card-view-context'
+import { resolveCardDetailText } from './card-view-text-logic'
 
 /** 依赖卡片的文案/图标类展示计算（自 useCardView 拆出）。 */
 export function useCardText(input: CardViewContext) {
@@ -76,24 +77,27 @@ export function useCardText(input: CardViewContext) {
   })
 
   const detailText = computed(() => {
-    if (pendingRemove.value) return t('dependencyCard.detail.pendingRemove')
-    if (pending.value && dep.value) return t('dependencyCard.detail.pendingApply')
-    if (pending.value) return t('dependencyCard.detail.pendingInstall')
-    if (localDependency.value) {
-      if (!dep.value) return t('dependencyCard.detail.localDiscovered')
-      return dep.value.bound === false
-        ? t('dependencyCard.detail.localUnbound')
-        : t('dependencyCard.detail.local')
-    }
-    if (dep.value?.invalid) return t('dependencyCard.detail.unsupported')
-    if (bundlePackage.value && (dep.value || local.value)) return t('dependencyCard.detail.bundle')
-    if (unconfigured.value) return t('dependencyCard.detail.unconfigured')
-    if (status.value?.error) return getRegistryStatusText(props.name)
-    if (!input.data.value && !localDependency.value) return getRegistryStatusText(props.name)
-    if (updateCheckDisabled.value) return t('dependencyCard.detail.checkDisabled')
-    if (ignoredUpdate.value) return getUpdateIgnoreText(props.name, getMarketNextPolicy()) || t('dependencyCard.detail.ignored')
-    if (updatable.value && latestVersion.value) return t('dependencyCard.detail.foundUpdate', { version: latestVersion.value })
-    return ''
+    return resolveCardDetailText({
+      pendingRemove: pendingRemove.value,
+      pending: pending.value,
+      hasDependency: !!dep.value,
+      localDependency: localDependency.value,
+      dependencyInvalid: !!dep.value?.invalid,
+      dependencyBound: dep.value?.bound,
+      hasLocal: !!local.value,
+      bundlePackage: bundlePackage.value,
+      unconfigured: unconfigured.value,
+      hasError: !!status.value?.error,
+      hasData: !!input.data.value,
+      updateCheckDisabled: updateCheckDisabled.value,
+      ignoredUpdate: ignoredUpdate.value,
+      updatable: updatable.value,
+      latestVersion: latestVersion.value,
+    }, {
+      t,
+      registryStatus: () => getRegistryStatusText(props.name),
+      ignoredUpdate: () => getUpdateIgnoreText(props.name, getMarketNextPolicy()),
+    })
   })
 
   const compactStatusText = computed(() => {
