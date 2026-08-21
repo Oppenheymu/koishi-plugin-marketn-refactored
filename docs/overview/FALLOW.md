@@ -29,9 +29,16 @@ ignorePatterns 忽略 `Waiting_refactored/`、`原版参考/`、`lib/`、`dist/`
 - 最热点：`client/market/utils/filters.ts validate`（圈复杂度 46 / CRAP 2162）、
   `src/core/install/orchestrator.ts run`（圈复杂度 31）
 
-## 4. 清理后复扫（2026-08-21 批次 7）
+## 4. 清理后复扫（2026-08-21 批次 7；批次 8 追加 2026-08-21 晚）
 
-`fallow dead-code --format compact` 当前为 **3 条，全部为已知生态惯例，真实发现 0**：
+`fallow dead-code --format compact` 当前为 **0 条（批次 8 复扫，exit 0）**：
+
+> 批次 8 修复与归零：`c66bbc5` 删 vite.config.ts 后 fallow 无法自动发现 client 入口，
+> `.fallowrc.jsonc` 新增 `entry: ["client/index.ts"]`；删除从未被引用的 `row/` 孤儿组件
+> （`2543b65` 搬家后其 `../card/*` 旧路径 import 断链；列表模式实际由 card 的 listMode prop 承担）；
+> `MarketIndexSource` 补 `MarketCollectSource` implements 消除 nextRevision 接口分发误报；
+> `MarketRuntimeSnapshot`/`MarketStore` 仅模块内部使用，去导出。另修复 `fa69d5b` 补注释时
+> 误删的 `bundle-idents.ts` 两个 import（Dict/PluginBundleMember，曾致 tsc 双通道报错）。
 
 | 类别 | 基线 | 现在 |
 |---|---|---|

@@ -9,7 +9,7 @@ import { marketRuntimeStore } from '../../market/runtime-store'
 const REGISTRY_STATUS_TIMEOUT = 120000
 const REGISTRY_STATUS_SWEEP_INTERVAL = 15000
 
-export type MarketStore = typeof store & {
+type MarketStore = typeof store & {
   registryStatus?: Dict<RegistryStatus>
 }
 

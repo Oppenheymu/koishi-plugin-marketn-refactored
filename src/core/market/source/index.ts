@@ -7,7 +7,7 @@ import { MarketDiskCache } from "../cache/index.js";
 import { applyDiskCache, warmDiskCache as warmDiskCacheTask } from "../cache/warmup.js";
 import { buildMarketSnapshot, type MarketSnapshotInput } from "../snapshot.js";
 import { MarketBackgroundRefresher, type MarketBackgroundSource } from "./background.js";
-import { collectMarketIndex, flushMarketPatch } from "./collect.js";
+import { collectMarketIndex, flushMarketPatch, type MarketCollectSource } from "./collect.js";
 import {
     clearRouteCooldowns,
     getEndpointCandidates,
@@ -27,7 +27,7 @@ export type { MarketSourceConfig, MarketSourceDeps };
  * 市场索引源：竞速拉取 + 磁盘缓存 + 后台刷新编排。
  * 成块移植自旧 node/MarketProvider（剥离 DataService 壳后的主体）。
  */
-export class MarketIndexSource implements MarketBackgroundSource {
+export class MarketIndexSource implements MarketBackgroundSource, MarketCollectSource {
     readonly scope = new RequestScope();
     readonly stats = createMarketRouteStatsBook();
     readonly cache: MarketDiskCache;

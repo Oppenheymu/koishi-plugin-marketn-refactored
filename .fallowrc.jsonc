@@ -10,6 +10,11 @@
         "dist/**",
         "client-tsc-out.txt"
     ],
+    // client 控制台入口：c66bbc5 把 vite.config.ts 改为编程式脚本（scripts/build-client.ts）后，
+    // fallow 的 vite 插件不再能发现 lib 入口，需在此手动声明，否则整个 client/ 树会被误报为死代码。
+    "entry": [
+        "client/index.ts"
+    ],
     // 这些包由 yarn 脚本或 Koishi Console 宿主提供，不随插件自身运行时安装：
     // @typescript/native 被 yarn ts7 脚本经 node 直调（path 越出项目根，fallow 扫不到入口）；
     // client/vue/vueuse 是 Vite external，运行时由 Console 的前端环境提供。
@@ -63,7 +68,7 @@
             }
         }
     ]
-    // 已验证：client/ 无需 dynamicallyLoaded 豁免——fallow 能识别 koishi 插件入口，
-    // 控制台前端仅误报过 1 个死文件（已删）。
+    // client/ 入口经上方 entry 显式声明（vite.config.ts 移除后 fallow 无法自动发现
+    // lib 入口；原「无需 dynamicallyLoaded 豁免」的验证说明已随 c66bbc5 过时）。
     // 用法、基线数据与误报豁免清单见 docs/overview/FALLOW.md。
 }

@@ -3,7 +3,7 @@ import type { Dict } from 'koishi'
 import type { RegistryStatus } from '../../src/shared/types'
 import type { MarketPayload } from '../../src/shared/types'
 
-export type MarketRuntimeSnapshot = MarketPayload & {
+type MarketRuntimeSnapshot = MarketPayload & {
   data: NonNullable<MarketPayload['data']>
 }
 
