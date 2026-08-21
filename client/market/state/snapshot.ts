@@ -1,10 +1,11 @@
-import { send, store } from '@koishijs/client'
+import { store } from '@koishijs/client'
 import { markRaw, ref, shallowRef } from 'vue'
 import type {
   MarketPayload,
   MarketSnapshotResponse,
   MarketSnapshotTransfer,
 } from '../../../src/shared/types'
+import { requestMarketIndex } from '../api'
 
 export type MarketSnapshot = MarketPayload & {
   data: NonNullable<MarketPayload['data']>
@@ -67,18 +68,14 @@ async function resolveMarketSnapshot(value: MarketSnapshotResponse): Promise<Mar
 }
 
 async function requestMarketSnapshot() {
-  const response = await (send('market/index' as any, {
-    transport: 'http-gzip',
-  }) as Promise<MarketSnapshotResponse> | undefined)
+  const response = await requestMarketIndex({ transport: 'http-gzip' })
   if (!response) throw new Error('market index request is unavailable')
   try {
     return await resolveMarketSnapshot(response)
   } catch (error) {
     if (!isMarketSnapshotTransfer(response)) throw error
     console.warn('[market-next] compressed market snapshot failed, falling back to console transport', error)
-    const fallback = await (send('market/index' as any, {
-      transport: 'inline',
-    }) as Promise<MarketSnapshotResponse> | undefined)
+    const fallback = await requestMarketIndex({ transport: 'inline' })
     if (!fallback) throw new Error('market index fallback request is unavailable')
     return resolveMarketSnapshot(fallback)
   }

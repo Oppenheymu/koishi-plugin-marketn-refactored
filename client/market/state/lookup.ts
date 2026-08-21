@@ -1,8 +1,9 @@
-import { receive, send, store } from '@koishijs/client'
+import { receive, store } from '@koishijs/client'
 import { markRaw, shallowRef } from 'vue'
 import { collectServiceProviders } from '../../../src/shared/lookup'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
 import { getCurrentSnapshotData, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
+import { requestMarketLookup } from '../api'
 
 const marketLookupData = shallowRef<MarketSnapshot['data']>({})
 const marketLookupServices = shallowRef<Record<string, string[]>>({})
@@ -95,10 +96,10 @@ function runLookupTask(
 ) {
   let superseded = false
   const task = (async () => {
-    const response = await send('market/lookup', {
+    const response = await requestMarketLookup({
       names: pendingNames,
       services: pendingServices,
-    }) as MarketLookupResult | undefined
+    })
     if (!response || generation !== lookupGeneration) return
     const latestVersion = store.market?.dataVersion
     if (latestVersion != null && response.dataVersion != null && latestVersion > response.dataVersion) {
