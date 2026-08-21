@@ -29,9 +29,9 @@ ignorePatterns 忽略 `Waiting_refactored/`、`原版参考/`、`lib/`、`dist/`
 - 最热点：`client/market/utils/filters.ts validate`（圈复杂度 46 / CRAP 2162）、
   `src/core/install/orchestrator.ts run`（圈复杂度 31）
 
-## 4. 清理后复扫（2026-08-21 批次 4 收尾）
+## 4. 清理后复扫（2026-08-21 批次 7）
 
-`fallow dead-code --format compact` 从 78 条收敛到 **10 条，全部为已知豁免项，真实发现 0**：
+`fallow dead-code --format compact` 当前为 **3 条，全部为已知生态惯例，真实发现 0**：
 
 | 类别 | 基线 | 现在 |
 |---|---|---|
@@ -42,7 +42,7 @@ ignorePatterns 忽略 `Waiting_refactored/`、`原版参考/`、`lib/`、`dist/`
 | unused_exports | 42 | 0 |
 | unused_types | 5 | 0 |
 | 重复命名导出 | 3 | 1（已知遮蔽） |
-| unused_class_members | 22 | 7（框架回调/可选链） |
+| unused_class_members | 22 | 0 |
 | dev_dependencies_in_production | — | 3（生态惯例） |
 
 > 批次 4 清理（本交接收尾）：删真死成员 `RegistryClient.stats`、`JsonStore.dispose`；
@@ -109,6 +109,16 @@ ignorePatterns 忽略 `Waiting_refactored/`、`原版参考/`、`lib/`、`dist/`
 - MarketDiskCache.conditionalHeaders：JSDoc @public 对类成员不生效（移文件后失效），改用行内
   // fallow-ignore-next-line unused-class-member 豁免 Pick 分发误报。
 - @typescript/native：yarn ts7 脚本经 node 直调（路径越出项目根），加入 .fallowrc 的 ignoreDependencies。
+
+## 10. 批次 7：继续拆分与误报收敛（2026-08-21）
+
+- `src/node/config/manage.ts`：拆出 `plugin-configs.ts`，分离插件默认配置修复与 market-next 配置补丁。
+- `src/core/market/cache/index.ts`：拆出 `cache/persistence.ts`，集中磁盘读取、旧格式恢复和元数据构造。
+- `client/shared/config/silent-rules.ts`：用映射表替换高复杂度规则 `switch`。
+- 依赖卡片状态和详情文案改为优先级规则/子函数；`resolveCardDetailText` 与状态计算不再进入 fallow 复杂度报告。
+- fallow 复扫：`dupes` 由 3 组人工复核重复降为 **0**；`dead-code` 为 3 条已知生态惯例；health **87 A**。
+- 三组确认的结构性重复已写入 `.fallowrc.jsonc` 的 `duplicates.ignoredClones`，包括版本选择器、两套 CSS 变量体系和 install/uninstall 反向守卫。
+- 验证：`yarn check`、`yarn test`（31 文件 / 261 测试）和 `yarn build` 全部通过。
 
 ## 8. 剩余重复组与豁免（2026-08-21，勿强行拆）
 
