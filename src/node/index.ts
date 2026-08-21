@@ -197,6 +197,15 @@ function createDataStore(
     return dataStore;
 }
 
+/** 市场快照路由 handler 所需的 koa 上下文最小结构。 */
+interface KoaContextLike {
+    params: { id: string };
+    status: number;
+    body: unknown;
+    type: string;
+    set(name: string, value: string): void;
+}
+
 /** 挂载市场快照 HTTP 路由（gzip + 强缓存 + ETag）。 */
 function setupSnapshotRoute(ctx: Context): MarketSnapshotTransport {
     const uiPath = String(
@@ -205,9 +214,9 @@ function setupSnapshotRoute(ctx: Context): MarketSnapshotTransport {
     const marketSnapshotRoute = `${uiPath}/market-next/snapshot`;
     const marketSnapshotTransport = new MarketSnapshotTransport(ctx, marketSnapshotRoute);
     const server = (ctx as Context & { server: unknown }).server as {
-        get(path: string, handler: (koa: any) => void): void;
+        get(path: string, handler: (koa: KoaContextLike) => void): void;
     };
-    server.get(`${marketSnapshotRoute}/:id`, (koa: any) => {
+    server.get(`${marketSnapshotRoute}/:id`, (koa: KoaContextLike) => {
         const entry = marketSnapshotTransport.get(koa.params.id);
         if (!entry) {
             koa.status = 404;

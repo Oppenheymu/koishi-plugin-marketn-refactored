@@ -125,15 +125,29 @@ export async function ensureInstalledPluginConfigs(ctx: Context) {
     return changed;
 }
 
+/** market-next 配置在插件配置树中的定位（parent[key] === value）。 */
+interface MarketNextConfigNode {
+    parent: PluginConfigMap;
+    key: string;
+    value: {
+        frontendMode?: unknown;
+        depsLayout?: unknown;
+        marketLayout?: unknown;
+        collapsedGroups?: unknown;
+        [key: string]: unknown;
+    };
+}
+
 function findMarketNextConfigNode(
     plugins: unknown,
     currentConfig: Config,
-): { parent: PluginConfigMap; key: string; value: any } | undefined {
-    let fallback: { parent: PluginConfigMap; key: string; value: any } | undefined;
+): MarketNextConfigNode | undefined {
+    let fallback: MarketNextConfigNode | undefined;
     for (const key in (plugins as PluginConfigMap) ?? {}) {
         if (key.startsWith("$")) continue;
         const value = (plugins as PluginConfigMap)[key];
         if (!value || typeof value !== "object") continue;
+        const node = value as MarketNextConfigNode["value"];
         const disabled = key.startsWith("~");
         const normalized = disabled ? key.slice(1) : key;
         const [name] = normalized.split(":", 1);
@@ -142,8 +156,8 @@ function findMarketNextConfigNode(
             name === "market-next" ||
             name === "koishi-plugin-marketn-refactored"
         ) {
-            if (!disabled) return { parent: plugins as PluginConfigMap, key, value };
-            fallback ||= { parent: plugins as PluginConfigMap, key, value };
+            if (!disabled) return { parent: plugins as PluginConfigMap, key, value: node };
+            fallback ||= { parent: plugins as PluginConfigMap, key, value: node };
         }
         if (name === "group") {
             const nested = findMarketNextConfigNode(value, currentConfig);

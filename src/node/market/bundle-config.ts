@@ -9,9 +9,7 @@ import {
     getBundleMemberIdent,
     getPluginShortname,
 } from "../../shared/bundle.js";
-import { findPluginConfigKey } from "../config/plugins-map.js";
-
-type PluginConfigMap = Record<string, any>;
+import { findPluginConfigKey, type PluginConfigMap } from "../config/plugins-map.js";
 
 export interface BundleGroup {
     key: string;
@@ -23,8 +21,9 @@ export function getBundleGroup(ctx: Context, packageName: string): BundleGroup |
     const plugins = ctx.loader.config?.plugins as PluginConfigMap | undefined;
     if (!plugins) return;
     const key = `group:${getBundleGroupIdent(packageName)}`;
-    if (!plugins[key]) return;
-    return { key, plugins: plugins[key] };
+    const group = plugins[key] as PluginConfigMap | undefined;
+    if (!group) return;
+    return { key, plugins: group };
 }
 
 function ensureBundleGroup(
@@ -41,15 +40,16 @@ function ensureBundleGroup(
         plugins[key] = {};
         changed = true;
     }
-    if (!plugins[key].$label) {
-        plugins[key].$label = bundle.label || getPluginShortname(packageName);
+    const group = plugins[key] as PluginConfigMap;
+    if (!group["$label"]) {
+        group["$label"] = bundle.label || getPluginShortname(packageName);
         changed = true;
     }
-    if (plugins[key].$collapsed === undefined) {
-        plugins[key].$collapsed = false;
+    if (group["$collapsed"] === undefined) {
+        group["$collapsed"] = false;
         changed = true;
     }
-    return { key, plugins: plugins[key], changed };
+    return { key, plugins: group, changed };
 }
 
 function hasPluginConfigInGroup(plugins: PluginConfigMap, shortname: string) {
