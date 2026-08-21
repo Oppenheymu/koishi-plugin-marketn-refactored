@@ -32,11 +32,14 @@ export function getCollapsedGroups() {
   return data.collapsedGroups
 }
 
-export function getBundleRecords(fallback?: { market?: { bundleRecords?: Record<string, any> } }) {
+// fallback 仅作为旧签名的兼容形参保留，函数体不读取；放宽到接受任意宿主 config
+type BundleRecordsFallback = { market?: unknown }
+
+export function getBundleRecords(fallback?: BundleRecordsFallback) {
   return getMarketDataStore().bundleRecords ?? {}
 }
 
-export function getWritableBundleRecords(fallback?: { market?: { bundleRecords?: Record<string, any> } }) {
+export function getWritableBundleRecords(fallback?: BundleRecordsFallback) {
   const data = getMarketDataStore()
   data.bundleRecords ||= {}
   return data.bundleRecords

@@ -1,5 +1,8 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// 宿主 @koishijs/plugin-config 提供 packages/services/config 三个 Console 服务的
+// 类型声明（Services 键），本文件多处 refresh('packages')/refresh('config') 依赖它
+import type {} from "@koishijs/plugin-config";
 import type { DependencyMetaKey, Registry, RemotePackage } from "@koishijs/registry";
 import type { Context, Dict } from "koishi";
 import type { EnvironmentSnapshotPreview } from "../core/environment/diff.js";
@@ -91,8 +94,6 @@ declare module "@koishijs/console" {
             registry: RegistryProvider;
             registryStatus: RegistryStatusProvider;
             marketData: MarketDataStore;
-            config: unknown;
-            packages: unknown;
         }
     }
 

@@ -16,7 +16,8 @@ import 'virtual:uno.css'
 
 declare module '@koishijs/client' {
   interface Config {
-    market: MarketConfig
+    // 宿主 KOISHI_CONFIG 无此字段时走 getMarketNextConfig 的兜底，因此声明为可选
+    market?: MarketConfig
   }
 }
 

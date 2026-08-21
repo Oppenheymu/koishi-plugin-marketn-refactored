@@ -1,5 +1,8 @@
 import { store } from '@koishijs/client'
 import type { Context, MenuItem } from '@koishijs/client'
+// 宿主 @koishijs/plugin-config 提供 packages/services/config 三个 Console 服务；
+// 仅在 .vue 里 import type 对 tsc 不生效，这里加载其类型声明以扩展 store。
+import type {} from '@koishijs/plugin-config'
 import { markRaw, watch } from 'vue'
 import ConfigRemove from './config-remove.vue'
 import { isProtectedConfigNode, requestConfigRemove } from './config-remove'

@@ -73,6 +73,18 @@ export interface MarketNextConfigPatch extends UpdatePolicy {
   bundleRecords?: Record<string, any>
 }
 
+// 用 type 交叉而非 interface：调用方多处把它传给 Record<string, any> 参数，
+// 接口类型没有隐式 index signature 会报错，type 别名有
+export type MarketNextConfig = MarketNextConfigPatch & {
+  gravatar?: string
+  search?: {
+    endpoint?: string
+    timeout?: number
+    autoRoute?: boolean
+    logLevel?: string
+  }
+}
+
 export function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
   return value === 'polished' || value === 'performance' ? value : undefined
 }
@@ -89,7 +101,7 @@ export function getDepsLayout(config?: { market?: { depsLayout?: LayoutMode } })
   return 'grid'
 }
 
-export function getMarketNextConfig(): any {
+export function getMarketNextConfig(): MarketNextConfig | undefined {
   return findMarketNextConfig((store as any).config?.plugins)
 }
 
@@ -113,7 +125,7 @@ export function getMarketNextPolicy(fallback?: { market?: UpdatePolicy }): Updat
   const pluginConfig = getMarketNextConfig()
   const data = getMarketDataStore()
   return {
-    ...pickExisting(pluginConfig, [
+    ...pickExisting(pluginConfig ?? {}, [
       'updateIgnoredPackages',
       'updateIgnoreDuration',
       'updateIgnoreVersions',
