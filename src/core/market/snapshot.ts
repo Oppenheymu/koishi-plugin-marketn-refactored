@@ -1,33 +1,57 @@
+/**
+ * 市场快照组装（getSnapshot 主体）：把索引源状态解析为 market 通道的完整 payload。
+ *
+ * 关键设计决策：
+ * - 经 `SnapshotHost` 结构化接口反向解耦：本模块只依赖 host 提供的只读视图与任务句柄，
+ *   不直接依赖 MarketIndexSource（source/host.ts 负责适配），快照组装逻辑可独立单测。
+ * - 分层降级策略（顺序即优先级）：后台任务复用 → 现有 payload 直返 → 磁盘缓存预热 →
+ *   首次网络限时等待 → 错误降级（旧 payload 标 stale / 空 payload + error），
+ *   保证 getSnapshot 永不长时间阻塞、也尽量不返回空数据。
+ * 成块移植自旧 MarketProvider.getSnapshot / createPayload。
+ */
 import type { SearchObject, SearchResult } from "@koishijs/registry";
 import type { Dict } from "koishi";
 import type { MarketPayload, MarketPerformance } from "../../shared/types.js";
 import { waitFor } from "../utils/async.js";
 import { formatError } from "../utils/format.js";
 
+/** 首次网络拉取的等待上限（ms）：超时先返回 loading payload，结果就绪后再经 notifyRefresh 推送。 */
 const FIRST_PAYLOAD_TIMEOUT = 1500;
 
 /** getSnapshot 的宿主接口：source 状态的只读视图 + 任务句柄。 */
 export interface SnapshotHost {
+    /** 是否已有可展示数据（决定是否需要等待预热/网络） */
     hasCurrentData(): boolean;
+    /** 索引是否为现代版（已预分析）；legacy 需走补分析路径 */
     isModern(): boolean;
+    /** 当前端点标签（payload.registry） */
     endpointLabel(): string;
+    /** 端点标签兜底（无胜出端点时用配置端点） */
     fallbackEndpointLabel(): string;
+    /** 数据内容版本（内容哈希变化才递增，前端据此跳过无变化负载） */
     dataVersion: number;
+    /** 修订号（每次 applyIndex / 补片广播递增，前端增量合并基准） */
     revision?: number;
     backgroundRunning(): boolean;
     backgroundTask(): Promise<void> | undefined;
     warmCacheTask(): Promise<boolean> | undefined;
     warmCache(reason: string): Promise<boolean>;
+    /** 首次网络拉取任务（单飞；无则现场启动 collect） */
     prepareTask(): Promise<SearchResult | undefined>;
+    /** 首载超时后注册"网络任务完成后触发一次刷新"的回调 */
     scheduleRefreshAfterPrepare(task: Promise<unknown>): void;
+    /** 由 scanner 对象构建 name → SearchObject 字典 */
     buildData(): Dict<SearchObject>;
+    /** 组装标准 payload（委托 assemblePayload） */
     buildPayload(): MarketSnapshotInput;
     failedCount(): number;
     scannerTotal(): number;
     scannerProgress(): number;
+    /** 上次组装的 payload 缓存 */
     payload(): MarketSnapshotInput | undefined;
     setPayload(payload: MarketSnapshotInput): void;
     error(): unknown;
+    /** 对外暴露的 debug 性能信息（logLevel=debug 才有值） */
     debugInfo(timings?: Dict<number>): MarketPerformance | undefined;
     log: { debug(message: string): void; info(message: string): void; warn(message: string): void };
 }
@@ -41,6 +65,8 @@ function buildBackgroundPayload(
     start: number,
 ): MarketSnapshotInput | undefined {
     if (!host.backgroundRunning() || !host.hasCurrentData()) return;
+    // 现代索引数据完备，直接重建标准 payload；
+    // legacy 索引的补分析是渐进式的，沿用旧 payload 仅标记 refreshing，避免丢失进度
     if (host.isModern()) return host.buildPayload();
     const current = host.payload();
     return {
@@ -161,6 +187,7 @@ export async function buildMarketSnapshot(host: SnapshotHost): Promise<MarketSna
     return host.buildPayload();
 }
 
+/** 无数据/等待中状态的兜底空 payload 骨架（错误场景在其上叠加 error 字段）。 */
 function emptyPayload(host: SnapshotHost, start: number): MarketSnapshotInput {
     return {
         registry: host.fallbackEndpointLabel(),
@@ -212,7 +239,10 @@ export function assemblePayload(
     return payload;
 }
 
+/** assemblePayload 的缓存元数据视图：命中磁盘缓存时用于填充 cached/cachedAt/validatedAt。 */
 export interface CacheMetaView {
+    /** 缓存条目首次抓取时间戳 */
     fetchedAt?: number | undefined;
+    /** 缓存条目最近校验时间戳 */
     validatedAt?: number | undefined;
 }

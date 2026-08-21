@@ -1,3 +1,21 @@
+/**
+ * @file 依赖解析器:宿主 package.json 依赖快照与 latest 元数据刷新(core/deps 域)。
+ *
+ * 模块职责:
+ * - `getLocalDepsSnapshot`:读取宿主 package.json,逐包 loadManifest 解析已装版本与
+ *   workspace 标记,并做来源分类(local/bound/invalid),全程只碰本地磁盘;
+ * - `refreshDependencyMetadata`:p-map 并发拉取各依赖的 registry 元数据填充 latest,
+ *   全路由 404 的条目归类为"未绑定本地插件";
+ * - 两档重建:`reload()`(轻量,安装回滚后)与 `resetForRefresh()`(全量,刷新入口)。
+ *
+ * 关键设计:
+ * - depTask 单飞去重并发刷新;serial(RequestScope)防止过期结果覆盖新一轮数据;
+ * - 快照重建时尽量复用上一轮 depCache 的已确认来源与 latest,避免前端闪烁;
+ * - 成块移植自旧 Installer 的依赖相关方法,算法未改。
+ *
+ * 架构位置:core 领域层 deps 模块,被 install/orchestrator 与 node 适配层消费;
+ * registry 缓存、路由探测、日志等 I/O 全部经构造注入的 deps 对象访问。
+ */
 import type { Dict } from "koishi";
 import pMap from "p-map";
 import { valid } from "semver";
@@ -17,13 +35,20 @@ import {
 } from "../registry/manifest.js";
 import type { Dependency } from "./types.js";
 
+/** 404 负缓存的可信窗口:notFoundAt 距今 5 分钟内可直接复用上一轮的归类结果。 */
 const MINUTE = 60_000;
 
+/** DependencyResolver 的构造注入面:core 层禁直接 I/O,全部外部能力从这里进。 */
 export interface DependencyResolverDeps {
+    /** 宿主工作目录(package.json 与 node_modules 所在地) */
     cwd: () => string;
+    /** registry 包版本缓存:latest 数据来源,兼读 404 负缓存 */
     cache: PackageCache;
+    /** 竞速失效域:元数据刷新跨越多轮请求时判定结果是否陈旧 */
     scope: RequestScope;
+    /** 元数据并发上限(未配置时回退 4) */
     concurrency: () => number | undefined;
+    /** 异常归因(接 registry errors 的 formatError,产出 reason/error) */
     formatError: (error: unknown) => RegistryErrorDetail;
     /** 元数据刷新前的路由探测预热（client.ensureMetadataEndpoint） */
     ensureProbe: (name: string) => Promise<void>;
@@ -34,9 +59,13 @@ export interface DependencyResolverDeps {
 
 /** 依赖快照与 latest 元数据刷新。成块移植自旧 Installer 的依赖相关方法。 */
 export class DependencyResolver {
+    /** 宿主 package.json(延迟加载,reloadManifest 重置) */
     private manifest: PackageJson | undefined;
+    /** 最近的依赖快照(getDeps 的同步返回值) */
     private depCache: Dict<Dependency> = {};
+    /** 进行中的元数据刷新任务(单飞去重:并发调用复用同一任务) */
     private depTask: Promise<Dict<Dependency>> | undefined;
+    /** 本轮快照的 latest 是否已刷新完成(控制 onMetadataRefreshed 只触发一次) */
     private depMetadataFresh = false;
     private readonly deps: DependencyResolverDeps;
 
@@ -49,18 +78,27 @@ export class DependencyResolver {
         this.manifest = loadManifest(this.deps.cwd());
     }
 
+    /**
+     * 构建宿主依赖的本地快照:以 manifest 请求范围为底,逐包 loadManifest 补已装
+     * 版本与 workspace 标记,叠加来源分类,并尽量复用上一轮缓存的已确认来源与
+     * latest。纯本地磁盘读取、不发网络请求;返回全新对象,不回写 depCache
+     * (由调用方决定赋值时机)。
+     */
     getLocalDepsSnapshot(): Dict<Dependency> {
         const start = Date.now();
         this.manifest ??= loadManifest(this.deps.cwd());
         const manifest = this.manifest;
         const result: Dict<Dependency> = {};
         for (const [name, request] of Object.entries(manifest.dependencies ?? {})) {
+            // 剥掉 ^/~ 前缀:后续 valid() 判定与 latest 比较都按精确版本语义进行
             result[name] = { request: request.replace(/^[~^]/, "") };
         }
         const names = Object.keys(result);
         for (const name of names) {
             const dep = result[name]!;
             try {
+                // 已装版本读 node_modules 内的 package.json;未安装/读取失败留空,
+                // 由后续 registry 元数据刷新补齐
                 const meta = loadManifest(name, this.deps.cwd());
                 dep.resolved = meta.version;
                 dep.workspace = meta.$workspace;
@@ -80,12 +118,16 @@ export class DependencyResolver {
             Object.assign(dep, source);
 
             if (!dep.local && !valid(dep.request)) {
+                // 非精确 semver 的请求(如 git/url 串之外的怪异写法)标记 invalid:
+                // 这类条目不参与 latest 刷新,前端也据此降级展示
                 dep.invalid = true;
                 this.deps.log.debug(
                     `dependency request is not exact semver: ${name}, request=${dep.request}`,
                 );
             }
 
+            // 复用上一轮已确认的来源分类:404 归类结果有 5 分钟负缓存窗口背书,
+            // 避免每次快照重建都把"未绑定本地插件"闪回成普通 registry 依赖
             const previous = this.depCache?.[name];
             const notFoundAt = this.deps.cache.notFoundAt(name);
             const preserved = reuseConfirmedDependencySource(
@@ -99,6 +141,7 @@ export class DependencyResolver {
                 previous.request === dep.request &&
                 previous.resolved === dep.resolved
             ) {
+                // 请求与已装版本都没变时沿用上一轮 latest,省一次 registry 往返
                 dep.latest = previous.latest;
             }
         }

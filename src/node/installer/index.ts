@@ -1,3 +1,22 @@
+/**
+ * ctx.installer 服务实现（Installer 服务门面）。
+ *
+ * 模块职责：保持旧版 ctx.installer 的全部 public 方法签名不变，把 core 层的
+ * registry / deps / install / upload 等领域入口类组装成一个 Koishi 服务。
+ * 门面自身不承载业务逻辑，只做三件事：转发调用、管理 koishi 通道的广播与刷新、
+ * 提供少量宿主能力（require 探测、包管理器探测、生命周期清理）。
+ *
+ * 关键设计：
+ * - core 入口类统一在 wire.ts 的 createInstallerCore 中按固定顺序构造，彼此共享同一
+ *   RequestScope / RouteStatsBook 引用；本类只持有引用并逐一转发。
+ * - core 反向触碰 koishi 的出口全部收拢为 owner 回调（statusSink / refreshData /
+ *   clearRegistryStatus / isPackageLoaded / drainRegistryStatus），保持依赖单向。
+ * - registry 状态的增量收集（tempRegistryStatus）与 200ms 节流广播由本类单点管理。
+ *
+ * 架构位置：src/node 适配层；由 src/node/index.ts 注入，listeners / commands /
+ * market 等模块经 ctx.installer 消费。业务规则见 core/install（编排）与
+ * core/registry（元数据访问）。
+ */
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import type { RemotePackage } from "@koishijs/registry";
@@ -39,6 +58,7 @@ import { refreshConsole } from "../console/refresh.js";
 import type { InstallerConfig, InstallerGetDepsOptions } from "./config.js";
 import { createInstallerCore, createInstallLogger } from "./wire.js";
 
+/** 本插件自身的包名：安装请求包含它时视为“插件自更新”，需要走特殊的确认与重载流程。 */
 export const SELF_PACKAGE = "koishi-plugin-marketn-refactored";
 
 /**
@@ -46,35 +66,58 @@ export const SELF_PACKAGE = "koishi-plugin-marketn-refactored";
  * 内部把 core 各「入口类」组装起来，并负责 koishi 通道的广播/刷新/生命周期。
  */
 export class Installer extends Service {
+    /** 宿主全局 HTTP 客户端（透传给需要裸 HTTP 的调用方）。 */
     public http: HTTP;
+    /** registry 状态表（registryStatus 通道的值）：包名 → 最新状态。 */
     public registryStatus: Dict<RegistryStatus> = {};
+    /** 插件级配置（endpoint/timeout/retry/concurrency 等，定义见 config.ts）。 */
     public override config: InstallerConfig;
 
+    /** registry 域共用的请求失效域：serial 递增 + 在途请求 abort。 */
     private readonly scope: RequestScope;
+    /** registry 路由学习数据的防抖落盘句柄（cache/market-next-registry-stats.json）。 */
     private readonly statsFile: JsonStore<RegistryStatsStore>;
+    /** npm registry 元数据访问门面（多端点路由 / 重试 / 探测）。 */
     private readonly registry: RegistryClient;
+    /** 包版本三层缓存（全量 / 增量 / 404 负缓存）。 */
     private readonly packages: PackageCache;
+    /** 宿主 package.json 依赖解析器（dependencies 通道的数据源）。 */
     private readonly resolver: DependencyResolver;
+    /** 安装串行锁：同一时刻只允许一个安装 / 环境恢复在跑。 */
     private readonly queue: InstallQueue;
+    /** 活动安装会话日志（写盘 + market/install-log 广播）。 */
     private readonly logs: InstallLogStore;
+    /** 安装编排状态机（install / installLocked 主流程）。 */
     private readonly orchestrator: InstallOrchestrator;
+    /** 环境快照列表 / 预览 / 恢复入口。 */
     private readonly envOps: EnvironmentSnapshotOps;
+    /** 安装日志过期清理（保留时长来自配置）。 */
     private readonly retention: InstallLogRetention;
+    /** 本地包分块上传会话存储（带 TTL 过期清理）。 */
     private readonly uploads: LocalPackageUploadStore;
+    /** 本地上传会话门面（start/append/finish/commit/cancel + 本地绑定）。 */
     private readonly uploadService: LocalPackageUploadService;
+    /** 统一日志：core 的 InstallLogger 协议适配 koishi logger。 */
     private readonly log: InstallLogger;
+    /** 以宿主 package.json 为基准创建的 require：供 isPackageLoaded 探测 require.cache。 */
     private readonly require: NodeRequire;
+    /** 包管理器信息（异步探测，默认 npm）；对象与 core runner 共享，探测完成后原地回填。 */
     private readonly agent: PackageManagerAgent = { name: "npm" };
+    /** 待广播的 registry 状态增量：由 drainRegistryStatus 取走并经节流广播清空。 */
     private tempRegistryStatus: Dict<RegistryStatus> = {};
+    /** registryStatus 节流广播句柄（200ms，wire.ts 中构造）。 */
     private readonly flushRegistryStatus: () => void;
 
     constructor(ctx: Context, config: InstallerConfig = {}) {
         super(ctx, "installer");
         this.config = config;
         this.log = createInstallLogger(ctx.logger("market"));
+        // 以宿主 package.json 为基准创建 require，后续才能探测“宿主已加载了哪些插件”
         this.require = createRequire(resolve(ctx.baseDir, "package.json"));
         this.http = ctx.http;
 
+        // 组装 core 各入口类；owner 回调是 core 反向触碰 koishi 通道（状态写入、通道刷新、
+        // 状态清空、包加载探测、状态增量取用）的唯一出口，收拢在此单点提供
         const core = createInstallerCore(ctx, config, {
             log: this.log,
             cwd: this.cwd,
