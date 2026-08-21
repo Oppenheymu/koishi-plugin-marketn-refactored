@@ -101,14 +101,7 @@ export function registerMarketListeners(
         { authority: 4 },
     );
 
-    ctx.console.addListener(
-        "market/ensure-config",
-        async (name) => {
-            assertContract("market/ensure-config", name);
-            return ensurePluginConfig(ctx, name);
-        },
-        { authority: 4 },
-    );
+    registerContractListener(ctx, "market/ensure-config", (name) => ensurePluginConfig(ctx, name));
 
     ctx.console.addListener(
         "market/avatar",
