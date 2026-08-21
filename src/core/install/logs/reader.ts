@@ -80,38 +80,54 @@ function parseLegacyInstallLog(
     size: number,
     activeFile?: string,
 ): InstallHistoryEntry {
-    const startedText = content.match(/^startedAt:\s*(.+)$/m)?.[1]?.trim();
-    const startedAt = Date.parse(startedText || "") || 0;
-    const deps = content.match(/^deps:\s*(.*)$/m)?.[1]?.trim() || "(unknown)";
-    const forced = content.match(/^forced:\s*(true|false)$/m)?.[1] === "true";
-    const endpointText = content.match(/^installEndpoint:\s*(.*)$/m)?.[1]?.trim();
+    const fields = parseLegacyFields(content);
     const active = basename(activeFile || "") === id;
-    const status: InstallHistoryStatus = active
-        ? "running"
-        : /dependency operation finished with code 0\s*$/m.test(content)
-          ? "success"
-          : /dependency operation (?:failed|finished with code|ended without)|package manager (?:terminated|failed to start)/m.test(
-                  content,
-              )
-            ? "error"
-            : "unknown";
-    const timestamps = [...content.matchAll(/^\[([^\]]+)\]/gm)];
-    const finishedAt =
-        status === "running"
-            ? undefined
-            : Date.parse(timestamps[timestamps.length - 1]?.[1] || "") || undefined;
+    const status = resolveLegacyStatus(content, active);
+    const finishedAt = getLegacyFinishedAt(content, status);
     return {
         id,
-        startedAt,
+        startedAt: fields.startedAt,
         finishedAt,
-        duration: startedAt && finishedAt ? Math.max(0, finishedAt - startedAt) : undefined,
+        duration:
+            fields.startedAt && finishedAt ? Math.max(0, finishedAt - fields.startedAt) : undefined,
         status,
-        deps,
-        forced,
-        installEndpoint: endpointText && endpointText !== "(default)" ? endpointText : undefined,
+        deps: fields.deps,
+        forced: fields.forced,
+        installEndpoint:
+            fields.endpoint && fields.endpoint !== "(default)" ? fields.endpoint : undefined,
         size,
         changes: [],
     };
+}
+
+function parseLegacyFields(content: string) {
+    const field = (name: string) =>
+        content.match(new RegExp(`^${name}:\\s*(.*)$`, "m"))?.[1]?.trim();
+    return {
+        startedAt: Date.parse(field("startedAt") || "") || 0,
+        deps: field("deps") || "(unknown)",
+        forced: field("forced") === "true",
+        endpoint: field("installEndpoint"),
+    };
+}
+
+function resolveLegacyStatus(content: string, active: boolean): InstallHistoryStatus {
+    if (active) return "running";
+    if (/dependency operation finished with code 0\s*$/m.test(content)) return "success";
+    if (
+        /dependency operation (?:failed|finished with code|ended without)|package manager (?:terminated|failed to start)/m.test(
+            content,
+        )
+    ) {
+        return "error";
+    }
+    return "unknown";
+}
+
+function getLegacyFinishedAt(content: string, status: InstallHistoryStatus) {
+    if (status === "running") return undefined;
+    const timestamps = [...content.matchAll(/^\[([^\]]+)\]/gm)];
+    return Date.parse(timestamps[timestamps.length - 1]?.[1] || "") || undefined;
 }
 
 function createInstallHistoryEntry(
