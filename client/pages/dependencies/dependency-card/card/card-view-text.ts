@@ -7,6 +7,13 @@ import { formatPackageDisplayName, isPluginPackage } from '../identity'
 import type { CardViewContext } from './card-view-context'
 import { resolveCardDetailText } from './card-view-text-logic'
 
+function resolveFirst<T>(
+  rules: Array<{ when: () => boolean, value: () => T }>,
+  fallback: () => T,
+) {
+  return (rules.find(rule => rule.when)?.value ?? fallback)()
+}
+
 /** 依赖卡片的文案/图标类展示计算（自 useCardView 拆出）。 */
 export function useCardText(input: CardViewContext) {
   const { props, ctx, t } = input
@@ -15,36 +22,34 @@ export function useCardText(input: CardViewContext) {
   const { updateCheckDisabled, ignoredUpdate, updatable, bundlePackage, unconfigured } = input
   const { statusClass, editing } = input
 
-  const statusLabel = computed(() => {
-    if (pendingRemove.value) return t('dependencyCard.status.pendingRemove')
-    if (pending.value && dep.value) return t('dependencyCard.status.pendingApply')
-    if (pending.value) return t('dependencyCard.status.pendingInstall')
-    if (localDependency.value) return t('dependencyCard.status.local')
-    if (dep.value?.invalid) return t('dependencyCard.status.unsupported')
-    if (bundlePackage.value && (dep.value || local.value)) return t('dependencyCard.status.bundle')
-    if (unconfigured.value) return t('dependencyCard.status.unconfigured')
-    if (status.value?.error) return t('dependencyCard.status.versionError')
-    if (!dep.value && !local.value) return t('dependencyCard.status.manual')
-    if (updateCheckDisabled.value) return t('dependencyCard.status.checkDisabled')
-    if (ignoredUpdate.value) return t('dependencyCard.status.ignored')
-    if (updatable.value) return t('dependencyCard.status.updatable')
-    return t('dependencyCard.status.installed')
-  })
+  const statusLabelRules = [
+    { when: () => pendingRemove.value, value: () => t('dependencyCard.status.pendingRemove') },
+    { when: () => pending.value && !!dep.value, value: () => t('dependencyCard.status.pendingApply') },
+    { when: () => pending.value, value: () => t('dependencyCard.status.pendingInstall') },
+    { when: () => localDependency.value, value: () => t('dependencyCard.status.local') },
+    { when: () => !!dep.value?.invalid, value: () => t('dependencyCard.status.unsupported') },
+    { when: () => bundlePackage.value && !!(dep.value || local.value), value: () => t('dependencyCard.status.bundle') },
+    { when: () => unconfigured.value, value: () => t('dependencyCard.status.unconfigured') },
+    { when: () => !!status.value?.error, value: () => t('dependencyCard.status.versionError') },
+    { when: () => !dep.value && !local.value, value: () => t('dependencyCard.status.manual') },
+    { when: () => updateCheckDisabled.value, value: () => t('dependencyCard.status.checkDisabled') },
+    { when: () => ignoredUpdate.value, value: () => t('dependencyCard.status.ignored') },
+    { when: () => updatable.value, value: () => t('dependencyCard.status.updatable') },
+  ]
+  const statusLabel = computed(() => resolveFirst(statusLabelRules, () => t('dependencyCard.status.installed')))
 
-  const statusIcon = computed(() => {
-    if (pendingRemove.value) return 'close'
-    if (pending.value) return 'tag'
-    if (bundlePackage.value && (dep.value || local.value)) return 'file-archive'
-    if (unconfigured.value) return 'preview'
-    if (dep.value?.invalid) return 'insecure'
-    if (status.value?.error) return 'insecure'
-    if (localDependency.value) return 'file-archive'
-    if (!dep.value) return 'search'
-    if (updateCheckDisabled.value) return 'installed'
-    if (ignoredUpdate.value) return 'installed'
-    if (updatable.value) return 'asc'
-    return 'installed'
-  })
+  const statusIconRules = [
+    { when: () => pendingRemove.value, value: () => 'close' },
+    { when: () => pending.value, value: () => 'tag' },
+    { when: () => bundlePackage.value && !!(dep.value || local.value), value: () => 'file-archive' },
+    { when: () => unconfigured.value, value: () => 'preview' },
+    { when: () => !!dep.value?.invalid || !!status.value?.error, value: () => 'insecure' },
+    { when: () => localDependency.value, value: () => 'file-archive' },
+    { when: () => !dep.value, value: () => 'search' },
+    { when: () => updateCheckDisabled.value || ignoredUpdate.value, value: () => 'installed' },
+    { when: () => updatable.value, value: () => 'asc' },
+  ]
+  const statusIcon = computed(() => resolveFirst(statusIconRules, () => 'installed'))
 
   const badgeIcon = computed(() => statusIcon.value)
 
