@@ -1,7 +1,11 @@
 import type { Context } from "koishi";
 import pMap from "p-map";
 import type { PackageVersions } from "../../../core/registry/cache/index.js";
-import type { MarketSnapshotResponse } from "../../../shared/types.js";
+import type {
+    MarketLookupRequest,
+    MarketSnapshotRequest,
+    MarketSnapshotResponse,
+} from "../../../shared/types.js";
 import { fetchAvatar } from "../../avatar/index.js";
 import type { Config } from "../../config/index.js";
 import { updateMarketNextConfig } from "../../config/manage.js";
@@ -48,68 +52,51 @@ export function registerMarketListeners(
         await ctx.get("console")?.refresh("config");
     });
 
-    ctx.console.addListener(
+    registerContractListener(
+        ctx,
         "market/index",
-        async (request) => {
-            assertContract("market/index", request);
+        async (request: MarketSnapshotRequest | undefined) => {
             const snapshot = await ctx.console.services.market?.getSnapshot?.();
-            if (!snapshot || request?.transport !== "http-gzip") {
+            if (!snapshot || request?.transport !== "http-gzip")
                 return snapshot as MarketSnapshotResponse;
-            }
             return marketSnapshotTransport.create(snapshot);
         },
-        { authority: 4 },
     );
 
-    ctx.console.addListener(
-        "market/lookup",
-        async (request) => {
-            assertContract("market/lookup", request);
-            return lookupMarket(ctx.console.services.market as MarketProvider | undefined, request);
-        },
-        { authority: 4 },
+    registerContractListener(ctx, "market/lookup", (request: MarketLookupRequest | undefined) =>
+        lookupMarket(ctx.console.services.market as MarketProvider | undefined, request),
     );
 
-    ctx.console.addListener(
-        "market/registry",
-        async (names) => {
-            assertContract("market/registry", names);
-            const entries = await pMap(
-                names,
-                async (name) => {
-                    try {
-                        const meta = await ctx.installer.getPackage(name);
-                        if (!meta) return;
-                        return [name, meta] as const;
-                    } catch (error) {
-                        ctx.logger("market").debug(
-                            `skip registry metadata for ${name}: ${error instanceof Error ? error.message : error}`,
-                        );
-                    }
-                    return;
-                },
-                { concurrency: ctx.installer.config.concurrency ?? 4 },
+    registerContractListener(ctx, "market/registry", async (names: string[]) => {
+        const entries = await pMap(
+            names,
+            async (name) => {
+                try {
+                    const meta = await ctx.installer.getPackage(name);
+                    if (!meta) return;
+                    return [name, meta] as const;
+                } catch (error) {
+                    ctx.logger("market").debug(
+                        `skip registry metadata for ${name}: ${error instanceof Error ? error.message : error}`,
+                    );
+                }
+                return;
+            },
+            { concurrency: ctx.installer.config.concurrency ?? 4 },
+        );
+        return Object.fromEntries(
+            entries.filter((entry): entry is readonly [string, PackageVersions] => !!entry),
+        );
+    });
+
+    registerContractListener(ctx, "market/avatar", async (key: string, url?: string) => {
+        try {
+            return await fetchAvatar(ctx, key, url);
+        } catch (error) {
+            ctx.logger("market").debug(
+                `avatar fetch failed: ${error instanceof Error ? error.message : error}`,
             );
-            return Object.fromEntries(
-                entries.filter((entry): entry is readonly [string, PackageVersions] => !!entry),
-            );
-        },
-        { authority: 4 },
-    );
-
-    ctx.console.addListener(
-        "market/avatar",
-        async (key, url) => {
-            assertContract("market/avatar", key, url);
-            try {
-                return await fetchAvatar(ctx, key, url);
-            } catch (error) {
-                ctx.logger("market").debug(
-                    `avatar fetch failed: ${error instanceof Error ? error.message : error}`,
-                );
-            }
-            return undefined;
-        },
-        { authority: 4 },
-    );
+        }
+        return undefined;
+    });
 }
