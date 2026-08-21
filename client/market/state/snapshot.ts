@@ -16,24 +16,10 @@ export const marketSnapshotLoading = marketRuntimeStore.loading
 export const marketSnapshotError = marketRuntimeStore.error
 
 let snapshotTask: Promise<MarketSnapshot> | undefined
-let snapshotTaskKey = ''
-let snapshotKey = ''
-const snapshotSuperseded = new Error('market snapshot superseded')
-const snapshotRetryLimit = new Error('market snapshot changed too frequently')
-const MAX_SNAPSHOT_SUPERSEDED_RETRIES = 3
-
-function getSummaryKey(value: Partial<MarketPayload> | undefined) {
-  if (!value) return ''
-  return [
-    value.dataVersion ?? 0,
-    value.debug?.hash ?? '',
-  ].join(':')
-}
 
 export function publishSnapshot(value: MarketPayload): MarketSnapshot {
   const snapshot = applyRuntimeSnapshot(value) as MarketSnapshot
   const data = snapshot.data
-  snapshotKey = getSummaryKey(snapshot)
   marketSnapshotError.value = undefined
 
   // Keep legacy consumers working without making the nested index reactive.
@@ -85,68 +71,27 @@ export function getMarketSnapshotData() {
 }
 
 export function loadMarketSnapshot(force = false) {
-  return loadMarketSnapshotAttempt(force, 0)
-}
-
-async function loadMarketSnapshotAttempt(force: boolean, supersededRetries: number): Promise<MarketSnapshot> {
-  const key = getSummaryKey(store.market)
   if (!force && !marketSnapshot.value && store.market?.data) {
-    return publishSnapshot(store.market)
+    return Promise.resolve(publishSnapshot(store.market))
   }
-  if (!force && marketSnapshot.value && key && key === snapshotKey) {
-    return marketSnapshot.value
-  }
-  if (snapshotTask) {
-    if (!force && (!key || key === snapshotTaskKey)) return snapshotTask
-    await snapshotTask.catch(() => undefined)
-    return loadMarketSnapshotAttempt(force, supersededRetries)
-  }
+  if (!force && marketSnapshot.value) return Promise.resolve(marketSnapshot.value)
+  if (snapshotTask) return snapshotTask
 
   marketSnapshotLoading.value = true
-  snapshotTaskKey = key
-  const task = (async () => {
-    const value = await requestMarketSnapshot()
-    const currentVersion = store.market?.dataVersion
-    const currentKey = getSummaryKey(store.market)
-    const responseKey = getSummaryKey(value)
-    if (currentVersion != null && value.dataVersion != null && currentVersion > value.dataVersion) {
-      throw snapshotSuperseded
-    }
-    if (key && currentKey && currentKey !== key && responseKey !== currentKey) {
-      throw snapshotSuperseded
-    }
-    return publishSnapshot(value)
-  })()
+  const task = requestMarketSnapshot()
+    .then(publishSnapshot)
     .catch((error) => {
-      if (error !== snapshotSuperseded) marketSnapshotError.value = error
+      marketSnapshotError.value = error
       throw error
     })
     .finally(() => {
       if (snapshotTask === task) snapshotTask = undefined
-      if (snapshotTaskKey === key) snapshotTaskKey = ''
       marketSnapshotLoading.value = false
     }) as Promise<MarketSnapshot>
-
   snapshotTask = task
-  try {
-    return await task
-  } catch (error) {
-    if (error === snapshotSuperseded) {
-      if (supersededRetries < MAX_SNAPSHOT_SUPERSEDED_RETRIES) {
-        return loadMarketSnapshotAttempt(true, supersededRetries + 1)
-      }
-      marketSnapshotError.value = snapshotRetryLimit
-      throw snapshotRetryLimit
-    }
-    throw error
-  }
+  return task
 }
 
 export function getCurrentSnapshotData() {
-  const snapshot = marketSnapshot.value
-  const currentVersion = store.market?.dataVersion
-  if (snapshot && (currentVersion == null || snapshot.dataVersion == null || snapshot.dataVersion === currentVersion)) {
-    return snapshot.data
-  }
-  if (!snapshot && store.market?.data) return store.market.data
+  return marketSnapshot.value?.data ?? store.market?.data
 }

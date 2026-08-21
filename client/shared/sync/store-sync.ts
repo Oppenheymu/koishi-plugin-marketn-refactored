@@ -3,7 +3,7 @@ import { type Context, type Dict, receive, store } from '@koishijs/client'
 import type { RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import { translate } from '../../i18n'
 import { getPendingOverrides, patchMarketNextData } from '../config/data-store'
-import { refreshMarketLookups } from '../../market/state'
+import { loadMarketSnapshot, refreshMarketLookups } from '../../market/state'
 import { marketRuntimeStore } from '../../market/runtime-store'
 
 const REGISTRY_STATUS_TIMEOUT = 120000
@@ -71,6 +71,9 @@ export function setupStoreSync(ctx: Context) {
 
   ctx.effect(() => watch(() => store.market?.dataVersion, (version, previous) => {
     if (version == null || previous == null || version === previous) return
+    void loadMarketSnapshot(true).catch(error => {
+      console.error('[market-next] failed to refresh market snapshot', error)
+    })
     void refreshMarketLookups().catch(error => {
       console.error('[market-next] failed to refresh market lookups', error)
     })
