@@ -1,6 +1,6 @@
-# build outputs
-lib/
-dist/
+# build outputs（仅根目录产物，避免误伤 client/lib 等源码目录）
+/lib/
+/dist/
 
 # local / temp
 external/
@@ -37,6 +37,8 @@ pnpm-debug.log*
 *.sln
 
 # tmp
+_tsc_errors.txt
+client-tsc-out.txt
 Waiting_refactored/
 
 
