@@ -57,35 +57,29 @@ export async function fetchAvatar(
     const fetched = await fetchAvatarResponse(ctx, checked.url ?? url);
     if (!fetched) return;
     const { response, sourceUrl } = fetched;
-    if (response.status >= 400) {
-        await cancelAvatarBody(response.data);
-        return;
-    }
-    const type = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() || "";
-    if (!type.startsWith("image/")) {
-        await cancelAvatarBody(response.data);
-        return;
-    }
-    const length = Number(response.headers.get("content-length"));
-    if (Number.isFinite(length) && length > AVATAR_MAX_SIZE) {
-        await cancelAvatarBody(response.data);
-        return;
-    }
-    if (isAvatarDefaultResponse(response.headers)) {
-        await cancelAvatarBody(response.data);
-        return;
-    }
-    const body = await readLimitedAvatarBody(response.data);
-    if (!body?.byteLength) return;
-
-    const result: AvatarFetchResult = {
-        type,
-        data: body.toString("base64"),
-    };
+    const result = await readAvatarResponse(response);
+    if (!result) return;
     cacheAvatarMemory(cacheKey, result);
     void writeAvatarDiskCache(ctx, cacheKey, sourceUrl, result);
     cleanupAvatarCache();
     return result;
+}
+
+async function readAvatarResponse(response: HTTP.Response<AvatarBodyStream>) {
+    if (response.status >= 400) return cancelAndDiscard(response.data);
+    const type = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() || "";
+    if (!type.startsWith("image/")) return cancelAndDiscard(response.data);
+    const length = Number(response.headers.get("content-length"));
+    if (Number.isFinite(length) && length > AVATAR_MAX_SIZE) return cancelAndDiscard(response.data);
+    if (isAvatarDefaultResponse(response.headers)) return cancelAndDiscard(response.data);
+    const body = await readLimitedAvatarBody(response.data);
+    if (!body?.byteLength) return;
+    return { type, data: body.toString("base64") } satisfies AvatarFetchResult;
+}
+
+async function cancelAndDiscard(stream: AvatarBodyStream) {
+    await cancelAvatarBody(stream);
+    return undefined;
 }
 
 async function checkAvatarHead(ctx: Context, url: URL): Promise<{ url?: URL; blocked?: boolean }> {
