@@ -59,7 +59,6 @@ function hasPluginConfigInGroup(plugins: PluginConfigMap, shortname: string) {
 function findPluginConfig(
     plugins: unknown,
     shortname: string,
-    group?: unknown,
 ): { key: string; parent: PluginConfigMap; value: unknown } | undefined {
     for (const key in (plugins as PluginConfigMap) ?? {}) {
         if (key.startsWith("$")) continue;
@@ -68,7 +67,7 @@ function findPluginConfig(
         const name = prefix.replace(/^~/, "");
         if (name === shortname) return { key, parent: plugins as PluginConfigMap, value };
         if (name === "group") {
-            const found = findPluginConfig(value, shortname, group);
+            const found = findPluginConfig(value, shortname);
             if (found) return found;
         }
     }
@@ -96,58 +95,83 @@ export function createBundleConfigWriter(
         skipped: [],
         write: async () => {},
     };
-    let groupChanged = false;
     let wrote = false;
     writer.write = async () => {
         if (wrote) return;
-        writer.group =
-            ensureBundleGroup(ctx, request.package, manifest) ??
-            getBundleGroup(ctx, request.package);
-        groupChanged ||= !!writer.group?.changed;
-        for (const member of selected) {
-            if (!member.createConfig) {
-                writer.skipped.push(member.package);
-                continue;
-            }
-            const shortname = member.plugin || getPluginShortname(member.package);
-            writer.group ||= ensureBundleGroup(ctx, request.package, manifest);
-            groupChanged ||= !!writer.group?.changed;
-            if (!writer.group) {
-                writer.skipped.push(member.package);
-                continue;
-            }
-
-            if (hasPluginConfigInGroup(writer.group.plugins, shortname)) continue;
-
-            const existing = findPluginConfig(
-                ctx.loader.config?.plugins,
-                shortname,
-                writer.group.plugins,
-            );
-            if (existing && existing.parent !== writer.group.plugins && member.move) {
-                const ident = getBundleMemberIdent(request.package, member);
-                const fallbackKey = `~${shortname}:${ident}`;
-                const targetKey = existing.key in writer.group.plugins ? fallbackKey : existing.key;
-                if (targetKey in writer.group.plugins) {
-                    writer.skipped.push(member.package);
-                    continue;
-                }
-                writer.group.plugins[targetKey] = existing.value ?? {};
-                delete existing.parent[existing.key];
-                writer.moved.push(member.package);
-                continue;
-            }
-
-            const ident = getBundleMemberIdent(request.package, member);
-            const key = `~${shortname}:${ident}`;
-            if (writer.group.plugins[key]) continue;
-            writer.group.plugins[key] = member.usePreset ? member.config || {} : {};
-            writer.configured.push(member.package);
-        }
-        if (groupChanged || writer.configured.length || writer.moved.length) {
-            await ctx.loader.writeConfig();
-        }
+        await writeBundleConfig(ctx, request, manifest, selected, writer);
         wrote = true;
     };
     return writer;
+}
+
+async function writeBundleConfig(
+    ctx: Context,
+    request: BundleInstallRequest,
+    manifest: PluginBundleManifest,
+    selected: BundleInstallMember[],
+    writer: BundleConfigWriter,
+) {
+    writer.group =
+        ensureBundleGroup(ctx, request.package, manifest) ?? getBundleGroup(ctx, request.package);
+    let groupChanged = !!writer.group?.changed;
+    for (const member of selected) {
+        groupChanged =
+            configureBundleMember(ctx, request, manifest, member, writer) || groupChanged;
+    }
+    if (groupChanged || writer.configured.length || writer.moved.length) {
+        await ctx.loader.writeConfig();
+    }
+}
+
+function configureBundleMember(
+    ctx: Context,
+    request: BundleInstallRequest,
+    manifest: PluginBundleManifest,
+    member: BundleInstallMember,
+    writer: BundleConfigWriter,
+) {
+    if (!member.createConfig) {
+        writer.skipped.push(member.package);
+        return false;
+    }
+    const shortname = member.plugin || getPluginShortname(member.package);
+    const ensured = ensureBundleGroup(ctx, request.package, manifest);
+    writer.group ||= ensured;
+    const groupChanged = !!ensured?.changed;
+    if (!writer.group) {
+        writer.skipped.push(member.package);
+        return groupChanged;
+    }
+    if (hasPluginConfigInGroup(writer.group.plugins, shortname)) return groupChanged;
+
+    const existing = findPluginConfig(ctx.loader.config?.plugins, shortname);
+    if (existing && existing.parent !== writer.group.plugins && member.move) {
+        return moveBundleMember(request, member, existing, writer) || groupChanged;
+    }
+    const ident = getBundleMemberIdent(request.package, member);
+    const key = `~${shortname}:${ident}`;
+    if (writer.group.plugins[key]) return groupChanged;
+    writer.group.plugins[key] = member.usePreset ? member.config || {} : {};
+    writer.configured.push(member.package);
+    return true;
+}
+
+function moveBundleMember(
+    request: BundleInstallRequest,
+    member: BundleInstallMember,
+    existing: { key: string; parent: PluginConfigMap; value: unknown },
+    writer: BundleConfigWriter,
+) {
+    const shortname = member.plugin || getPluginShortname(member.package);
+    const ident = getBundleMemberIdent(request.package, member);
+    const fallbackKey = `~${shortname}:${ident}`;
+    const targetKey = existing.key in writer.group!.plugins ? fallbackKey : existing.key;
+    if (targetKey in writer.group!.plugins) {
+        writer.skipped.push(member.package);
+        return false;
+    }
+    writer.group!.plugins[targetKey] = existing.value ?? {};
+    delete existing.parent[existing.key];
+    writer.moved.push(member.package);
+    return true;
 }

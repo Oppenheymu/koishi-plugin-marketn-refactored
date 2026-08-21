@@ -55,21 +55,7 @@ export class MarketDiskCache {
         const cached = this.entries[result.endpoint];
         const sameEndpoint = this.meta?.endpoint === result.endpoint;
         this.result = result.result;
-        this.meta = {
-            endpoint: result.endpoint,
-            fetchedAt:
-                result.source === "network"
-                    ? Date.now()
-                    : (result.cachedAt ?? cached?.fetchedAt ?? this.meta?.fetchedAt ?? Date.now()),
-            validatedAt: result.validatedAt,
-            etag: result.etag ?? (sameEndpoint ? this.meta?.etag : undefined),
-            lastModified:
-                result.lastModified ?? (sameEndpoint ? this.meta?.lastModified : undefined),
-            hash: result.hash ?? this.meta?.hash,
-            size: result.size ?? this.meta?.size,
-            wireSize: result.wireSize ?? this.meta?.wireSize,
-            contentEncoding: result.contentEncoding ?? this.meta?.contentEncoding,
-        };
+        this.meta = buildCacheMeta(result, cached, this.meta, sameEndpoint);
         this.entries[result.endpoint] = {
             ...this.meta,
             result: result.result,
@@ -114,35 +100,10 @@ export class MarketDiskCache {
         const shouldMigrate = isLegacyInlineCacheStore(rawStore);
         const store = normalizeCacheStore(rawStore);
         this.entries = { ...this.entries, ...store.entries };
-        if (store.routeStats) {
-            for (const [endpoint, stats] of Object.entries(store.routeStats)) {
-                if (!stats) continue;
-                const hasRecentSuccess = stats.lastSuccess && Date.now() - stats.lastSuccess < DAY;
-                this.deps.stats.stats[endpoint] = {
-                    score: hasRecentSuccess ? clamp(stats.score, -1, 3) : clamp(stats.score, -4, 3),
-                    successes: 0,
-                    failures: 0,
-                    consecutiveFailures: hasRecentSuccess ? 0 : stats.consecutiveFailures,
-                    cooldownUntil: hasRecentSuccess ? undefined : stats.cooldownUntil,
-                    averageElapsed: stats.averageElapsed,
-                    lastSuccess: stats.lastSuccess,
-                    contentEncoding: stats.contentEncoding,
-                };
-            }
-        }
+        restoreRouteStats(this.deps.stats.stats, store.routeStats);
         const applied = await this.pick();
         if (applied) {
-            this.meta = {
-                endpoint: applied.endpoint,
-                fetchedAt: applied.fetchedAt,
-                validatedAt: applied.validatedAt,
-                etag: applied.etag,
-                lastModified: applied.lastModified,
-                hash: applied.hash,
-                size: applied.size,
-                wireSize: applied.wireSize,
-                contentEncoding: applied.contentEncoding,
-            };
+            this.meta = getCacheMeta(applied);
             this.result = applied.result;
             this.entries[applied.endpoint] = applied;
         }
@@ -242,4 +203,64 @@ export class MarketDiskCache {
             .slice(0, MAX_CACHE_ENTRIES);
         return Object.fromEntries(entries.map((entry) => [entry.endpoint, entry]));
     }
+}
+
+function buildCacheMeta(
+    result: EndpointResult,
+    cached: CacheEntry | undefined,
+    previous: CacheMeta | undefined,
+    sameEndpoint: boolean,
+): CacheMeta {
+    return {
+        endpoint: result.endpoint,
+        fetchedAt: getFetchedAt(result, cached, previous),
+        validatedAt: result.validatedAt,
+        etag: result.etag ?? (sameEndpoint ? previous?.etag : undefined),
+        lastModified: result.lastModified ?? (sameEndpoint ? previous?.lastModified : undefined),
+        hash: result.hash ?? previous?.hash,
+        size: result.size ?? previous?.size,
+        wireSize: result.wireSize ?? previous?.wireSize,
+        contentEncoding: result.contentEncoding ?? previous?.contentEncoding,
+    };
+}
+
+function getFetchedAt(
+    result: EndpointResult,
+    cached: CacheEntry | undefined,
+    previous: CacheMeta | undefined,
+) {
+    if (result.source === "network") return Date.now();
+    return result.cachedAt ?? cached?.fetchedAt ?? previous?.fetchedAt ?? Date.now();
+}
+
+function restoreRouteStats(target: RouteStatsBook["stats"], routeStats: CacheStore["routeStats"]) {
+    if (!routeStats) return;
+    for (const [endpoint, stats] of Object.entries(routeStats)) {
+        if (!stats) continue;
+        const hasRecentSuccess = stats.lastSuccess && Date.now() - stats.lastSuccess < DAY;
+        target[endpoint] = {
+            score: hasRecentSuccess ? clamp(stats.score, -1, 3) : clamp(stats.score, -4, 3),
+            successes: 0,
+            failures: 0,
+            consecutiveFailures: hasRecentSuccess ? 0 : stats.consecutiveFailures,
+            cooldownUntil: hasRecentSuccess ? undefined : stats.cooldownUntil,
+            averageElapsed: stats.averageElapsed,
+            lastSuccess: stats.lastSuccess,
+            contentEncoding: stats.contentEncoding,
+        };
+    }
+}
+
+function getCacheMeta(entry: CacheEntry): CacheMeta {
+    return {
+        endpoint: entry.endpoint,
+        fetchedAt: entry.fetchedAt,
+        validatedAt: entry.validatedAt,
+        etag: entry.etag,
+        lastModified: entry.lastModified,
+        hash: entry.hash,
+        size: entry.size,
+        wireSize: entry.wireSize,
+        contentEncoding: entry.contentEncoding,
+    };
 }

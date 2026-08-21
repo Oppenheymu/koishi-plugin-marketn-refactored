@@ -85,37 +85,42 @@ function getAvatarDefaultMode(url: URL) {
 }
 
 function isPrivateAddress(address: string, family = isIP(address)) {
-    if (family === 4) {
-        const parts = address.split(".").map((part) => Number(part));
-        if (
-            parts.length !== 4 ||
-            parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
-        )
-            return true;
-        const a = parts[0]!;
-        const b = parts[1]!;
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            (a === 169 && b === 254) ||
-            (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && b === 168) ||
-            a >= 224
-        );
-    }
-    if (family === 6) {
-        const value = address.toLowerCase();
-        const first = Number.parseInt(value.split(":")[0] || "0", 16);
-        return (
-            value === "::1" ||
-            value === "::" ||
-            value.startsWith("::ffff:") ||
-            (Number.isFinite(first) && (first & 0xffc0) === 0xfe80) ||
-            value.startsWith("fc") ||
-            value.startsWith("fd") ||
-            value.startsWith("ff")
-        );
-    }
+    if (family === 4) return isPrivateIpv4(address);
+    if (family === 6) return isPrivateIpv6(address);
     return true;
+}
+
+function isPrivateIpv4(address: string) {
+    const parts = address.split(".").map((part) => Number(part));
+    if (
+        parts.length !== 4 ||
+        parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+    ) {
+        return true;
+    }
+    const a = parts[0]!;
+    const b = parts[1]!;
+    return (
+        a === 0 ||
+        a === 10 ||
+        a === 127 ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        a >= 224
+    );
+}
+
+function isPrivateIpv6(address: string) {
+    const value = address.toLowerCase();
+    const first = Number.parseInt(value.split(":")[0] || "0", 16);
+    return (
+        value === "::1" ||
+        value === "::" ||
+        value.startsWith("::ffff:") ||
+        (Number.isFinite(first) && (first & 0xffc0) === 0xfe80) ||
+        value.startsWith("fc") ||
+        value.startsWith("fd") ||
+        value.startsWith("ff")
+    );
 }
