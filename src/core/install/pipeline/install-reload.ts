@@ -27,20 +27,35 @@ export function detectFullReload(
     for (const name in localDeps) {
         const resolved = localDeps[name]?.resolved;
         if (!newDeps[name]) continue;
-        const requestChanged = previousRequests[name] !== requests[name];
-        const localRequestChanged =
-            requestChanged &&
-            classifyDependencySource(requests[name] ?? "", {
-                workspace: newDeps[name]?.workspace,
-                installed: !!newDeps[name]?.resolved,
-            }).local;
-        if (newDeps[name]?.resolved === resolved && !localRequestChanged) continue;
+        const changed = hasLocalDependencyChanged(
+            name,
+            resolved,
+            newDeps[name],
+            previousRequests,
+            requests,
+        );
+        if (!changed) continue;
         if (deps.isPackageLoaded(name)) shouldReload = true;
         deps.log.debug(
             `dependency changed may require full reload: ${name}, previous=${resolved ?? "-"}, current=${newDeps[name]?.resolved ?? "-"}`,
         );
     }
     return shouldReload;
+}
+
+function hasLocalDependencyChanged(
+    name: string,
+    previousResolved: string | undefined,
+    current: Dependency,
+    previousRequests: Dict<string>,
+    requests: Dict<string>,
+) {
+    if (current.resolved !== previousResolved) return true;
+    if (previousRequests[name] === requests[name]) return false;
+    return classifyDependencySource(requests[name] ?? "", {
+        workspace: current.workspace,
+        installed: !!current.resolved,
+    }).local;
 }
 
 /** 安装成功后的收尾：环境快照、完成日志与按需整帧重载。 */
