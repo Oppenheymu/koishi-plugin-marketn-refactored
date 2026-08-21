@@ -210,20 +210,8 @@ export async function updateMarketNextConfig(
 ) {
     const target = findMarketNextConfigNode(ctx.loader.config?.plugins, currentConfig);
     if (!target) return false;
-    const changedKeys: Array<keyof Config> = [];
-    let accepted = false;
-    for (const key of configPatchKeys) {
-        if (!Object.hasOwn(patch, key)) continue;
-        accepted = true;
-        const value =
-            key === "marketSilentRules"
-                ? normalizeMarketSilentRules(patch[key])
-                : (patch[key] as never);
-        if (target.value[key] === value) continue;
-        target.value[key] = value;
-        changedKeys.push(key);
-    }
-    if (!accepted) return false;
+    const changedKeys = applyConfigPatch(target.value, patch);
+    if (!changedKeys) return false;
     if (!changedKeys.length) return true;
     await ctx.loader.writeConfig(true);
     const requiresReload = changedKeys.some((key) => configReloadKeys.has(key));
@@ -233,7 +221,29 @@ export async function updateMarketNextConfig(
             await ctx.loader.reload(parent, target.key, target.value);
         }
     }
+    await refreshConfigViews(ctx, requiresReload);
+    return true;
+}
+
+function applyConfigPatch(target: MarketNextConfigNode["value"], patch: Partial<Config>) {
+    const targetRecord = target as Record<string, unknown>;
+    const changedKeys: Array<keyof Config> = [];
+    let accepted = false;
+    for (const key of configPatchKeys) {
+        if (!Object.hasOwn(patch, key)) continue;
+        accepted = true;
+        const value =
+            key === "marketSilentRules"
+                ? normalizeMarketSilentRules(patch[key])
+                : (patch[key] as never);
+        if (targetRecord[key] === value) continue;
+        targetRecord[key] = value;
+        changedKeys.push(key);
+    }
+    return accepted ? changedKeys : undefined;
+}
+
+async function refreshConfigViews(ctx: Context, requiresReload: boolean) {
     await ctx.get("console")?.refresh("config");
     if (requiresReload) await ctx.get("console")?.refresh("entry");
-    return true;
 }
