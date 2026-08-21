@@ -1,5 +1,4 @@
 import { computed, ref, watch } from 'vue'
-import { send } from '@koishijs/client'
 import type {
   EnvironmentChangeStatus,
   EnvironmentSnapshotPreview,
@@ -10,6 +9,7 @@ import { getFrontendMode } from '../../shared/config/market-config'
 import { applyEnvironmentSnapshot } from '../../shared/install/environment-flow'
 import { showEnvironmentVersions } from '../../shared/ui/dialogs'
 import { useMarketNextI18n } from '../../i18n'
+import { requestEnvironmentSnapshotPreview, requestEnvironmentSnapshots } from '../../market/api'
 
 export function useEnvironment() {
   const { t, locale } = useMarketNextI18n()
@@ -56,7 +56,7 @@ export function useEnvironment() {
     loading.value = true
     loadError.value = ''
     try {
-      snapshots.value = await (send('market/environment-snapshots') ?? Promise.resolve([]))
+      snapshots.value = await (requestEnvironmentSnapshots() ?? Promise.resolve([]))
       const previous = preserveSelection && snapshots.value.some(snapshot => snapshot.id === selectedId.value)
         ? selectedId.value
         : ''
@@ -82,7 +82,7 @@ export function useEnvironment() {
     previewLoading.value = true
     const serial = ++previewSerial
     try {
-      const result = await (send('market/environment-snapshot-preview', id) ?? Promise.resolve(undefined))
+      const result = await (requestEnvironmentSnapshotPreview(id) ?? Promise.resolve(undefined))
       if (serial !== previewSerial) return
       if (!result) throw new Error('environment snapshot not found')
       preview.value = result

@@ -5,6 +5,7 @@ import { extractErrorMessage } from '../error'
 import { active } from '../ui/dialogs'
 import { formatEndpoint } from './registry-status'
 import type { InstallFallbackCandidate } from '../../../src/shared/types'
+import { requestInstallFallbackCandidate } from '../../market/api'
 
 interface LogLine {
   type: 'stdout' | 'stderr'
@@ -60,7 +61,7 @@ export function resetInstallFallbackState() {
 
 export async function prepareInstallFallbackRetry(run: (options?: InstallOptions) => Promise<number | undefined>, failedEndpoint?: string) {
   if (installProgressState.fallbackUsed || installProgressState.retryFallback) return
-  const candidate = await (send('market/install-fallback-candidate', failedEndpoint) ?? Promise.resolve(undefined)).catch((error) => {
+  const candidate = await (requestInstallFallbackCandidate(failedEndpoint) ?? Promise.resolve(undefined)).catch((error) => {
     console.warn(error)
     return undefined
   }) as InstallFallbackCandidate | undefined

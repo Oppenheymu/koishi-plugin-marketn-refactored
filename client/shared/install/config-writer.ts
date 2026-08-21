@@ -1,4 +1,5 @@
-import { type Context, send, store } from '@koishijs/client'
+import { type Context, store } from '@koishijs/client'
+import { requestEnsureConfig } from '../../market/api'
 
 export interface ClientConfigWriter {
   get(name: string): any[] | undefined
@@ -31,7 +32,7 @@ async function waitForInstalledConfig(ctx: Context, name: string) {
 
 export async function ensureInstalledConfig(ctx: Context, name: string, silent = true) {
   if (!name || !getConfigWriter(ctx)) return
-  await (send('market/ensure-config', name) ?? Promise.resolve(false)).catch(console.error)
+  await (requestEnsureConfig(name) ?? Promise.resolve(false)).catch(console.error)
   await waitForInstalledPackage(name)
   if (await waitForInstalledConfig(ctx, name)) return
   const configWriter = getConfigWriter(ctx)
