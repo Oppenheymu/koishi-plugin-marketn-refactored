@@ -2,9 +2,9 @@ import { ref, watch } from 'vue'
 import { message, router, send, store } from '@koishijs/client'
 import type { Context } from '@koishijs/client'
 import { translate } from './i18n'
-import { getPendingOverrides } from './lib/data-store'
-import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './lib/dialogs'
-import type { MarketStore } from './bootstrap/store-sync'
+import { getPendingOverrides } from './shared/config/data-store'
+import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './shared/ui/dialogs'
+import type { MarketStore } from './shared/sync/store-sync'
 
 export function registerActions(ctx: Context) {
   const refreshingMarket = ref(false)

@@ -11,11 +11,11 @@ import {
   scanSensitiveConfig,
   validateBundleManifest,
 } from '../../../src/shared/bundle'
-import { activeBundle } from '../../lib/dialogs'
-import { getBundleMemberConfigState } from '../../lib/bundle-records'
-import { installProgressState, prepareInstallFallbackRetry, resetInstallFallbackState, type InstallOptions } from '../../lib/install-flow'
+import { activeBundle } from '../../shared/ui/dialogs'
+import { getBundleMemberConfigState } from '../../shared/install/bundle-records'
+import { installProgressState, prepareInstallFallbackRetry, resetInstallFallbackState, type InstallOptions } from '../../shared/install/install-flow'
 import { satisfies } from 'semver'
-import { getFrontendMode } from '../../lib/market-config'
+import { getFrontendMode } from '../../shared/config/market-config'
 import { useMarketNextI18n } from '../../i18n'
 import { loadMarketObjects } from '../../market/state'
 import { useMemberInfo } from './member-info'

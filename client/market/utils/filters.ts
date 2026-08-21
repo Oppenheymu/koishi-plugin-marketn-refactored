@@ -1,5 +1,5 @@
 import type { SearchObject, User } from '@koishijs/registry'
-import { getUsers } from './avatars'
+import { getUsers } from '../avatar/avatars'
 import type { MarketConfig } from './categories'
 import {
   getSearchIndex,

@@ -15,8 +15,8 @@ import zhBundle from './zh-CN/bundle.yml'
 import enBundle from './en-US/bundle.yml'
 import zhEnvironment from './zh-CN/environment.yml'
 import enEnvironment from './en-US/environment.yml'
-import zhMarket from '../market/locales/zh-CN.yml'
-import enMarket from '../market/locales/en-US.yml'
+import zhMarket from './zh-CN/market.yml'
+import enMarket from './en-US/market.yml'
 import {
   ensureLocaleNamespace,
   installLocaleNamespaceGuard,

@@ -96,15 +96,15 @@
 import { global, router, store, useConfig } from '@koishijs/client'
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import type { SearchObject } from '@koishijs/registry'
-import { active, activeBundle } from '../../lib/dialogs'
-import { getFrontendMode } from '../../lib/market-config'
-import { getMarketSilentFilters, getMarketSilentRules } from '../../lib/silent-rules'
-import { getPendingOverrides } from '../../lib/data-store'
+import { active, activeBundle } from '../../shared/ui/dialogs'
+import { getFrontendMode } from '../../shared/config/market-config'
+import { getMarketSilentFilters, getMarketSilentRules } from '../../shared/config/silent-rules'
+import { getPendingOverrides } from '../../shared/config/data-store'
 import { canInstallBundleSearchObject, getSilentFiltered, getVisible, kConfig, MarketFilter, MarketList, MarketSearch, parseSilentFilters } from '../../market'
 import { getMarketSnapshotData, loadMarketSnapshot, marketSnapshot, marketSnapshotError, marketSnapshotLoading } from '../../market/state'
 import { useMarketNextI18n } from '../../i18n'
-import DebugPanel from './debug-panel.vue'
-import { useRouteSync } from './use-route-sync'
+import DebugPanel from './components/debug-panel/index.vue'
+import { useRouteSync } from './composables/use-route-sync'
 
 function installed(data: SearchObject) {
   if (store.packages) {

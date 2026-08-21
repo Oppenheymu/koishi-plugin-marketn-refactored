@@ -151,7 +151,7 @@
 import type { SearchObject } from '@koishijs/registry'
 import { badges, categories, comparators } from '../../utils'
 import MarketIcon from '../../icons'
-import { useFilter } from '../composables/use-filter'
+import { useFilter } from './use-filter'
 
 const props = defineProps<{
   modelValue: string[]

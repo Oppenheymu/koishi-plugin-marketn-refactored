@@ -8,7 +8,7 @@ import Confirm from './dialogs/confirm/index.vue'
 import InstallProgress from './dialogs/install-progress/index.vue'
 import InstallHistory from './dialogs/install-history/index.vue'
 import EnvironmentVersions from './dialogs/environment-versions/index.vue'
-import Progress from './components/progress.vue'
+import Progress from './shared/ui/progress.vue'
 
 export function registerSlots(ctx: Context) {
   ctx.slot({

@@ -15,9 +15,9 @@ import {
   fetchBundleRecord,
   resolveBundlePackageFromGroup,
   resolveBundleRecordFromGroup,
-} from '../../lib/bundle-records'
-import type { BundleRecordView } from '../../lib/bundle-records'
-import { getBundleRecords } from '../../lib/data-store'
+} from '../../shared/install/bundle-records'
+import type { BundleRecordView } from '../../shared/install/bundle-records'
+import { getBundleRecords } from '../../shared/config/data-store'
 import { bundleGroupUninstallTarget } from './index'
 import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../i18n'

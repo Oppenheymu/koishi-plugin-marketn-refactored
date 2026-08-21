@@ -56,7 +56,7 @@
 <script lang="ts" setup>
 import { type Dict, store } from '@koishijs/client'
 import { useMarketNextI18n } from '../../i18n'
-import type { AnalyzeResult, PeerInfo, ResultType } from '../../lib/analyze-versions'
+import type { AnalyzeResult, PeerInfo, ResultType } from '../../shared/install/analyze-versions'
 
 const { t } = useMarketNextI18n()
 

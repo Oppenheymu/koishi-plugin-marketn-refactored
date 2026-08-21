@@ -106,9 +106,9 @@ import type {
   EnvironmentSnapshotSource,
   EnvironmentSnapshotSummary,
 } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../../lib/market-config'
-import { applyEnvironmentSnapshot } from '../../lib/install-flow'
-import { showEnvironmentVersions } from '../../lib/dialogs'
+import { getFrontendMode } from '../../shared/config/market-config'
+import { applyEnvironmentSnapshot } from '../../shared/install/install-flow'
+import { showEnvironmentVersions } from '../../shared/ui/dialogs'
 import { useMarketNextI18n } from '../../i18n'
 import MarketIcon from '../../market/icons'
 import DiffList from './diff-list.vue'

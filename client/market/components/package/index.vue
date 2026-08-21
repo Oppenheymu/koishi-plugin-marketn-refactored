@@ -82,7 +82,7 @@ import { store } from '@koishijs/client'
 import { badges, isBundleSearchObject, resolveCategory, useMarketI18n, validate } from '../../utils'
 import { kConfig } from '../../utils'
 import MarketIcon from '../../icons'
-import { useAvatar } from '../composables/use-avatar'
+import { useAvatar } from '../../avatar/use-avatar'
 
 defineEmits(['query'])
 

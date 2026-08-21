@@ -52,9 +52,9 @@ import { useMarketNextI18n } from '../../../i18n'
 import { MarketIcon } from '../../../market'
 // DependencyCard is built by a separate task (components/dependency-card/card.vue).
 // It replaces the old package.vue component; contract: props { name, kind, listMode }.
-import DependencyCard from '../../../components/dependency-card/card/index.vue'
+import DependencyCard from '../dependency-card/card/index.vue'
 import type { DependencyGroup } from '../composables/use-groups'
-import type { ItemKind } from '../composables/useClassify'
+import type { ItemKind } from '../composables/use-classify'
 
 defineProps<{
   group: DependencyGroup

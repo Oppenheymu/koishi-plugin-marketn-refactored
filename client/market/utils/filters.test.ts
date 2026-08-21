@@ -2,7 +2,7 @@ import type { SearchObject } from '@koishijs/registry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MarketSearchIndex } from './search-index'
 
-vi.mock('./avatars', () => ({
+vi.mock('../avatar/avatars', () => ({
   getUsers: vi.fn(() => []),
 }))
 

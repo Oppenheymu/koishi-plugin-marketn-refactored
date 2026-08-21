@@ -1,8 +1,8 @@
 import { computed } from 'vue'
 import type { Ref } from 'vue'
-import { getCollapsedGroups, patchMarketNextData } from '../../../lib/data-store'
+import { getCollapsedGroups, patchMarketNextData } from '../../../shared/config/data-store'
 import { useMarketNextI18n } from '../../../i18n'
-import type { DependencyItem, FilterKey, ItemKind } from './useClassify'
+import type { DependencyItem, FilterKey, ItemKind } from './use-classify'
 
 export interface DependencyGroup {
   key: ItemKind

@@ -1,5 +1,5 @@
 import { message } from '@koishijs/client'
-import { installProgressState } from '../../lib/install-flow'
+import { installProgressState } from '../../shared/install/install-flow'
 import { resolveCategory } from '../../market/utils'
 import { getMarketObject } from '../../market/state'
 

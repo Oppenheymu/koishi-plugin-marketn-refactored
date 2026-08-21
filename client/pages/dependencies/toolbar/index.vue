@@ -55,7 +55,7 @@
 import { ref } from 'vue'
 import { useMarketNextI18n } from '../../../i18n'
 import { MarketIcon } from '../../../market'
-import type { FilterKey } from '../composables/useClassify'
+import type { FilterKey } from '../composables/use-classify'
 
 const filter = defineModel<FilterKey>('filter', { required: true })
 const keyword = defineModel<string>('keyword', { required: true })

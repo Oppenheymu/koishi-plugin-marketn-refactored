@@ -38,7 +38,7 @@ import type { SearchObject } from '@koishijs/registry'
 import { hasFilter, kConfig } from '../../utils'
 import MarketPackage from '../package/index.vue'
 import { useMarketNextI18n } from '../../../i18n'
-import { useVirtualScroll } from '../composables/use-virtual-scroll'
+import { useVirtualScroll } from './use-virtual-scroll'
 
 const props = defineProps<{
   modelValue: string[],

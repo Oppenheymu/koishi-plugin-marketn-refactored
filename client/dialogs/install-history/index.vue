@@ -61,8 +61,8 @@
 import { computed, ref, watch } from 'vue'
 import { send } from '@koishijs/client'
 import type { InstallHistoryEntry, InstallLogDetail } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../../lib/market-config'
-import { showInstallHistory } from '../../lib/dialogs'
+import { getFrontendMode } from '../../shared/config/market-config'
+import { showInstallHistory } from '../../shared/ui/dialogs'
 import { useMarketNextI18n } from '../../i18n'
 import InstallHistoryDetail from './detail.vue'
 

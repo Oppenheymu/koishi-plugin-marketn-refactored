@@ -1,6 +1,6 @@
 import type { SearchObject, User } from '@koishijs/registry'
 import { hasBundleKeyword, isBundlePackageName } from '../../../src/shared/bundle'
-import { getUsers } from './avatars'
+import { getUsers } from '../avatar/avatars'
 import { resolveCategory } from './categories'
 
 function normalizeSearchText(value: unknown) {
