@@ -1,6 +1,5 @@
 import { DataService } from "@koishijs/console";
-import type { SearchResult } from "@koishijs/registry";
-import { type Context, Logger } from "koishi";
+import type { Context } from "koishi";
 import type {
     MarketLookupRequest,
     MarketLookupResult,
@@ -24,13 +23,8 @@ declare module "@koishijs/console" {
     }
 }
 
-const logger = new Logger("market");
-
-/** 市场数据服务的抽象基类：node 端（多端点竞速）与其他实现共用通道协议。 */
+/** 市场 DataService 适配基类；具体刷新状态由实现自己的运行时管理。 */
 export abstract class MarketProvider extends DataService<MarketPayload> {
-    protected _task: Promise<SearchResult | undefined> | undefined;
-    protected _error: unknown;
-
     constructor(ctx: Context) {
         super(ctx, "market", { authority: 4 });
 
@@ -43,26 +37,9 @@ export abstract class MarketProvider extends DataService<MarketPayload> {
         );
     }
 
-    override async start(_refresh = false): Promise<void> {
-        this._task = undefined;
-        this._error = undefined;
-        await this.refresh();
-    }
-
-    abstract collect(): Promise<SearchResult | undefined>;
+    abstract override start(refresh?: boolean): Promise<void>;
     abstract getSnapshot(): Promise<MarketPayload>;
     probeInBackground?(reason?: string): Promise<boolean>;
-
-    async prepare(): Promise<SearchResult | undefined> {
-        this._task ??= this.collect().catch((error: unknown) => {
-            if ((error as Error | undefined)?.message !== "market provider disposed")
-                logger.warn(error);
-            this._error = error;
-            this._task = undefined;
-            return undefined;
-        });
-        return this._task;
-    }
 }
 
 export namespace MarketProvider {

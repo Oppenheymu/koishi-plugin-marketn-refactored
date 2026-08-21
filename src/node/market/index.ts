@@ -97,11 +97,6 @@ export class MarketProvider extends BaseMarketProvider {
         await this.source.start(refresh);
     }
 
-    async collect() {
-        await this.source.collect();
-        return undefined;
-    }
-
     /** DataService 通道 payload：不带 data（data 走 market/index RPC）。 */
     override async get() {
         const source = this.source;
