@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fsp } from "node:fs";
 import { resolve } from "node:path";
 import { type Context, Time } from "koishi";
+import { writeJsonAtomic } from "../../core/utils/atomic-write.js";
 import { isAvatarCacheLikelyDefault } from "./ssrf.js";
 
 export interface AvatarFetchResult {
@@ -123,9 +124,7 @@ export async function writeAvatarDiskCache(
     result: AvatarFetchResult,
 ) {
     try {
-        await fsp.mkdir(getAvatarCacheDir(ctx), { recursive: true });
         const file = getAvatarCacheFile(ctx, key);
-        const tempFile = `${file}.${process.pid}.${Date.now()}.tmp`;
         const entry: AvatarDiskCacheEntry = {
             key,
             url,
@@ -133,8 +132,7 @@ export async function writeAvatarDiskCache(
             data: result.data,
             cachedAt: Date.now(),
         };
-        await fsp.writeFile(tempFile, JSON.stringify(entry));
-        await fsp.rename(tempFile, file);
+        await writeJsonAtomic(file, entry, { newline: false });
     } catch (error) {
         ctx.logger("market").debug(
             `failed to write avatar disk cache: ${error instanceof Error ? error.message : error}`,

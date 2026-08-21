@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { promises as fsp } from "node:fs";
-import { dirname } from "node:path";
 import type { Dict } from "koishi";
 import { classifyDependencySource, type DependencySource } from "../../shared/dependency-source.js";
+import { writeJsonAtomic } from "../utils/atomic-write.js";
 
 export interface EnvironmentDependencySnapshot {
     request: string;
@@ -162,17 +162,7 @@ export class EnvironmentSnapshotStore {
     }
 
     private async persist() {
-        await fsp.mkdir(dirname(this.filename), { recursive: true });
-        const temporary = `${this.filename}.${process.pid}.${Date.now()}.tmp`;
-        await fsp.writeFile(temporary, `${JSON.stringify(this.value, null, 2)}\n`);
-        try {
-            await fsp.rename(temporary, this.filename);
-        } catch (error) {
-            const code = (error as NodeJS.ErrnoException | undefined)?.code;
-            if (code !== "EEXIST" && code !== "EPERM") throw error;
-            await fsp.rm(this.filename, { force: true });
-            await fsp.rename(temporary, this.filename);
-        }
+        await writeJsonAtomic(this.filename, this.value, { indent: 2 });
     }
 
     async record(snapshot: EnvironmentSnapshot) {

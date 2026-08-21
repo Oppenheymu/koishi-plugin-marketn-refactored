@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { promises as fsp } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { Dict } from "koishi";
 import type { RouteStatsBook } from "../../racing/stats.js";
+import { writeJsonAtomic } from "../../utils/atomic-write.js";
 import { formatError } from "../../utils/format.js";
 import { clamp } from "../../utils/math.js";
 import type { CacheEntry, CacheFile, CacheStore, PersistedRouteStats } from "../types.js";
@@ -34,7 +35,6 @@ export function serializeRouteStats(stats: RouteStatsBook): Dict<PersistedRouteS
 /** 原子写缓存清单 + 拆分条目文件，并清理失效拆分文件。移植自旧 MarketProvider 缓存写入族。 */
 export async function writeCacheStore(deps: CacheIoDeps, cache: CacheStore) {
     try {
-        await fsp.mkdir(dirname(deps.cacheFile), { recursive: true });
         const entries: Dict<CacheEntry> = {};
         for (const [endpoint, entry] of Object.entries(cache.entries)) {
             if (!entry) continue;
@@ -50,9 +50,11 @@ export async function writeCacheStore(deps: CacheIoDeps, cache: CacheStore) {
                 entries[endpoint] = entry;
             }
         }
-        const tempFile = `${deps.cacheFile}.${process.pid}.${Date.now()}.tmp`;
-        await fsp.writeFile(tempFile, JSON.stringify({ ...cache, version: 3, entries }));
-        await fsp.rename(tempFile, deps.cacheFile);
+        await writeJsonAtomic(
+            deps.cacheFile,
+            { ...cache, version: 3, entries },
+            { newline: false },
+        );
         await pruneFiles(deps, entries);
     } catch (error) {
         deps.log.warn(`failed to write market disk cache: ${formatError(error)}`);
@@ -67,9 +69,7 @@ function entryFilename(endpoint: string) {
 async function writeEntryFile(deps: CacheIoDeps, entry: CacheFile) {
     await fsp.mkdir(deps.cacheDir, { recursive: true });
     const file = resolve(deps.cacheDir, entryFilename(entry.endpoint));
-    const tempFile = `${file}.${process.pid}.${Date.now()}.tmp`;
-    await fsp.writeFile(tempFile, JSON.stringify(entry.result));
-    await fsp.rename(tempFile, file);
+    await writeJsonAtomic(file, entry.result, { newline: false });
 }
 
 async function pruneFiles(deps: CacheIoDeps, entries: Dict<CacheEntry>) {

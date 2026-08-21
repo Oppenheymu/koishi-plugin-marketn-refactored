@@ -1,7 +1,8 @@
 import { promises as fsp } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { DataService } from "@koishijs/console";
 import type { Context, Dict } from "koishi";
+import { writeJsonAtomic } from "../../core/utils/atomic-write.js";
 import type { PluginBundleRecord } from "../../shared/bundle.js";
 import type { UpdateIgnoreRule } from "../../shared/update.js";
 
@@ -192,17 +193,14 @@ export class MarketDataStore extends DataService<MarketDataStorePayload> {
 
     private async write() {
         try {
-            await fsp.mkdir(dirname(this.file), { recursive: true });
-            const tempFile = `${this.file}.${process.pid}.${Date.now()}.tmp`;
-            await fsp.writeFile(
-                tempFile,
-                JSON.stringify(
-                    { ...this.data, collapsedGroupsVersion: this.collapsedGroupsVersion },
-                    null,
-                    2,
-                ),
+            await writeJsonAtomic(
+                this.file,
+                {
+                    ...this.data,
+                    collapsedGroupsVersion: this.collapsedGroupsVersion,
+                },
+                { indent: 2, newline: false },
             );
-            await fsp.rename(tempFile, this.file);
         } catch (error) {
             this.ctx
                 .logger("market")
