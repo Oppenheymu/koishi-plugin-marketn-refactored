@@ -23,32 +23,39 @@ export function routeScore(
     score += options.extraScore ?? 0;
     if (!endpointStats) return score;
 
-    const total = endpointStats.successes + endpointStats.failures;
-    if (total) {
-        const successRate = endpointStats.successes / total;
-        score += (successRate - 0.5) * 6;
-        if (total >= 3 && successRate >= 0.8) score += 1.5;
-        if (total >= 3 && successRate < 0.35) score -= 2;
-    }
-    score += endpointStats.score;
-    score += Math.min(2, endpointStats.successes * 0.25);
-    score -= Math.min(2, endpointStats.failures * 0.2);
-    if (endpointStats.averageElapsed != null) {
-        if (endpointStats.averageElapsed <= 300) score += 1.5;
-        else if (endpointStats.averageElapsed <= options.fastThreshold) score += 1;
-        else if (endpointStats.averageElapsed <= 1200) score += 0.5;
-        else if (endpointStats.averageElapsed <= 2500) score -= 0.3;
-        else if (endpointStats.averageElapsed <= 4000) score -= 1;
-        else score -= 2;
-    }
-    if (
-        endpointStats.lastSuccess &&
-        (options.now ?? Date.now()) - endpointStats.lastSuccess <= 10 * MINUTE
-    ) {
-        score += 1.5;
-    }
-    score -= Math.min(5, (endpointStats.consecutiveFailures ?? 0) * 1.5);
+    score += getReliabilityScore(endpointStats);
+    score += getHistoryScore(endpointStats);
+    score += getLatencyScore(endpointStats.averageElapsed, options.fastThreshold);
+    score += getRecentSuccessScore(endpointStats.lastSuccess, options.now);
+    return score - Math.min(5, (endpointStats.consecutiveFailures ?? 0) * 1.5);
+}
+
+function getReliabilityScore(stats: RouteStats) {
+    const total = stats.successes + stats.failures;
+    if (!total) return 0;
+    const successRate = stats.successes / total;
+    let score = (successRate - 0.5) * 6;
+    if (total >= 3 && successRate >= 0.8) score += 1.5;
+    if (total >= 3 && successRate < 0.35) score -= 2;
     return score;
+}
+
+function getHistoryScore(stats: RouteStats) {
+    return stats.score + Math.min(2, stats.successes * 0.25) - Math.min(2, stats.failures * 0.2);
+}
+
+function getLatencyScore(averageElapsed: number | undefined, fastThreshold: number) {
+    if (averageElapsed == null) return 0;
+    if (averageElapsed <= 300) return 1.5;
+    if (averageElapsed <= fastThreshold) return 1;
+    if (averageElapsed <= 1200) return 0.5;
+    if (averageElapsed <= 2500) return -0.3;
+    if (averageElapsed <= 4000) return -1;
+    return -2;
+}
+
+function getRecentSuccessScore(lastSuccess: number | undefined, now = Date.now()) {
+    return lastSuccess && now - lastSuccess <= 10 * MINUTE ? 1.5 : 0;
 }
 
 /** registry 的主端点慢速降级阈值（getFallbackDelay）：依据近期成功与失败次数收紧等待。 */
