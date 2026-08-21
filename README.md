@@ -34,7 +34,7 @@ P3/P4 阶段（client/ 尚未建成）的门禁命令：
 ```bash
 tsc --noEmit
 yarn biome check src
-node scripts/check-size.mjs
+node scripts/check-size.ts
 ```
 
 宿主联调方式见 [docs/reference/构建与宿主接线.md](docs/reference/构建与宿主接线.md)。
@@ -57,5 +57,5 @@ node scripts/check-size.mjs
 1. **结构推倒重来，逻辑移植不发明**——业务逻辑从 `Waiting_refactored/` 成块移植并适配，不重新发明。
 2. **设计先行**——未建成的层（P3 node / P4 client）先有设计文档（`docs/design/`），实现按设计落地。
 3. **core 层禁 koishi**——`src/core` 不 import koishi 运行时（仅 `import type`），I/O 一律构造注入。
-4. **行数预算硬约束**——每文件目标 ≤200 行，>300 警告，≥400 直接 fail（`scripts/check-size.mjs` 强制）。
+4. **行数预算硬约束**——每文件目标 ≤200 行，>250 警告，≥350 直接 fail（`scripts/check-size.ts` 强制）。
 5. **契约冻结**——对外行为（DataService ×5 / RPC ×23 / 广播 ×5 / HTTP ×1 / 命令 ×4 / 磁盘路径）重构前后保持不变。

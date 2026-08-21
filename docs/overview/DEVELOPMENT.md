@@ -13,8 +13,8 @@
 ```bash
 yarn check            # 全量门禁（P4 前会因 client/ 不存在而失败，见 §2.1）
 yarn check:size       # 只跑行数预算 + 依赖方向守卫
-yarn build            # tsdown → lib/{node,shared} + vite → dist/
-yarn build:client     # 只构建前端
+yarn build            # tsdown → lib/{node,shared} + build-client.ts → dist/
+yarn build:client     # 只构建前端（scripts/build-client.ts，node 直跑 TS）
 yarn test             # vitest run（src/**/*.test.ts 与 client/**/*.test.ts）
 yarn lint:client      # eslint client/**/*.vue（P4 起）
 ```
@@ -26,7 +26,7 @@ yarn lint:client      # eslint client/**/*.vue（P4 起）
 ```bash
 tsc --noEmit
 yarn biome check src
-node scripts/check-size.mjs
+node scripts/check-size.ts
 ```
 
 每阶段收尾必须三条全绿（exit 0）才算过门禁。
@@ -48,7 +48,7 @@ node scripts/check-size.mjs
 
 ### 3.3 eslint + vue-eslint-parser（管 `client/*.vue`，P4 起）
 
-### 3.4 check-size.mjs（行数预算 + 依赖方向，不可回退）
+### 3.4 check-size.ts（行数预算 + 依赖方向，不可回退）
 
 扫描 `src/` 与 `client/`（跳过 node_modules 与 `__tests__`）：
 
@@ -58,10 +58,10 @@ node scripts/check-size.mjs
 |---|---|---|
 | .ts/.mjs | 总行数 | — |
 | .vue | `<template>` + `<script>` 合并（`<style>` 出仓 .scss 不计） | — |
-| 任何文件 | > 300 行 | 警告（需拆分或说明理由） |
-| 任何文件 | ≥ 400 行 | **直接 fail** |
+| 任何文件 | > 250 行 | 警告（需拆分或说明理由） |
+| 任何文件 | ≥ 350 行 | **直接 fail** |
 
-目标区间是每文件 ≤200 行；>300 属"单一职责的内聚状态机"可解释范围（当前 3 个：market/source.ts 385、market/cache-store.ts 334、install/orchestrator.ts 372），P6 收尾评估是否再拆。
+目标区间是每文件 ≤200 行；>250 属"单一职责的内聚状态机"可解释范围（当前 2 个：node/installer/index.ts 325、client/shared/install/install-flow.ts 266），P6 收尾评估是否再拆。
 
 **依赖方向**：`src/core/**` 逐行检查——`from 'koishi'` 与 `from '@koishijs/*'`（`@koishijs/registry` 例外）只允许出现在 `import type` / `export type {` 行，运行时 import 一律 error。
 
@@ -94,7 +94,7 @@ node scripts/check-size.mjs
 3. **ESM 无 `__dirname`**：tsdown shims 默认关闭；用 `import.meta.url` + `fileURLToPath`。
 4. **宿主 `exports.development` 不生效**：宿主 dev 脚本无 `--conditions development`，loader 永远解析 `lib/node/index.js`——**一切宿主验证以先 `yarn build` 产出 lib/ 为前提**。
 5. **`install/logs/store.ts` 的 ANSI 清洗正则**带 `biome-ignore lint/suspicious/noControlCharactersInRegex` 注释，别删注释。
-6. **client prod 构建只探测 `style.css`**：vite.config.ts 的 lib 模式保证 CSS 产物名固定为 `style.css`，改动构建配置时必须保住这一点。
+6. **client prod 构建只探测 `style.css`**：`scripts/build-client.ts`（对齐 `@koishijs/client` 官方 `build()` 的编程式构建）保证 CSS 产物名固定为 `style.css`（`cssFileName` + `index.css` 改名兜底 + 产物校验），改动构建配置时必须保住这一点。
 
 ## 7. 阶段工作流
 

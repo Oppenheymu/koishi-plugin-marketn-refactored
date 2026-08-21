@@ -30,8 +30,8 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import BundleUninstall from '../../../../../dialogs/bundle-uninstall/index.vue'
-import BindingDialog from '../dialogs/binding-dialog.vue'
-import IgnoreDialog from '../dialogs/ignore-dialog.vue'
+import BindingDialog from '../../dialogs/binding-dialog.vue'
+import IgnoreDialog from '../../dialogs/ignore-dialog.vue'
   import { cardContextKey } from '../logic/use-card'
 
 const { card, props } = inject(cardContextKey)!

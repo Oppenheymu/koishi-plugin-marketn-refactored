@@ -64,7 +64,7 @@
 - market/locales 5 种语言不引入（已只复制 zh-CN/en-US）。
 
 ## 8. 自检
-每完成一个子目录，在仓库根跑：npx tsc --noEmit -p client/tsconfig.json（只看自己目录报错，其他目录未完成属正常）和 node scripts/check-size.mjs（看自己产出是否超限）。
+每完成一个子目录，在仓库根跑：npx tsc --noEmit -p client/tsconfig.json（只看自己目录报错，其他目录未完成属正常）和 node scripts/check-size.ts（看自己产出是否超限）。
 
 ## 9. 常见坑
 - 旧 components/package.vue 里「全局对话框样式(913-1068)」要随拆分归到对应对话框文件，不要丢。

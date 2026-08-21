@@ -88,6 +88,6 @@ client/
 ## 5. 变更纪律
 
 - 改 `client/` 内 import 路径后必须跑 `yarn build:client`：**tsc 不编译 .vue，.vue 的 import 错误只有 vite build 能抓**（历史踩坑，见 handover/P4交接P5.md §3）。
-- 门禁：`yarn ts7 --noEmit`、`yarn ts7 --noEmit -p client/tsconfig.json`、`yarn eslint "client/**/*.vue"`、`node scripts/check-size.mjs`、`yarn build:client`、`yarn test`。
+- 门禁：`yarn ts7 --noEmit`、`yarn ts7 --noEmit -p client/tsconfig.json`、`yarn eslint "client/**/*.vue"`、`node scripts/check-size.ts`、`yarn build:client`、`yarn test`。
 - biome 只查 `src/**`（见 biome.json files.includes），client 归 eslint 管。
 - 对外契约（页面 id/路径、action/menu id、slot 类型、`marketNext` i18n key、图标注册名、dist 产物 `style.css`）变更需先改 reference/前后端调用契约.md。

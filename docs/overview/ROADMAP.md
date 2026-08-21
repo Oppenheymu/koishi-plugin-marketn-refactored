@@ -18,7 +18,7 @@
 
 ### P0 基线 ✅
 
-工具链全就位：tsdown（node/shared 双入口 → `lib/`）、vite 8（client → `dist/`，对齐官方打包）、vitest 4、biome（src）+ eslint+vue-parser（client）、`scripts/check-size.mjs` 行数预算与依赖方向门禁。`yarn install` 通过。
+工具链全就位：tsdown（node/shared 双入口 → `lib/`）、vite 8（client → `dist/`，对齐官方打包）、vitest 4、biome（src）+ eslint+vue-parser（client）、`scripts/check-size.ts` 行数预算与依赖方向门禁。`yarn install` 通过。
 
 ### P1 shared 平移 ✅
 

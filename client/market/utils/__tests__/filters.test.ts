@@ -2,11 +2,11 @@ import type { SearchObject } from '@koishijs/registry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MarketSearchIndex } from '../search-index'
 
-vi.mock('../avatar/avatars', () => ({
+vi.mock('../../avatar/avatars', () => ({
   getUsers: vi.fn(() => []),
 }))
 
-vi.mock('./search-index', () => ({
+vi.mock('../search-index', () => ({
   getSearchIndex: vi.fn(() => { throw new Error('tests must pass config.index') }),
   getSimilarityByIndex: vi.fn(() => 0),
   normalizeFilterWords: (words: string[]) => words.map(word => word.trim().toLowerCase()).filter(Boolean),

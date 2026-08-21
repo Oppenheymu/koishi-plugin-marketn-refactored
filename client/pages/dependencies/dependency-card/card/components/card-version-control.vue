@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { inject } from 'vue'
-import { useMarketNextI18n } from '../../../../i18n'
+import { useMarketNextI18n } from '../../../../../i18n'
   import { cardContextKey } from '../logic/use-card'
 
 const { card } = inject(cardContextKey)!

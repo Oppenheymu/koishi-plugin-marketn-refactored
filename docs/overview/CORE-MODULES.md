@@ -4,7 +4,7 @@
 
 通用规则：
 
-- core 层禁 koishi 运行时 import（`scripts/check-size.mjs` 强制），I/O 一律构造注入。
+- core 层禁 koishi 运行时 import（`scripts/check-size.ts` 强制），I/O 一律构造注入。
 - 依赖方向单向向下：`environment`/`upload` 无内部依赖 → `deps`/`registry`/`racing` → `utils`；`install` 组合大部分模块；`market` 只依赖 `racing`/`utils`/`registry(manifest)`。
 - 注释中标注「成块移植自旧 Xxx」的文件，算法与旧代码等价，只换了外壳。
 

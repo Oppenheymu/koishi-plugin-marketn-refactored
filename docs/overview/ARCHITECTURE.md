@@ -75,7 +75,7 @@ node  ──► core ──► shared
 node  ──► shared
 ```
 
-- **core 禁 koishi**：`scripts/check-size.mjs` 的 `checkCoreImports` 逐行 grep 校验——`from 'koishi'` 与 `from '@koishijs/*'`（`@koishijs/registry` 例外，框架无关的领域扫描器）只允许出现在 `import type` 行。
+- **core 禁 koishi**：`scripts/check-size.ts` 的 `checkCoreImports` 逐行 grep 校验——`from 'koishi'` 与 `from '@koishijs/*'`（`@koishijs/registry` 例外，框架无关的领域扫描器）只允许出现在 `import type` 行。
 - **core 内部单向向下**：`environment`、`upload` 无内部依赖；`install` → `deps`/`registry`/`racing`/`environment`/`upload`；`market` → `racing`/`utils`/`registry(manifest)`；不允许反向。
 - **shared 零 I/O**（provider.ts 除外）。
 
