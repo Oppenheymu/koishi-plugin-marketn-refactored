@@ -7,7 +7,7 @@ import {
     reuseConfirmedDependencySource,
 } from "../../shared/dependency-source.js";
 import type { RequestScope } from "../racing/request-scope.js";
-import type { PackageCache } from "../registry/cache.js";
+import type { PackageCache } from "../registry/cache/index.js";
 import type { RegistryErrorDetail } from "../registry/errors.js";
 import {
     loadManifest,

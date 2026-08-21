@@ -5,9 +5,9 @@ import {
     type EnvironmentSnapshotSummary,
     summarizeEnvironmentSnapshot,
 } from "../environment/snapshot.js";
-import type { InstallOrchestrator } from "./orchestrator.js";
-import { formatDeps } from "./planner.js";
-import type { InstallQueue } from "./queue.js";
+import type { InstallOrchestrator } from "./pipeline/orchestrator.js";
+import { formatDeps } from "./pipeline/planner.js";
+import type { InstallQueue } from "./pipeline/queue.js";
 import type { InstallLogger, InstallOptions } from "./types.js";
 
 export interface EnvironmentSnapshotOpsDeps {

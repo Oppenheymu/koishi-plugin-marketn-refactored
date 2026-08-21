@@ -71,7 +71,7 @@
             }
         },
         {
-            "includes": ["src/node/locales-schema.ts"],
+            "includes": ["src/node/locales/schema.ts"],
             "linter": {
                 "rules": {
                     "style": {

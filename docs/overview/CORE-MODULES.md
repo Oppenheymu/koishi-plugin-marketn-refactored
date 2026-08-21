@@ -57,24 +57,24 @@ node 与 client 共用的类型与纯函数，包内以 `./shared` 入口单独�
 | `stats.ts` | 126 | `class RouteStatsBook`：端点学习统计（registry 与 market 字段超集）。`recordSuccess`（EWMA 0.7/0.3，失败数 ×0.6 衰减）、`recordFailure`、`get/reset`；`marketRouteCooldown(failures)` 冷却阶梯 60s→5m→30m→4h→12h。构造注入 `StatsPolicy`（两域各自提供策略） |
 | `score.ts` | 69 | `routeScore(endpointStats, options)`：成功率/历史分/EWMA 延迟/近期成功/连续失败加权；`registryFallbackDelay`。成块移植自旧 `getRegistryRouteScore`/`getRouteScore`（共用核心，差异走 `extraScore`） |
 
-**组装方式**：上层（registry/client、market/fetch-index）把四者拼成路由——scope 提供失效域 → stats 记录 → score 评估 → race 执行。
+**组装方式**：上层（registry/client/index、market/source/fetch-index）把四者拼成路由——scope 提供失效域 → stats 记录 → score 评估 → race 执行。
 
 **消费者**：registry（全部 4 文件）、market（6 文件）、install/orchestrator 与 deps/resolver（RequestScope 类型）。
 
 ## core/registry/
 
-npm registry 元数据访问完整栈。`client.ts` 是编排门面，其余文件是被组合的部件。
+npm registry 元数据访问完整栈。`client/index.ts` 是编排门面，其余文件是被组合的部件。
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `client.ts` | 283 | `class RegistryClient`：路由编排门面。公开 `formatError`/`resetEndpoint`/`restoreStats`/`scheduleStatsWrite`/`getRouteScore`/`getFallbackDelay`/`getInstallFallbackCandidate`/`getRouteScores`/`ensureMetadataEndpoint`/`getRegistry`/`retryEndpoints`/`fetchByRoute`/`setMetadataEndpoint`；构造时自建 `RouteProbe`。常量 `REGISTRY_FALLBACK_ENDPOINTS`（npmmirror/腾讯/华为/npmjs/cnpmjs 五镜像） |
-| `cache.ts` | 117 | `class PackageCache`：三层包版本缓存——`fullCache`（全量）/`tempCache`（增量广播用）+ `notFoundCache`（404 负缓存，5 分钟 TTL）+ `pkgTasks` 任务去重。`getPackage`/`setPackage`/`findVersion`/`flush`/`clear` |
-| `fetch.ts` | 175 | `fetchRegistryWithRetry(name, serial, host)`：重试主循环（旧 `Installer.getRegistry` 主体）——statusSink 置 loading → 路由探测预热 → 逐轮竞速（轮间 300ms×(retry+1)）→ 失败归因合并上抛。经 `RegistryFetchHost` 结构化接口反向解耦 |
-| `probe.ts` | 99 | `class RouteProbe`：每个后端生命周期一次的元数据路由探测（用一个探针包竞速全部候选端点，选出默认 `metadataEndpoint`），task 去重 |
-| `endpoints.ts` | 114 | 路由纯函数：候选生成/按分排序/元数据端点降级判定（所选端点连续失败 ≥2 且分数差 >1 时回退主端点）/安装备用源推荐 `installFallbackCandidate` |
+| `client/index.ts` | 283 | `class RegistryClient`：路由编排门面。公开 `formatError`/`resetEndpoint`/`restoreStats`/`scheduleStatsWrite`/`getRouteScore`/`getFallbackDelay`/`getInstallFallbackCandidate`/`getRouteScores`/`ensureMetadataEndpoint`/`getRegistry`/`retryEndpoints`/`fetchByRoute`/`setMetadataEndpoint`；构造时自建 `RouteProbe`。常量 `REGISTRY_FALLBACK_ENDPOINTS`（npmmirror/腾讯/华为/npmjs/cnpmjs 五镜像） |
+| `cache/index.ts` | 117 | `class PackageCache`：三层包版本缓存——`fullCache`（全量）/`tempCache`（增量广播用）+ `notFoundCache`（404 负缓存，5 分钟 TTL）+ `pkgTasks` 任务去重。`getPackage`/`setPackage`/`findVersion`/`flush`/`clear` |
+| `client/fetch.ts` | 175 | `fetchRegistryWithRetry(name, serial, host)`：重试主循环（旧 `Installer.getRegistry` 主体）——statusSink 置 loading → 路由探测预热 → 逐轮竞速（轮间 300ms×(retry+1)）→ 失败归因合并上抛。经 `RegistryFetchHost` 结构化接口反向解耦 |
+| `client/probe.ts` | 99 | `class RouteProbe`：每个后端生命周期一次的元数据路由探测（用一个探针包竞速全部候选端点，选出默认 `metadataEndpoint`），task 去重 |
+| `client/endpoints.ts` | 114 | 路由纯函数：候选生成/按分排序/元数据端点降级判定（所选端点连续失败 ≥2 且分数差 >1 时回退主端点）/安装备用源推荐 `installFallbackCandidate` |
 | `errors.ts` | 104 | 错误归因：任意异常 → `{reason, error}`（404→not-found、超时→timeout、ENOTFOUND→network、坏数据→invalid）；差异化扣分（not-found 0.4 / invalid 0.8 / http 1.2 / timeout·network 1.8）；多轮失败原因合并 |
 | `manifest.ts` | 115 | `@koishijs/registry` Scanner 封装 + `loadManifest`（本地 package.json，`$workspace` 标记）+ `getVersions`（semver 降序 peer 摘要）+ `pickMetadataProbe` + `resolvePluginName`（短名双候选）+ `filterCompatibleVersions`（koishi satisfies "4"） |
-| `stats-file.ts` | 78 | 路由学习数据磁盘序列化/恢复（写盘分数收敛 [-6,3]；恢复 30 天 TTL） |
+| `cache/stats-file.ts` | 78 | 路由学习数据磁盘序列化/恢复（写盘分数收敛 [-6,3]；恢复 30 天 TTL） |
 
 **RegistryClient 构造 deps**（P3 接线对照）：
 
@@ -94,19 +94,19 @@ npm registry 元数据访问完整栈。`client.ts` 是编排门面，其余文�
 
 ## core/market/
 
-市场索引源。`source.ts` 是门面，从旧 `node/MarketProvider` 剥离 DataService 壳后的主体。
+市场索引源。`source/index.ts` 是门面，从旧 `node/MarketProvider` 剥离 DataService 壳后的主体。
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `source.ts` | 385 | `class MarketIndexSource`：状态 + 拉取编排 + collect + start。公开 `collect()`/`start(refresh)`/`getSnapshot()`/`fetchAndApply`/`applyIndex`/`probeInBackground`/`warmDiskCache`/`flushPatch`/`scoreContext` 等；持有 `scope`/`stats`/`cache`/`scanner`/`background` |
-| `background.ts` | 116 | `class MarketBackgroundRefresher`：refresh/probe 后台编排（refreshInBackground / probeInBackground） |
-| `cache-store.ts` | 334 | `class MarketDiskCache`：磁盘缓存 v3 拆分布局（`MAX_CACHE_ENTRIES=3`，TTL 30 天）+ 路由统计共储 + 原子写 + legacy 内联缓存迁移 |
-| `fetch-index.ts` | 126 | `fetchMarketIndex(deps, serial)`：活跃端点竞速（`ROUTE_STAGGER=80ms`，`FAST_ROUTE_THRESHOLD=500ms`），全败后启用冷却端点救援 |
-| `fetch-endpoint.ts` | 182 | `fetchMarketEndpoint`：单端点条件请求（etag/last-modified → 304 复用）→ 内容哈希比对复用 → 解析 |
-| `endpoints.ts` | 106 | 默认端点 `https://registry.koishi.t4wefan.pub/index.json` + `FALLBACK_ENDPOINTS`（11 镜像）；市场评分（缓存新鲜度 + 压缩编码加分）/冷却判定/竞速与救援候选 |
+| `source/index.ts` | 385 | `class MarketIndexSource`：状态 + 拉取编排 + collect + start。公开 `collect()`/`start(refresh)`/`getSnapshot()`/`fetchAndApply`/`applyIndex`/`probeInBackground`/`warmDiskCache`/`flushPatch`/`scoreContext` 等；持有 `scope`/`stats`/`cache`/`scanner`/`background` |
+| `source/background.ts` | 116 | `class MarketBackgroundRefresher`：refresh/probe 后台编排（refreshInBackground / probeInBackground） |
+| `cache/index.ts` | 334 | `class MarketDiskCache`：磁盘缓存 v3 拆分布局（`MAX_CACHE_ENTRIES=3`，TTL 30 天）+ 路由统计共储 + 原子写 + legacy 内联缓存迁移 |
+| `source/fetch-index.ts` | 126 | `fetchMarketIndex(deps, serial)`：活跃端点竞速（`ROUTE_STAGGER=80ms`，`FAST_ROUTE_THRESHOLD=500ms`），全败后启用冷却端点救援 |
+| `source/fetch-endpoint.ts` | 182 | `fetchMarketEndpoint`：单端点条件请求（etag/last-modified → 304 复用）→ 内容哈希比对复用 → 解析 |
+| `source/endpoints.ts` | 106 | 默认端点 `https://registry.koishi.t4wefan.pub/index.json` + `FALLBACK_ENDPOINTS`（11 镜像）；市场评分（缓存新鲜度 + 压缩编码加分）/冷却判定/竞速与救援候选 |
 | `snapshot.ts` | 203 | `buildMarketSnapshot(host)`：getSnapshot 组装——后台任务复用 → 缓存 payload → 磁盘预热等待 → 首次网络限时 1500ms → 错误降级 |
-| `source-host.ts` | 69 | `createSourceSnapshotHost(source)`（把 source 适配为 SnapshotHost）+ `performanceFrom(result, objects)` |
-| `normalize.ts` | 98 | 磁盘缓存归一化 + legacy 检测（触发迁移） |
+| `source/host.ts` | 69 | `createSourceSnapshotHost(source)`（把 source 适配为 SnapshotHost）+ `performanceFrom(result, objects)` |
+| `cache/normalize.ts` | 98 | 磁盘缓存归一化 + legacy 检测（触发迁移） |
 | `format.ts` | 57 | 快照/评分/缓存条目的单行日志格式化 |
 | `types.ts` | 59 | `EndpointResult`、`CacheEntry`（v3 条目）、`CacheStore`（version 3）等 |
 
@@ -135,18 +135,18 @@ npm registry 元数据访问完整栈。`client.ts` 是编排门面，其余文�
 
 ## core/install/
 
-安装域。`orchestrator.ts` 是核心，组合 queue/runner/planner/manifest-restore/logs 并横向联动 deps/registry/environment/upload。
+安装域。`pipeline/orchestrator.ts` 是核心，组合 queue/runner/planner/manifest-restore/logs 并横向联动 deps/registry/environment/upload。
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `orchestrator.ts` | 372 | `class InstallOrchestrator`：安装编排状态机。公开 `install`/`installLocked`/`refreshDependencyState`/`captureCurrentEnvironmentSnapshot`/`recordCurrentEnvironmentSnapshot`/`isInstalling`。主流程见下节 |
-| `queue.ts` | 33 | `class InstallQueue`：串行锁（`withLock(description, callback)`），同一时刻只允许一个安装/环境恢复在跑 |
-| `runner.ts` | 134 | `runPackageManager(args, deps)`：execa v10 适配——`execa(name, args, { cwd, reject: false })` + stdout/stderr 流式逐行转发（yarn berry `--json` 走 exec-parse）；agent 信息需外部 `await detect()` 后注入（修复旧代码未 await 的 bug） |
-| `exec-parse.ts` | 18 | `yarnLogLevel(type)`：yarn berry --json 日志类型 → logger 级别 |
-| `planner.ts` | 67 | 纯函数：`formatDeps`/`createInstallHistoryChanges`/`requiresPackageManager`（判定是否需要真的跑包管理器） |
-| `manifest-restore.ts` | 98 | package.json 快照/合并覆写/失败回滚/写盘；`resolveLocalDeps`（本地依赖状态解析） |
+| `pipeline/orchestrator.ts` | 372 | `class InstallOrchestrator`：安装编排状态机。公开 `install`/`installLocked`/`refreshDependencyState`/`captureCurrentEnvironmentSnapshot`/`recordCurrentEnvironmentSnapshot`/`isInstalling`。主流程见下节 |
+| `pipeline/queue.ts` | 33 | `class InstallQueue`：串行锁（`withLock(description, callback)`），同一时刻只允许一个安装/环境恢复在跑 |
+| `pipeline/runner.ts` | 134 | `runPackageManager(args, deps)`：execa v10 适配——`execa(name, args, { cwd, reject: false })` + stdout/stderr 流式逐行转发（yarn berry `--json` 走 exec-parse）；agent 信息需外部 `await detect()` 后注入（修复旧代码未 await 的 bug） |
+| `pipeline/exec-parse.ts` | 18 | `yarnLogLevel(type)`：yarn berry --json 日志类型 → logger 级别 |
+| `pipeline/planner.ts` | 67 | 纯函数：`formatDeps`/`createInstallHistoryChanges`/`requiresPackageManager`（判定是否需要真的跑包管理器） |
+| `sources/manifest-restore.ts` | 98 | package.json 快照/合并覆写/失败回滚/写盘；`resolveLocalDeps`（本地依赖状态解析） |
 | `environment.ts` | 78 | `class EnvironmentSnapshotOps`：环境快照列表/预览/恢复入口（复用 orchestrator 的 capture 与 installLocked） |
-| `upload.ts` | 210 | `class LocalPackageUploadService`：本地上传会话门面（start/append/finish/commit/cancel）+ `prepareLocalBinding`（npm pack --ignore-scripts + sha256 文件名 + 路径校验） |
+| `sources/upload.ts` | 210 | `class LocalPackageUploadService`：本地上传会话门面（start/append/finish/commit/cancel）+ `prepareLocalBinding`（npm pack --ignore-scripts + sha256 文件名 + 路径校验） |
 | `types.ts` | 63 | `InstallLogger`、`InstallOptions`、`InstallHistory*`、`InstallLogDetail`、`LocalBindingResult` 等 |
 | `logs/store.ts` | — | `class InstallLogStore`：单次安装会话日志写盘（时间戳+流标记、ANSI 清洗 `sanitizeInstallLogText`、广播、`.log.json` 元数据、waitForWrite） |
 | `logs/reader.ts` | — | `getInstallHistory(limit, deps)` / `getInstallLogDetail(id, deps)`：元数据优先，回退 legacy 正则解析，大文件头尾截断（head 8KiB / tail 32KiB / 详情上限 512KiB） |
@@ -168,7 +168,7 @@ manifest 快照 → 环境快照(前,容错) → 日志启动(容错) → 必要
 
 ## core/upload/
 
-本地包上传域（被 `install/upload.ts` 消费）。
+本地包上传域（被 `install/sources/upload.ts` 消费）。
 
 | 文件 | 行数 | 职责 |
 |---|---|---|

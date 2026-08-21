@@ -14,12 +14,12 @@ import {
 import { activeBundle } from '../../lib/dialogs'
 import { getBundleMemberConfigState } from '../../lib/bundle-records'
 import { installProgressState, prepareInstallFallbackRetry, resetInstallFallbackState, type InstallOptions } from '../../lib/install-flow'
-import { resolveCategory } from '../../market/utils'
 import { satisfies } from 'semver'
 import { getFrontendMode } from '../../lib/market-config'
 import { useMarketNextI18n } from '../../i18n'
-import { getMarketObject, loadMarketObjects } from '../../market/state'
+import { loadMarketObjects } from '../../market/state'
 import { useMemberInfo } from './member-info'
+import { formatInstallError, formatShortname, memberCategory, reportInstallError } from './helpers'
 
 export function useBundleInstall() {
   const loading = ref(false)
@@ -55,21 +55,6 @@ export function useBundleInstall() {
   function toggleAllOptional() {
     const target = !allOptionalSelected.value
     for (const m of optionalMembers.value) m.selected = target
-  }
-
-  function memberCategory(name: string) {
-    const data = getMarketObject(name)
-    return resolveCategory(data?.category)
-  }
-
-  function formatShortname(name: string) {
-    const shortname = getMarketObject(name)?.shortname
-    if (shortname && shortname !== name) return shortname
-    if (name.startsWith('@koishijs/plugin-')) return name.slice('@koishijs/plugin-'.length)
-    if (name.startsWith('koishi-plugin-')) return name.slice('koishi-plugin-'.length)
-    const scoped = name.match(/^@([^/]+)\/koishi-plugin-(.+)$/)
-    if (scoped) return `@${scoped[1]}/${scoped[2]}`
-    return name
   }
 
   const installList = computed(() => {
@@ -273,12 +258,12 @@ export function useBundleInstall() {
         const result = await Promise.race([task ?? Promise.resolve(undefined), disconnected])
         if (disconnectedBeforeResponse) {
           installProgressState.status = 'error'
-          reportInstallError(t('bundle.messages.disconnected'))
+          reportInstallError(t, t('bundle.messages.disconnected'))
           return undefined
         }
         if (result?.code) {
           installProgressState.status = 'error'
-          reportInstallError(t('bundle.messages.exitCode', { code: result.code }))
+          reportInstallError(t, t('bundle.messages.exitCode', { code: result.code }))
           await prepareInstallFallbackRetry(runInstall, options?.installEndpoint)
           return result.code
         }
@@ -300,28 +285,8 @@ export function useBundleInstall() {
     } catch (err) {
       console.error(err)
       installProgressState.status = 'error'
-      reportInstallError(formatInstallError(err))
+      reportInstallError(t, formatInstallError(t, err))
     }
-  }
-
-  function reportInstallError(detail: string) {
-    const text = detail || t('bundle.messages.unknownError')
-    installProgressState.logs.push({
-      type: 'stderr',
-      line: t('bundle.messages.installFailed', { detail: text }),
-    })
-    message.error(t('bundle.messages.installFailed', { detail: text }))
-  }
-
-  function formatInstallError(error: unknown) {
-    if (error instanceof Error) return error.message
-    if (typeof error === 'string') return error
-    if (error && typeof error === 'object') {
-      const value = error as any
-      if (typeof value.message === 'string') return value.message
-      if (typeof value.error === 'string') return value.error
-    }
-    return String(error || t('bundle.messages.unknownError'))
   }
 
   return {

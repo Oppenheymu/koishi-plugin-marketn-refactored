@@ -91,7 +91,7 @@ node  ──► shared
 
 registry 侧另有 5 个 npm 镜像 fallback（npmmirror/腾讯/华为/npmjs/cnpmjs），市场侧 11 个索引镜像。路由统计数据持久化到 `cache/market-next-registry-stats.json`（30 天 TTL 恢复）。
 
-### 4.2 安装编排（install/orchestrator.ts）
+### 4.2 安装编排（install/pipeline/orchestrator.ts）
 
 `_installLocked` 主流程（P2 已移植，算法未改）：
 

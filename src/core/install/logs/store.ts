@@ -1,7 +1,7 @@
 import { promises as fsp } from "node:fs";
 import { basename, resolve } from "node:path";
 import type { Dict } from "koishi";
-import { formatDeps } from "../planner.js";
+import { formatDeps } from "../pipeline/planner.js";
 import type {
     InstallHistoryChange,
     InstallHistoryMetadata,

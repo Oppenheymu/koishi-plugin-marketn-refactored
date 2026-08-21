@@ -55,12 +55,12 @@ import { getLatestVersion } from '../../lib/update-policy'
 import { showConfirm } from '../../lib/dialogs'
 import { addManual } from '../../lib/analyze-versions'
 import { loadMarketObjects } from '../../market/state'
-import ManualInstall from '../../dialogs/manual.vue'
-import Toolbar from './toolbar.vue'
-import GroupSection from './group-section.vue'
-import { useClassify } from './useClassify'
-import type { FilterKey } from './useClassify'
-import { useGroups } from './use-groups'
+import ManualInstall from '../../dialogs/manual/index.vue'
+import Toolbar from './toolbar/index.vue'
+import GroupSection from './group-section/index.vue'
+import { useClassify } from './composables/useClassify'
+import type { FilterKey } from './composables/useClassify'
+import { useGroups } from './composables/use-groups'
 
 const config = useConfig()
 const ctx = useContext()

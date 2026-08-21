@@ -34,21 +34,25 @@ import {
     type AvatarFetchResult,
     cleanupAvatarCaches,
     clearAvatarMemoryCache,
-} from "./avatar.js";
-import { registerCommands } from "./commands.js";
-import type { Config } from "./config.js";
+} from "./avatar/index.js";
+import type { Config } from "./config/index.js";
 import {
     ensureInstalledPluginConfigs,
     ensureMarketNextConfigDefaults,
     removeLegacyCollapsedGroupsConfig,
-} from "./config-manage.js";
-import { MarketDataStore, type MarketDataStorePayload } from "./data-store.js";
-import { setupIdleProbe } from "./idle-probe.js";
-import { Installer } from "./installer.service.js";
-import { registerListeners } from "./listeners.js";
-import { MarketProvider } from "./market.service.js";
-import { DependencyProvider, RegistryProvider, RegistryStatusProvider } from "./providers.js";
-import { MarketSnapshotTransport } from "./snapshot-transport.js";
+} from "./config/manage.js";
+import { registerCommands } from "./console/commands.js";
+import { registerListeners } from "./console/listeners.js";
+import {
+    DependencyProvider,
+    RegistryProvider,
+    RegistryStatusProvider,
+} from "./console/providers.js";
+import { Installer } from "./installer/index.js";
+import { MarketDataStore, type MarketDataStorePayload } from "./market/data-store.js";
+import { setupIdleProbe } from "./market/idle-probe.js";
+import { MarketProvider } from "./market/index.js";
+import { MarketSnapshotTransport } from "./market/snapshot-transport.js";
 
 export type {
     EnvironmentChangeStatus,
@@ -78,8 +82,8 @@ export type {
     LocalPackageUploadStartResult,
 } from "../core/upload/types.js";
 export * from "../shared/index.js";
-export { Config } from "./config.js";
-export { Installer } from "./installer.service.js";
+export { Config } from "./config/index.js";
+export { Installer } from "./installer/index.js";
 
 declare module "koishi" {
     interface Context {

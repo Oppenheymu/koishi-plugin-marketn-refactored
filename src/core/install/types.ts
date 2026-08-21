@@ -1,11 +1,11 @@
 import type { DependencyResolver } from "../deps/resolver.js";
 import type { EnvironmentSnapshotStore } from "../environment/snapshot.js";
 import type { RequestScope } from "../racing/request-scope.js";
-import type { PackageCache } from "../registry/cache.js";
-import type { RegistryClient } from "../registry/client.js";
+import type { PackageCache } from "../registry/cache/index.js";
+import type { RegistryClient } from "../registry/client/index.js";
 import type { InstallLogStore } from "./logs/store.js";
-import type { InstallQueue } from "./queue.js";
-import type { PackageManagerAgent } from "./runner.js";
+import type { InstallQueue } from "./pipeline/queue.js";
+import type { PackageManagerAgent } from "./pipeline/runner.js";
 
 export interface InstallLogger {
     debug(message: string): void;
