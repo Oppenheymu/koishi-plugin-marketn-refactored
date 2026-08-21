@@ -202,25 +202,23 @@ export class Installer extends Service {
     }
 
     getInstallHistory(limit = 20) {
-        return getInstallHistory(limit, {
-            cwd: this.cwd,
-            log: this.log,
-            activeFile: () => this.logs.activeFile,
-            waitForWrite: () => this.logs.waitForWrite(),
-            cleanup: () =>
-                this.retention.cleanup(this.logs.activeFile, this.logs.activeMetadataFile),
-        });
+        return getInstallHistory(limit, this.getInstallLogReaderDeps());
     }
 
     getInstallLogDetail(id: string) {
-        return getInstallLogDetail(id, {
+        return getInstallLogDetail(id, this.getInstallLogReaderDeps());
+    }
+
+    /** 历史与详情必须共享活动日志状态，避免读取未完成的安装文件。 */
+    private getInstallLogReaderDeps() {
+        return {
             cwd: this.cwd,
             log: this.log,
             activeFile: () => this.logs.activeFile,
             waitForWrite: () => this.logs.waitForWrite(),
             cleanup: () =>
                 this.retention.cleanup(this.logs.activeFile, this.logs.activeMetadataFile),
-        });
+        };
     }
 
     getEnvironmentSnapshots() {
