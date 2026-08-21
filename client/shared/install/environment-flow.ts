@@ -1,4 +1,4 @@
-import { message, send } from '@koishijs/client'
+import { message } from '@koishijs/client'
 import { translate } from '../../i18n'
 import { showEnvironmentVersions } from '../ui/dialogs'
 import {
@@ -10,6 +10,7 @@ import {
   reportInstallRequestError,
   resetInstallFallbackState,
 } from './install-flow'
+import { requestEnvironmentSnapshotApply } from '../../market/api'
 
 /** 环境快照恢复流程：market/environment-snapshot-apply + 断线/回退端点处理。 */
 export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
@@ -31,7 +32,7 @@ export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
       }
     }, 8000)
     try {
-      const task = send('market/environment-snapshot-apply', id, options ?? {}) ?? Promise.resolve(1)
+      const task = requestEnvironmentSnapshotApply(id, options ?? {}) ?? Promise.resolve(1)
       const code = await Promise.race([task, tracker.disconnected])
       if (tracker.disconnectedBeforeResponse && !selfUpdate) {
         installProgressState.status = 'error'

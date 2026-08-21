@@ -38,3 +38,10 @@ export function requestInstallFallbackCandidate(failedEndpoint?: string) {
 export function requestEnsureConfig(name: string) {
     return send("market/ensure-config", name);
 }
+
+export function requestEnvironmentSnapshotApply(
+    id: string,
+    options: { installEndpoint?: string },
+) {
+    return send("market/environment-snapshot-apply", id, options);
+}
