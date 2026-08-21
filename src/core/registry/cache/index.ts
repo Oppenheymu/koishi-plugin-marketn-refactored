@@ -46,17 +46,17 @@ export class PackageCache {
     }
 
     setPackage(name: string, versions: RemotePackage[]) {
+        delete this.notFoundCache[name];
         this.fullCache[name] = this.tempCache[name] = getVersions(versions);
         this.flush();
         this.pkgTasks[name] = Promise.resolve(this.fullCache[name]);
     }
 
     getPackage(name: string) {
-        const notFoundAt = this.notFoundCache[name];
-        if (notFoundAt && Date.now() - notFoundAt < NOT_FOUND_CACHE_TTL) {
+        if (this.isNotFoundCached(name)) {
             return Promise.resolve(undefined);
         }
-        if (notFoundAt) delete this.notFoundCache[name];
+        delete this.notFoundCache[name];
         if (!this.pkgTasks[name]) {
             const task = this._getPackage(name, this.deps.scope.current);
             this.pkgTasks[name] = task;
@@ -97,6 +97,7 @@ export class PackageCache {
 
     clear() {
         this.pkgTasks = {};
+        this.notFoundCache = {};
         this.fullCache = {};
         this.tempCache = {};
     }
@@ -106,6 +107,7 @@ export class PackageCache {
             const registry = await this.deps.client.getRegistry(name, serial);
             if (this.deps.scope.isStale(serial)) return undefined;
             if (!registry) return undefined;
+            delete this.notFoundCache[name];
             this.fullCache[name] = this.tempCache[name] = filterCompatibleVersions(name, registry);
             this.flush();
             return this.fullCache[name];
