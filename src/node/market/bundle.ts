@@ -18,6 +18,7 @@ import {
 } from "../../shared/bundle.js";
 import { getPluginShortname } from "../../shared/bundle-idents.js";
 import type { PluginConfigMap } from "../config/plugins-map.js";
+import { INSTALL_REFRESH_CHANNELS, refreshConsole } from "../console/refresh.js";
 import {
     type BundleConfigWriter,
     createBundleConfigWriter,
@@ -221,12 +222,7 @@ export async function installBundle(
         await writer.write();
     }
 
-    await Promise.all([
-        ctx.get("console")?.refresh("dependencies"),
-        ctx.get("console")?.refresh("registry"),
-        ctx.get("console")?.refresh("packages"),
-        ctx.get("console")?.refresh("config"),
-    ]);
+    await refreshConsole(ctx, INSTALL_REFRESH_CHANNELS);
     const record = buildBundleRecord(request, manifest, selected, beforeDeps, code, writer);
     if (record) await dataStore.setBundleRecord(record);
     return {

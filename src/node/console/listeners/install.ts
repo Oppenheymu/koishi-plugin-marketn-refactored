@@ -4,13 +4,11 @@ import { SELF_PACKAGE } from "../../installer/index.js";
 import { installBundle } from "../../market/bundle.js";
 import type { MarketDataStore } from "../../market/data-store.js";
 import { assertContract } from "../contracts.js";
+import { INSTALL_REFRESH_CHANNELS } from "../refresh.js";
 import { refreshConsole, registerContractListener } from "./helpers.js";
 
 /** 安装类 listener：market/install 主流程、套装安装与安装历史/回退端点查询。 */
 export function registerInstallListeners(ctx: Context, dataStore: MarketDataStore) {
-    const refreshFour = () =>
-        refreshConsole(ctx, ["dependencies", "registry", "packages", "config"]);
-
     ctx.console.addListener(
         "market/install",
         async (deps, forced, options) => {
@@ -29,7 +27,7 @@ export function registerInstallListeners(ctx: Context, dataStore: MarketDataStor
             if (!code) {
                 await ensurePluginConfigs(ctx, installNames);
             }
-            await refreshFour();
+            await refreshConsole(ctx, INSTALL_REFRESH_CHANNELS);
             return code;
         },
         { authority: 4 },

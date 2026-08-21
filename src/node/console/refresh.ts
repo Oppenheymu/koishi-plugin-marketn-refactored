@@ -8,6 +8,8 @@ export type ConsoleRefreshChannel =
     | "config"
     | "market";
 
+export const INSTALL_REFRESH_CHANNELS = ["dependencies", "registry", "packages", "config"] as const;
+
 export function refreshConsole(ctx: Context, channels: readonly ConsoleRefreshChannel[]) {
     return Promise.all(channels.map((channel) => ctx.get("console")?.refresh(channel)));
 }
