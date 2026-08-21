@@ -73,7 +73,7 @@ import type { BundleRecordView } from '../lib/bundle-records'
 import { getConfigWriter } from '../lib/config-writer'
 import { install } from '../lib/install-flow'
 import { pendingBundleUninstalls } from '../lib/dialogs'
-import BundleUninstall from '../dialogs/bundle-uninstall'
+import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../i18n'
 import { getMarketObject, loadMarketObjects } from '../market/state'
 

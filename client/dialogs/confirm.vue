@@ -45,12 +45,12 @@
 
 import { computed, ref } from 'vue'
 import { message, send, store, useContext } from '@koishijs/client'
-import { ensureInstalledConfigs, getConfigWriter } from '../../lib/config-writer'
-import { pendingBundleUninstalls, showConfirm } from '../../lib/dialogs'
-import { getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../lib/data-store'
-import { install, MARKET_NEXT_PACKAGE } from '../../lib/install-flow'
-import { getFrontendMode, getRemoveConfig } from '../../lib/market-config'
-import { useMarketNextI18n } from '../../i18n'
+import { ensureInstalledConfigs, getConfigWriter } from '../lib/config-writer'
+import { pendingBundleUninstalls, showConfirm } from '../lib/dialogs'
+import { getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../lib/data-store'
+import { install, MARKET_NEXT_PACKAGE } from '../lib/install-flow'
+import { getFrontendMode, getRemoveConfig } from '../lib/market-config'
+import { useMarketNextI18n } from '../i18n'
 
 const ctx = useContext()
 const { t } = useMarketNextI18n()

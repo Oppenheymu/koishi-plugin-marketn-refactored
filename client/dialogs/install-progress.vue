@@ -75,10 +75,10 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { getFrontendMode } from '../../lib/market-config'
-import { installProgressState } from '../../lib/install-flow'
-import { useMarketNextI18n } from '../../i18n'
-import MarketIcon from '../../market/icons'
+import { getFrontendMode } from '../lib/market-config'
+import { installProgressState } from '../lib/install-flow'
+import { useMarketNextI18n } from '../i18n'
+import MarketIcon from '../market/icons'
 
 const { t } = useMarketNextI18n()
 const frontendMode = computed(() => getFrontendMode())

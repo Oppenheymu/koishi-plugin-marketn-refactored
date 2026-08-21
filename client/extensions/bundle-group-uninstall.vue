@@ -19,7 +19,7 @@ import {
 import type { BundleRecordView } from '../lib/bundle-records'
 import { getBundleRecords } from '../lib/data-store'
 import { bundleGroupUninstallTarget } from './bundle-group-uninstall'
-import BundleUninstall from '../dialogs/bundle-uninstall'
+import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../i18n'
 
 const { t } = useMarketNextI18n()

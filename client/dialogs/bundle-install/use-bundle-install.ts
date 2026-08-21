@@ -19,6 +19,7 @@ import { satisfies } from 'semver'
 import { getFrontendMode } from '../../lib/market-config'
 import { useMarketNextI18n } from '../../i18n'
 import { getMarketObject, loadMarketObjects } from '../../market/state'
+import { useMemberInfo } from './member-info'
 
 export function useBundleInstall() {
   const loading = ref(false)
@@ -30,6 +31,7 @@ export function useBundleInstall() {
   const members = reactive<BundleInstallMember[]>([])
   const ctx = useContext()
   const { t, locale } = useMarketNextI18n()
+  const memberInfoHelpers = useMemberInfo({ t, locale })
 
   const frontendMode = computed(() => getFrontendMode())
   const modeClass = computed(() => `market-mode-${frontendMode.value}`)
@@ -181,61 +183,16 @@ export function useBundleInstall() {
     }
   }, { immediate: true })
 
-  function memberInfo(name: string) {
-    return getMarketObject(name)
-  }
-
-  function getPackageDescription(name: string) {
-    const data = memberInfo(name)
-    const description = data?.manifest?.description || data?.package?.description
-    if (typeof description === 'string') return description
-    if (description && typeof description === 'object') {
-      const preferred = locale.value.toLowerCase().startsWith('zh')
-        ? ['zh-CN', 'zh', 'en-US', 'en']
-        : ['en-US', 'en', 'zh-CN', 'zh']
-      for (const key of preferred) {
-        const text = description[key]
-        if (text) return text
-      }
-      return Object.values(description).find(Boolean)
-    }
-  }
-
-  function getInstalledText(name: string) {
-    const dep = store.dependencies?.[name]
-    if (dep?.resolved) return t('bundle.members.installed', { version: dep.resolved })
-    if (store.packages?.[name]) return t('bundle.members.loaded', { version: store.packages[name].package.version })
-    return t('bundle.members.notInstalled')
-  }
-
-  function versionMeta(member: BundleInstallMember) {
-    return store.registry?.[member.package]?.[member.version]
-  }
-
-  function riskTags(member: BundleInstallMember) {
-    const data = memberInfo(member.package)
-    const tags: Array<{ label: string, type: string }> = []
-    if (!data) tags.push({ label: t('bundle.members.marketMissing'), type: 'warning' })
-    if (data?.verified) tags.push({ label: t('bundle.members.verified'), type: 'success' })
-    if (data?.insecure) tags.push({ label: t('bundle.members.insecure'), type: 'danger' })
-    if ((data as any)?.deprecated || versionMeta(member)?.deprecated) tags.push({ label: t('bundle.members.deprecated'), type: 'danger' })
-    if (data?.manifest?.preview) tags.push({ label: t('bundle.members.preview'), type: 'warning' })
-    if (data?.portable) tags.push({ label: t('bundle.members.portable'), type: 'info' })
-    if (hasPreset(member)) tags.push({ label: t('bundle.members.hasPreset'), type: 'warning' })
-    return tags
-  }
-
-  function hasPreset(member: BundleInstallMember) {
-    return !!member.config && Object.keys(member.config).length > 0
-  }
-
-  function sensitiveFields(member: BundleInstallMember) {
-    return scanSensitiveConfig(member.config)
-  }
-
-  function formatConfig(value: unknown) {
-    return JSON.stringify(value ?? {}, null, 2)
-  }
+  const {
+    memberInfo,
+    getPackageDescription,
+    getInstalledText,
+    versionMeta,
+    riskTags,
+    hasPreset,
+    sensitiveFields,
+    formatConfig,
+  } = memberInfoHelpers
 
   function toggleMember(member: BundleInstallMember) {
     member.selected = !member.selected
