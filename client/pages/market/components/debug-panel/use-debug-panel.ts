@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
-import { store } from '@koishijs/client'
 import { useMarketNextI18n } from '../../../../i18n'
+import { marketSnapshot } from '../../../../market/state'
 
 export interface ClientDebug {
   timings?: Record<string, number>
@@ -37,18 +37,18 @@ export function useDebugPanel(clientDebug: ClientDebug): DebugPanelContext {
   const { t, locale } = useMarketNextI18n()
 
   const performanceText = computed(() => {
-    const debug = store.market?.debug
+    const debug = marketSnapshot.value?.debug
     return t('marketPage.debug.performance', {
       source: formatSource(debug?.source),
-      endpoint: debug?.endpoint || store.market?.registry || t('marketPage.registry.unknown'),
+      endpoint: debug?.endpoint || marketSnapshot.value?.registry || t('marketPage.registry.unknown'),
     })
   })
 
   const debugItems = computed(() => {
-    const debug = store.market?.debug
+    const debug = marketSnapshot.value?.debug
     if (!debug) return []
     return [
-      [t('marketPage.debug.objectCount'), formatNumber(debug.objects ?? store.market?.total)],
+      [t('marketPage.debug.objectCount'), formatNumber(debug.objects ?? marketSnapshot.value?.total)],
       [t('marketPage.debug.decodedSize'), formatSize(debug.size)],
       [t('marketPage.debug.wireSize'), formatSize(debug.wireSize)],
       [t('marketPage.debug.encoding'), formatEncoding(debug.contentEncoding)],
@@ -69,14 +69,14 @@ export function useDebugPanel(clientDebug: ClientDebug): DebugPanelContext {
   const debugTimings = computed(() => {
     return Object
       .entries({
-        ...(store.market?.debug?.timings ?? {}),
+        ...(marketSnapshot.value?.debug?.timings ?? {}),
         ...(clientDebug.timings ?? {}),
       })
       .filter(([, value]) => typeof value === 'number')
   })
 
   const debugPhases = computed(() => {
-    const debug = store.market?.debug
+    const debug = marketSnapshot.value?.debug
     if (!debug) return []
     return [
       [t('marketPage.debug.initial'), debug.initial],
@@ -87,7 +87,7 @@ export function useDebugPanel(clientDebug: ClientDebug): DebugPanelContext {
     }))
   })
 
-  const debugRoutes = computed(() => store.market?.debug?.routeScores?.slice(0, 6) ?? [])
+  const debugRoutes = computed(() => marketSnapshot.value?.debug?.routeScores?.slice(0, 6) ?? [])
 
   function formatTime(value: number) {
     return new Date(value).toLocaleString(locale.value)
