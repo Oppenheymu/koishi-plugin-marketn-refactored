@@ -85,32 +85,25 @@ export class MarketDiskCache {
         applied: CacheFile | undefined;
         shouldMigrate: boolean;
     }> {
-        let content: string;
-        try {
-            content = await fsp.readFile(this.deps.cacheFile, "utf8");
-        } catch (error) {
-            if ((error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT") {
-                this.deps.log.warn(`failed to read market disk cache: ${formatError(error)}`);
-            } else {
-                this.deps.log.debug("market disk cache is empty");
-            }
+        const loaded = await readCacheStore(this.deps);
+        if (!loaded)
             return { store: { version: 3, entries: {} }, applied: undefined, shouldMigrate: false };
-        }
-        const rawStore: unknown = JSON.parse(content);
-        const shouldMigrate = isLegacyInlineCacheStore(rawStore);
-        const store = normalizeCacheStore(rawStore);
+        const { store, shouldMigrate } = loaded;
         this.entries = { ...this.entries, ...store.entries };
         restoreRouteStats(this.deps.stats.stats, store.routeStats);
         const applied = await this.pick();
-        if (applied) {
-            this.meta = getCacheMeta(applied);
-            this.result = applied.result;
-            this.entries[applied.endpoint] = applied;
-        }
+        this.applyCacheEntry(applied);
         this.deps.log.debug(
             `market disk cache loaded: endpoint=${applied?.endpoint ?? "-"}, cachedAt=${formatTime(applied?.fetchedAt)}, age=${formatAge(applied ? Date.now() - applied.fetchedAt : undefined)}, size=${formatBytes(applied?.size)}`,
         );
         return { store, applied, shouldMigrate };
+    }
+
+    private applyCacheEntry(applied: CacheFile | undefined) {
+        if (!applied) return;
+        this.meta = getCacheMeta(applied);
+        this.result = applied.result;
+        this.entries[applied.endpoint] = applied;
     }
 
     private async pick(): Promise<CacheFile | undefined> {
@@ -203,6 +196,25 @@ export class MarketDiskCache {
             .slice(0, MAX_CACHE_ENTRIES);
         return Object.fromEntries(entries.map((entry) => [entry.endpoint, entry]));
     }
+}
+
+async function readCacheStore(deps: DiskCacheDeps) {
+    let content: string;
+    try {
+        content = await fsp.readFile(deps.cacheFile, "utf8");
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT") {
+            deps.log.warn(`failed to read market disk cache: ${formatError(error)}`);
+        } else {
+            deps.log.debug("market disk cache is empty");
+        }
+        return;
+    }
+    const rawStore: unknown = JSON.parse(content);
+    return {
+        shouldMigrate: isLegacyInlineCacheStore(rawStore),
+        store: normalizeCacheStore(rawStore),
+    };
 }
 
 function buildCacheMeta(
