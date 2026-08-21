@@ -22,23 +22,14 @@ export interface CardDetailMessages {
   ignoredUpdate: () => string
 }
 
-export function resolveCardDetailText(state: CardDetailState, messages: CardDetailMessages) {
-  if (state.pendingRemove) return messages.t('dependencyCard.detail.pendingRemove')
-  if (state.pending && state.hasDependency) return messages.t('dependencyCard.detail.pendingApply')
-  if (state.pending) return messages.t('dependencyCard.detail.pendingInstall')
-  if (state.localDependency) {
-    if (!state.hasDependency) return messages.t('dependencyCard.detail.localDiscovered')
-    return state.dependencyBound === false
-      ? messages.t('dependencyCard.detail.localUnbound')
-      : messages.t('dependencyCard.detail.local')
-  }
-  if (state.dependencyInvalid) return messages.t('dependencyCard.detail.unsupported')
-  if (state.bundlePackage && (state.hasDependency || state.hasLocal)) {
-    return messages.t('dependencyCard.detail.bundle')
-  }
-  if (state.unconfigured) return messages.t('dependencyCard.detail.unconfigured')
-  if (state.hasError) return messages.registryStatus()
-  if (!state.hasData && !state.localDependency) return messages.registryStatus()
+function resolveLocalDetail(state: CardDetailState, messages: CardDetailMessages) {
+  if (!state.hasDependency) return messages.t('dependencyCard.detail.localDiscovered')
+  return state.dependencyBound === false
+    ? messages.t('dependencyCard.detail.localUnbound')
+    : messages.t('dependencyCard.detail.local')
+}
+
+function resolveUpdateDetail(state: CardDetailState, messages: CardDetailMessages) {
   if (state.updateCheckDisabled) return messages.t('dependencyCard.detail.checkDisabled')
   if (state.ignoredUpdate) {
     return messages.ignoredUpdate() || messages.t('dependencyCard.detail.ignored')
@@ -47,4 +38,19 @@ export function resolveCardDetailText(state: CardDetailState, messages: CardDeta
     return messages.t('dependencyCard.detail.foundUpdate', { version: state.latestVersion })
   }
   return ''
+}
+
+export function resolveCardDetailText(state: CardDetailState, messages: CardDetailMessages) {
+  if (state.pendingRemove) return messages.t('dependencyCard.detail.pendingRemove')
+  if (state.pending && state.hasDependency) return messages.t('dependencyCard.detail.pendingApply')
+  if (state.pending) return messages.t('dependencyCard.detail.pendingInstall')
+  if (state.localDependency) return resolveLocalDetail(state, messages)
+  if (state.dependencyInvalid) return messages.t('dependencyCard.detail.unsupported')
+  if (state.bundlePackage && (state.hasDependency || state.hasLocal)) {
+    return messages.t('dependencyCard.detail.bundle')
+  }
+  if (state.unconfigured) return messages.t('dependencyCard.detail.unconfigured')
+  if (state.hasError) return messages.registryStatus()
+  if (!state.hasData && !state.localDependency) return messages.registryStatus()
+  return resolveUpdateDetail(state, messages)
 }
