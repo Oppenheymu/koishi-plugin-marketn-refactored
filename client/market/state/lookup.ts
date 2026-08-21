@@ -1,4 +1,4 @@
-import { receive, store } from '@koishijs/client'
+import { receive } from '@koishijs/client'
 import { markRaw } from 'vue'
 import { collectServiceProviders } from '../../../src/shared/lookup'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
@@ -9,7 +9,7 @@ import { applyRuntimePatch, marketRuntimeStore } from '../runtime-store'
 const marketLookupData = marketRuntimeStore.lookupData
 const marketLookupServices = marketRuntimeStore.lookupServices
 
-let lookupDataVersion: number | undefined
+let lookupRevision: number | undefined
 let lookupGeneration = 0
 const lookupTasks = new Map<string, Promise<void>>()
 const missingMarketObjects = new Set<string>()
@@ -39,7 +39,7 @@ export function loadMarketServiceProviders(names: Iterable<string>) {
 export async function refreshMarketLookups() {
   lookupGeneration++
   lookupTasks.clear()
-  lookupDataVersion = undefined
+  lookupRevision = undefined
   missingMarketObjects.clear()
   marketLookupData.value = {}
   marketLookupServices.value = {}
@@ -75,8 +75,8 @@ function applyLocalSnapshot(names: string[], services: string[]) {
 /** 计算真正需要网络请求的 names/services（结合本地快照、版本与已请求记录去重）。 */
 function computePendingLookups(names: string[], services: string[], force: boolean) {
   const fullData = getCurrentSnapshotData()
-  const currentVersion = store.market?.dataVersion
-  const lookupCurrent = currentVersion == null || lookupDataVersion == null || lookupDataVersion === currentVersion
+  const currentRevision = marketSnapshot.value?.revision
+  const lookupCurrent = currentRevision == null || lookupRevision == null || lookupRevision === currentRevision
   const pendingNames = force ? names : names.filter(name => {
     if (fullData?.[name]) return false
     if (lookupCurrent && (marketLookupData.value[name] || missingMarketObjects.has(name))) return false
@@ -102,12 +102,12 @@ function runLookupTask(
       services: pendingServices,
     })
     if (!response || generation !== lookupGeneration) return
-    const latestVersion = store.market?.dataVersion
-    if (latestVersion != null && response.dataVersion != null && latestVersion > response.dataVersion) {
+    const latestRevision = marketSnapshot.value?.revision
+    if (latestRevision != null && response.revision != null && latestRevision > response.revision) {
       superseded = true
       return
     }
-    lookupDataVersion = response.dataVersion
+    lookupRevision = response.revision
     for (const name of pendingNames) {
       if (!response.data[name]) missingMarketObjects.add(name)
     }
