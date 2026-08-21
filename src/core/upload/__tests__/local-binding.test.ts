@@ -43,8 +43,7 @@ describe("parseNpmPackOutput", () => {
         expect(() => parseNpmPackOutput('[{"filename":"foo.tgz","size":1.5}]')).toThrow(
             "invalid npm pack size",
         );
-        const tooBig =
-            '[{"filename":"foo.tgz","size":' + String(MAX_LOCAL_BINDING_PACK_SIZE + 1) + "}]";
+        const tooBig = `[{"filename":"foo.tgz","size":${String(MAX_LOCAL_BINDING_PACK_SIZE + 1)}}]`;
         expect(() => parseNpmPackOutput(tooBig)).toThrow("invalid npm pack size");
     });
 });

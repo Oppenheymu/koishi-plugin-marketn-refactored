@@ -144,7 +144,7 @@ export class Installer extends Service {
                 `failed to record startup environment snapshot: ${error instanceof Error ? error.message : error}`,
             );
         });
-        this.resolver.getDeps({ background: false });
+        await this.resolver.getDeps({ background: false });
         void this.resolver.refreshDependencyMetadata(false);
     }
 

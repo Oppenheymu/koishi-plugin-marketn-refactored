@@ -69,7 +69,7 @@ describe("LocalPackageUploadStore", () => {
             name: "koishi-plugin-demo",
             version: "1.0.0",
             filename: TARGET,
-            request: "file:.yarn/local/" + TARGET,
+            request: `file:.yarn/local/${TARGET}`,
             size: 10,
         });
     });

@@ -42,21 +42,17 @@ describe("isBlockedAvatarTarget", () => {
             "224.0.0.1",
             "255.255.255.255",
         ]) {
-            await expect(isBlockedAvatarTarget(new URL("http://" + ip + "/x"))).resolves.toBe(true);
+            await expect(isBlockedAvatarTarget(new URL(`http://${ip}/x`))).resolves.toBe(true);
         }
         for (const ip of ["8.8.8.8", "172.32.0.1", "1.1.1.1"]) {
-            await expect(isBlockedAvatarTarget(new URL("http://" + ip + "/x"))).resolves.toBe(
-                false,
-            );
+            await expect(isBlockedAvatarTarget(new URL(`http://${ip}/x`))).resolves.toBe(false);
         }
         expect(mockedLookup).not.toHaveBeenCalled();
     });
 
     it("IPv6 地址判定", async () => {
         for (const ip of ["::1", "fe80::1", "fc00::1", "fd00::1", "ff02::1", "::ffff:8.8.8.8"]) {
-            await expect(isBlockedAvatarTarget(new URL("http://[" + ip + "]/x"))).resolves.toBe(
-                true,
-            );
+            await expect(isBlockedAvatarTarget(new URL(`http://[${ip}]/x`))).resolves.toBe(true);
         }
         await expect(isBlockedAvatarTarget(new URL("http://[2001:db8::1]/x"))).resolves.toBe(false);
     });

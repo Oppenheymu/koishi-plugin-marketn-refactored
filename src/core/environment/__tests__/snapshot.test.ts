@@ -112,7 +112,7 @@ describe("EnvironmentSnapshotStore", () => {
         const store = await makeStore();
         for (let i = 0; i < 65; i++) {
             await store.record(
-                createEnvironmentSnapshot({ ["pkg" + i]: { request: "1.0.0" } }, "startup"),
+                createEnvironmentSnapshot({ [`pkg${i}`]: { request: "1.0.0" } }, "startup"),
             );
         }
         const list = await store.list();
