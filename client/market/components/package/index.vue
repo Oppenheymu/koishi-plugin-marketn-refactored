@@ -158,10 +158,10 @@ function timeAgo(time?: string) {
   const timestamp = Date.parse(time || '')
   if (!Number.isFinite(timestamp)) return t('time.unknown')
   const diff = Math.max(0, getReferenceNow() - timestamp)
-  if (diff < MINUTE) return t('time.just-now')
-  if (diff < HOUR) return t('time.minutes-ago', [Math.max(1, Math.floor(diff / MINUTE))])
-  if (diff < DAY) return t('time.hours-ago', [Math.floor(diff / HOUR)])
-  if (diff < ABSOLUTE_DATE_THRESHOLD) return t('time.days-ago', [Math.floor(diff / DAY)])
+  if (diff < MINUTE) return t('time.justNow')
+  if (diff < HOUR) return t('time.minutesAgo', [Math.max(1, Math.floor(diff / MINUTE))])
+  if (diff < DAY) return t('time.hoursAgo', [Math.floor(diff / HOUR)])
+  if (diff < ABSOLUTE_DATE_THRESHOLD) return t('time.daysAgo', [Math.floor(diff / DAY)])
   return formatAbsoluteDate(timestamp)
 }
 
