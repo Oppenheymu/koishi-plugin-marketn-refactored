@@ -26,7 +26,9 @@ export default [
     plugins: { vue: pluginVue },
     rules: {
       // ── 组件引用 / 未定义（根治大小写坑）──
-      'vue/no-undef-components': ['error', { ignorePatterns: ['^K'] }],
+      // ^K：@koishijs/components；^el-：宿主 console 全局注册的 element-plus；
+      // ^router-：宿主提供的 vue-router 全局组件
+      'vue/no-undef-components': ['error', { ignorePatterns: ['^K', '^el-', '^router-'] }],
       'vue/no-unused-components': 'error',
 
       // ── 模板指令合法性 ──
@@ -60,6 +62,15 @@ export default [
       'vue/require-v-for-key': 'error',
       'vue/no-dupe-keys': 'error',
       'vue/no-export-in-script-setup': 'error',
+    },
+  },
+  {
+    // member-row 的复选项（createConfig/move/usePreset）直接 v-model 写回 prop 对象，
+    // 是 bundle-install 对话框父子共享可变成员状态的设计（旧版原样），非误用
+    name: 'napuketto/member-row-shared-state',
+    files: ['client/dialogs/bundle-install/member-row.vue'],
+    rules: {
+      'vue/no-mutating-props': 'off',
     },
   },
 ];

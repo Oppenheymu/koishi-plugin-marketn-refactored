@@ -16,7 +16,7 @@
       <span v-else>({{ t('extensions.dependency.unavailable') }})</span>
     </p>
     <ul v-if="!(name in store.services) && available[name].length">
-      <li v-for="shortname in available[name]">
+      <li v-for="shortname in available[name]" :key="shortname">
         <k-dep-link :name="shortname"></k-dep-link>
       </li>
     </ul>

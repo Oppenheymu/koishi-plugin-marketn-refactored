@@ -12,9 +12,10 @@
         :data="data"
         :gravatar="gravatar"
         @query="onQuery"
-        #action
       >
-        <slot name="action" v-bind="data"></slot>
+        <template #action>
+          <slot name="action" v-bind="data"></slot>
+        </template>
       </market-package>
       <div v-if="bottomSpacer" class="virtual-spacer" :style="{ height: bottomSpacer + 'px' }"></div>
     </div>
