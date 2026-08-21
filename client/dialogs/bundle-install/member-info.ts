@@ -47,15 +47,19 @@ export function useMemberInfo(input: MemberInfoContext) {
 
   function riskTags(member: BundleInstallMember) {
     const data = memberInfo(member.package)
-    const tags: Array<{ label: string, type: string }> = []
-    if (!data) tags.push({ label: t('bundle.members.marketMissing'), type: 'warning' })
-    if (data?.verified) tags.push({ label: t('bundle.members.verified'), type: 'success' })
-    if (data?.insecure) tags.push({ label: t('bundle.members.insecure'), type: 'danger' })
-    if ((data as any)?.deprecated || versionMeta(member)?.deprecated) tags.push({ label: t('bundle.members.deprecated'), type: 'danger' })
-    if (data?.manifest?.preview) tags.push({ label: t('bundle.members.preview'), type: 'warning' })
-    if (data?.portable) tags.push({ label: t('bundle.members.portable'), type: 'info' })
-    if (hasPreset(member)) tags.push({ label: t('bundle.members.hasPreset'), type: 'warning' })
-    return tags
+    const version = versionMeta(member)
+    const rules = [
+      { when: !data, label: 'bundle.members.marketMissing', type: 'warning' },
+      { when: !!data?.verified, label: 'bundle.members.verified', type: 'success' },
+      { when: !!data?.insecure, label: 'bundle.members.insecure', type: 'danger' },
+      { when: !!(data as any)?.deprecated || !!version?.deprecated, label: 'bundle.members.deprecated', type: 'danger' },
+      { when: !!data?.manifest?.preview, label: 'bundle.members.preview', type: 'warning' },
+      { when: !!data?.portable, label: 'bundle.members.portable', type: 'info' },
+      { when: hasPreset(member), label: 'bundle.members.hasPreset', type: 'warning' },
+    ]
+    return rules
+      .filter(rule => rule.when)
+      .map(rule => ({ label: t(rule.label), type: rule.type }))
   }
 
   function hasPreset(member: BundleInstallMember) {
