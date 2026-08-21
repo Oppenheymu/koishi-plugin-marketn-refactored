@@ -18,6 +18,13 @@ export interface DependencyItem {
   manual: boolean
 }
 
+function resolveFirst<T>(
+  rules: Array<{ when: () => boolean, value: T }>,
+  fallback: T,
+) {
+  return rules.find(rule => rule.when)?.value ?? fallback
+}
+
 export function useClassify() {
   const config = useConfig()
   const ctx = useContext()
@@ -43,6 +50,17 @@ export function useClassify() {
     return !!configWriter && !!store.packages?.[name] && isPluginPackage(name) && !configWriter.get(name)?.length
   }
 
+  function shouldIncludeName(name: string, pkg: NonNullable<typeof store.packages>[string], configWriter?: ClientConfigWriter) {
+    if (isUnconfigured(name, configWriter) || isManageableBundle(name)) return true
+    if (!isPluginPackage(name)) return false
+    return shouldIncludeDiscoveredLocalPlugin({
+      declared: !!store.dependencies?.[name],
+      configured: !!configWriter?.get(name)?.length,
+      running: !!pkg?.runtime?.id,
+      workspace: !!pkg?.workspace,
+    })
+  }
+
   const names = computed(() => {
     const configWriter = getConfigWriter(ctx)
     const explicit: Record<string, unknown> = {
@@ -51,14 +69,7 @@ export function useClassify() {
     }
     for (const name of Object.keys(store.packages ?? {})) {
       const pkg = store.packages?.[name]
-      if (isUnconfigured(name, configWriter)
-        || isManageableBundle(name)
-        || isPluginPackage(name) && shouldIncludeDiscoveredLocalPlugin({
-          declared: !!store.dependencies?.[name],
-          configured: !!configWriter?.get(name)?.length,
-          running: !!pkg?.runtime?.id,
-          workspace: !!pkg?.workspace,
-        })) {
+      if (pkg && shouldIncludeName(name, pkg, configWriter)) {
         explicit[name] = true
       }
     }
@@ -78,12 +89,17 @@ export function useClassify() {
     if (dep.invalid) return 'invalid'
     if (isManageableBundle(name)) return 'bundle'
     if (isUnconfigured(name, configWriter)) return 'unconfigured'
+    const policy = getUpdatePolicy()
     const status = getRegistryStatus(name)
-    if (status?.error) return 'error'
-    if (isUpdateCheckDisabled(name, getUpdatePolicy())) return 'check-disabled'
-    if (isUpdateIgnored(name, getUpdatePolicy())) return 'ignored'
-    if (hasUpdate(name, getUpdatePolicy())) return 'updatable'
-    return 'installed'
+    return resolveFirst(
+      [
+        { when: () => !!status?.error, value: 'error' as const },
+        { when: () => isUpdateCheckDisabled(name, policy), value: 'check-disabled' as const },
+        { when: () => isUpdateIgnored(name, policy), value: 'ignored' as const },
+        { when: () => hasUpdate(name, policy), value: 'updatable' as const },
+      ],
+      'installed',
+    )
   }
 
   const items = computed<DependencyItem[]>(() => {
