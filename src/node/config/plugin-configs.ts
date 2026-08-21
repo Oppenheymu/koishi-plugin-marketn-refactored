@@ -3,6 +3,7 @@ import { loadManifest, Scanner } from "../../core/registry/manifest.js";
 import { sleep } from "../../core/utils/async.js";
 import { BUNDLE_KEYWORD, isBundlePackageName, parseBundleManifest } from "../../shared/bundle.js";
 import { getPluginShortname } from "../../shared/bundle-idents.js";
+import { refreshConsole } from "../console/refresh.js";
 import { SELF_PACKAGE } from "../installer/index.js";
 import { hasPluginConfigInTree, type PluginConfigMap } from "./plugins-map.js";
 
@@ -70,10 +71,7 @@ export async function ensurePluginConfigs(ctx: Context, names: string[]) {
     }
     if (!changed) return false;
     await ctx.loader.writeConfig();
-    await Promise.all([
-        ctx.get("console")?.refresh("config"),
-        ctx.get("console")?.refresh("packages"),
-    ]);
+    await refreshConsole(ctx, ["config", "packages"]);
     ctx.logger("market").info(
         `plugin config ensure completed: checked=${checked}, elapsed=${Date.now() - start}ms`,
     );

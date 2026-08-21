@@ -47,10 +47,7 @@ export async function removeBundleConfigs(
 
     if (result.removed.length || result.removedGroup) {
         await ctx.loader.writeConfig();
-        await Promise.all([
-            ctx.get("console")?.refresh("config"),
-            ctx.get("console")?.refresh("packages"),
-        ]);
+        await refreshConsole(ctx, ["config", "packages"]);
         if (removal.needsFullReload) {
             setTimeout(() => {
                 if (ctx.scope.isActive) ctx.loader.fullReload();
