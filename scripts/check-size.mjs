@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const WARN = 300
-const FAIL = 400
+const FAIL = 350
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
