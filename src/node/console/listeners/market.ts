@@ -21,18 +21,16 @@ export function registerMarketListeners(
     dataStore: MarketDataStore,
     marketSnapshotTransport: MarketSnapshotTransport,
 ) {
-    registerContractListeners(ctx, [
-        ["market/environment-snapshots", () => ctx.installer.getEnvironmentSnapshots()],
-        [
-            "market/environment-snapshot-preview",
-            (id) => ctx.installer.getEnvironmentSnapshotPreview(id),
-        ],
-        ["market/remove-bundle-configs", (request) => removeBundleConfigs(ctx, request)],
-        ["market/update-config", (patch) => updateMarketNextConfig(ctx, config, patch)],
-        ["market/update-data", (patch) => dataStore.patch(patch)],
-        ["market/package", (name) => ctx.installer.getRegistry(name)],
-        ["market/ensure-config", (name) => ensurePluginConfig(ctx, name)],
-    ]);
+    registerContractListeners(ctx, {
+        "market/environment-snapshots": () => ctx.installer.getEnvironmentSnapshots(),
+        "market/environment-snapshot-preview": (id) =>
+            ctx.installer.getEnvironmentSnapshotPreview(id),
+        "market/remove-bundle-configs": (request) => removeBundleConfigs(ctx, request),
+        "market/update-config": (patch) => updateMarketNextConfig(ctx, config, patch),
+        "market/update-data": (patch) => dataStore.patch(patch),
+        "market/package": (name) => ctx.installer.getRegistry(name),
+        "market/ensure-config": (name) => ensurePluginConfig(ctx, name),
+    });
 
     ctx.console.addListener(
         "market/environment-snapshot-apply",

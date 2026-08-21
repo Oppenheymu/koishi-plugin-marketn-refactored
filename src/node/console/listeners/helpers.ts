@@ -21,7 +21,9 @@ export function registerContractListener(
 /** 批量注册无额外编排的转发 listener；复杂流程应继续使用显式注册。 */
 export function registerContractListeners(
     ctx: Context,
-    entries: ReadonlyArray<readonly [ContractName, (...args: never[]) => unknown]>,
+    entries: Partial<Record<ContractName, (...args: never[]) => unknown>>,
 ) {
-    for (const [name, handler] of entries) registerContractListener(ctx, name, handler);
+    for (const [name, handler] of Object.entries(entries)) {
+        if (handler) registerContractListener(ctx, name as ContractName, handler);
+    }
 }
