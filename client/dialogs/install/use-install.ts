@@ -1,5 +1,5 @@
-import { computed, reactive, ref, watch } from 'vue'
-import { type Dict, message, send, store, useContext, useConfig } from '@koishijs/client'
+import { computed, ref } from 'vue'
+import { message, store, useContext, useConfig } from '@koishijs/client'
 import { parse } from 'semver'
 import { analyzeVersions, type PeerInfo, type ResultType } from '../../shared/install/analyze-versions'
 import { createLocalBundleRecord } from '../../shared/install/bundle-records'
@@ -11,9 +11,10 @@ import { getBulkMode, getRemoveConfig, patchMarketNextConfig } from '../../share
 import { useMarketModeClass } from '../../shared/ui/market-mode'
 import { getRegistryStatus, getRegistryStatusText } from '../../shared/install/registry-status'
 import { isBundlePackageName } from '../../../src/shared/bundle'
-import { isLocalDependency } from '../../../src/shared/dependency-source'
 import { useMarketNextI18n } from '../../i18n'
 import { getMarketObject } from '../../market/state'
+import { useInstallVersions } from './use-install-versions'
+import { useInstallRegistrySync } from './use-install-registry'
 
 export function useInstall() {
   const ctx = useContext()
@@ -33,6 +34,21 @@ export function useInstall() {
       void patchMarketNextConfig({ bulkMode: value })
     },
   })
+
+  const {
+    versions,
+    version,
+    selectVersion,
+    getOverride,
+    getVersion,
+    setVersion,
+    getWorkspaceVersion,
+    workspace,
+    localSelection,
+    shouldShowPeerVersionSelect,
+    getPeerResolvedVersion,
+    shouldFetchRegistry,
+  } = useInstallVersions(bulkMode)
 
   function installDep(version: string, checkConfig = false, removeConfig = false) {
     const target = active.value
@@ -90,52 +106,6 @@ export function useInstall() {
     })
   }
 
-  const version = computed({
-    get: () => versions[active.value],
-    set: (value) => versions[active.value] = value!,
-  })
-
-  const selectVersion = computed({
-    get: () => version.value,
-    set(value) {
-      version.value = value
-    },
-  })
-
-  const versions = reactive<Dict<string>>({})
-
-  function getOverride() {
-    return bulkMode.value ? getPendingOverrides() : versions
-  }
-
-  function getVersion(name: string) {
-    const override = getOverride()
-    return override[name]!
-  }
-
-  function setVersion(name: string, version: string) {
-    const override = getOverride()
-    if (version) {
-      override[name] = version
-    } else {
-      delete override[name]
-    }
-  }
-
-  function shouldShowPeerVersionSelect(peer: PeerInfo, name: string) {
-    if (!store.registry?.[name] || isLocalPackageSelection(name)) return false
-    if (name in getOverride()) return true
-    return peer.result === 'danger'
-  }
-
-  function getPeerResolvedVersion(peer: PeerInfo, name: string) {
-    return getVersion(name)
-      || getWorkspaceVersion(name)
-      || peer.resolved
-      || store.dependencies?.[name]?.resolved
-      || store.packages?.[name]?.package.version
-  }
-
   const unchanged = computed(() => {
     return !data.value?.[version.value]
       || version.value === store.dependencies?.[active.value]?.request && !!store.dependencies?.[active.value]?.resolved
@@ -154,17 +124,6 @@ export function useInstall() {
     return current.value || store.dependencies?.[active.value] || bulkMode.value && getPendingOverrides()[active.value]
   })
 
-  const workspace = computed(() => getWorkspaceVersion(active.value))
-  const localSelection = computed(() => isLocalPackageSelection(active.value))
-
-  function isLocalPackageSelection(name: string) {
-    if (!name) return false
-    const dependency = store.dependencies?.[name]
-    return isLocalDependency(dependency)
-      || !!getWorkspaceVersion(name)
-      || !dependency && !!store.packages?.[name]
-  }
-
   function requestRemove() {
     const target = active.value
     const record = target && (getBundleRecords()[target] || createLocalBundleRecord(target))
@@ -177,21 +136,12 @@ export function useInstall() {
     installDep('', true)
   }
 
-  function getWorkspaceVersion(name: string) {
-    // workspace plugins:     dependencies ? packages √
-    // workspace non-plugins: dependencies √ packages ×
-    if (store.dependencies?.[name]?.workspace) {
-      return store.dependencies?.[name]?.resolved
-    }
-    if (store.packages?.[name]?.workspace) {
-      return store.packages?.[name]?.package.version
-    }
-  }
-
   const data = computed(() => {
     if (!active.value || localSelection.value) return
     return analyzeVersions(active.value, getVersion)
   })
+
+  useInstallRegistrySync({ bulkMode, data, version, versions, shouldFetchRegistry })
 
   const registryStatus = computed(() => getRegistryStatus(active.value))
 
@@ -224,58 +174,6 @@ export function useInstall() {
     if (result === 'warning' || warning.value) return 'warning'
     return result
   })
-
-  function shouldFetchRegistry(name: string) {
-    return !store.registry?.[name]
-      && !isLocalPackageSelection(name)
-      && !getRegistryStatus(name)?.loading
-  }
-
-  watch(() => data.value?.[version.value]?.peers, async (peers) => {
-    if (!peers) return
-    const names = Object.keys(peers).filter(shouldFetchRegistry)
-    let registry: typeof store.registry = {}
-    if (names.length) {
-      try {
-        registry = await send('market/registry', names)
-      } catch (error) {
-        console.error(error)
-      }
-    }
-    Object.assign(registry, store.registry)
-    if (bulkMode.value) return
-
-    // rebuild versions
-    for (const name of Object.keys(versions)) {
-      if (name === active.value) continue
-      if (name in peers) continue
-      delete versions[name]
-    }
-    for (const name in peers) {
-      if (!registry[name]) continue
-      const { result } = peers[name]!
-      if (result !== 'warning' && result !== 'danger') continue
-      versions[name] = Object.keys(registry[name])[0]!
-    }
-  })
-
-  watch(active, async (name) => {
-    if (!name) return
-
-    version.value = getPendingOverrides()[active.value]
-      || store.dependencies?.[active.value]?.request
-      || Object.keys(store.registry?.[name] || {})[0]
-
-    if (shouldFetchRegistry(name)) {
-      try {
-        const registry = await send('market/registry', [name])
-        const versions = registry?.[active.value] || store.registry?.[active.value]
-        if (versions) version.value = Object.keys(versions)[0]
-      } catch (error) {
-        console.error(error)
-      }
-    }
-  }, { immediate: true })
 
   function configure() {
     getConfigWriter(ctx)?.ensure(active.value)

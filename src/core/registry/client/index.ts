@@ -1,6 +1,4 @@
-import { shouldPenalizeRegistryRoute } from "../../../shared/dependency-source.js";
 import type { RegistryStatus } from "../../../shared/types.js";
-import { raceEndpoints } from "../../racing/race.js";
 import type { RequestScope } from "../../racing/request-scope.js";
 import { registryFallbackDelay, routeScore } from "../../racing/score.js";
 import type { RouteStatsBook } from "../../racing/stats.js";
@@ -10,12 +8,7 @@ import {
     restoreRegistryStats,
     serializeRegistryStats,
 } from "../cache/stats-file.js";
-import {
-    attachRegistryAttemptReasons,
-    formatRegistryError,
-    type RegistryErrorDetail,
-    type RegistryReason,
-} from "../errors.js";
+import { formatRegistryError, type RegistryErrorDetail, type RegistryReason } from "../errors.js";
 import type { Registry } from "../manifest.js";
 import {
     installFallbackCandidate,
@@ -26,13 +19,15 @@ import {
 } from "./endpoints.js";
 import { fetchRegistryWithRetry, type RegistryFetchHost } from "./fetch.js";
 import { RouteProbe } from "./probe.js";
+import {
+    fetchRegistryByRoute,
+    type RegistryHttpClient,
+    type RegistryRouteDeps,
+} from "./route-fetch.js";
 
-const ROUTE_STAGGER = 120;
 const FAST_ROUTE_THRESHOLD = 800;
 
-export interface RegistryHttpClient {
-    get(path: string, config?: { signal?: AbortSignal }): Promise<Registry>;
-}
+export type { RegistryHttpClient };
 
 export interface RegistryClientDeps {
     httpFactory: (endpoint: string) => RegistryHttpClient;
@@ -58,6 +53,7 @@ export class RegistryClient implements RegistryFetchHost {
     metadataEndpoint = "";
     private readonly deps: RegistryClientDeps;
     private readonly probe: RouteProbe;
+    private readonly routeDeps: RegistryRouteDeps;
     public config: RegistryClientConfig;
 
     constructor(deps: RegistryClientDeps, config: RegistryClientConfig = {}) {
@@ -68,6 +64,15 @@ export class RegistryClient implements RegistryFetchHost {
             log: deps.log,
             scoresSummary: () => JSON.stringify(this.getRouteScores().map((item) => item.endpoint)),
         });
+        this.routeDeps = {
+            httpFactory: deps.httpFactory,
+            scope: deps.scope,
+            log: deps.log,
+            getFallbackDelay: (endpoint) => this.getFallbackDelay(endpoint),
+            formatError: (error) => this.formatError(error),
+            recordRouteSuccess: (result) => this.recordRouteSuccess(result),
+            recordRouteFailure: (endpoint, reason) => this.recordRouteFailure(endpoint, reason),
+        };
     }
 
     get scope() {
@@ -149,63 +154,7 @@ export class RegistryClient implements RegistryFetchHost {
         const endpoints = sortRouteProbeEndpoints(this.config, this.endpoint, (item) =>
             this.getRouteScore(item),
         );
-        await this.probe.ensure(name, endpoints, serial, (n, e, s) =>
-            this.fetchRegistryByRoute(n, e, s),
-        );
-    }
-
-    private async fetchRegistryByRoute(
-        name: string,
-        endpoints: string[],
-        serial: number,
-        onAttempt?: (endpoint: string, attempts: number) => void,
-    ) {
-        let attempts = 0;
-        const failureReasons: RegistryReason[] = [];
-        return raceEndpoints<Registry>({
-            endpoints,
-            stagger: ROUTE_STAGGER,
-            slowThreshold: this.getFallbackDelay(endpoints[0]!),
-            scope: this.deps.scope,
-            serial,
-            fetch: (endpoint, signal) => this.fetchRegistryEndpoint(name, endpoint, serial, signal),
-            onAttempt: (endpoint) => {
-                attempts++;
-                onAttempt?.(endpoint, attempts);
-            },
-            onSuccess: (attempt) => this.recordRouteSuccess(attempt),
-            onFailure: (endpoint, error) => {
-                const reason = this.formatError(error).reason;
-                if (reason) failureReasons.push(reason);
-                if (shouldPenalizeRegistryRoute(reason)) this.recordRouteFailure(endpoint, reason);
-            },
-            log: (message) => this.deps.log.debug(`npm registry ${message}`),
-        }).catch((error: unknown) => {
-            attachRegistryAttemptReasons(error, failureReasons);
-            throw error;
-        });
-    }
-
-    private async fetchRegistryEndpoint(
-        name: string,
-        endpoint: string,
-        serial: number,
-        signal?: AbortSignal,
-    ): Promise<{ payload: Registry; elapsed: number }> {
-        const attemptStart = Date.now();
-        this.deps.log.debug(`fetch npm registry endpoint: package=${name}, endpoint=${endpoint}`);
-        const registry = await this.deps
-            .httpFactory(endpoint)
-            .get(`/${name}`, signal ? { signal } : undefined);
-        if (this.deps.scope.isStale(serial)) throw new Error("npm registry route probe stale");
-        if (!registry?.versions || typeof registry.versions !== "object") {
-            throw new Error(`invalid registry metadata for ${name}`);
-        }
-        const elapsed = Date.now() - attemptStart;
-        this.deps.log.debug(
-            `fetch npm registry endpoint succeeded: package=${name}, endpoint=${endpoint}, elapsed=${elapsed}ms, versions=${Object.keys(registry.versions).length}`,
-        );
-        return { payload: registry, elapsed };
+        await this.probe.ensure(name, endpoints, serial, (n, e, s) => this.fetchByRoute(n, e, s));
     }
 
     async getRegistry(
@@ -255,6 +204,6 @@ export class RegistryClient implements RegistryFetchHost {
         serial: number,
         onAttempt?: (endpoint: string, attempts: number) => void,
     ) {
-        return this.fetchRegistryByRoute(name, endpoints, serial, onAttempt);
+        return fetchRegistryByRoute(this.routeDeps, name, endpoints, serial, onAttempt);
     }
 }

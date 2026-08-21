@@ -2,6 +2,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } fr
 import type { SearchObject } from '@koishijs/registry'
 import type { MarketConfig } from '../../utils'
 import { getFiltered, getSortedPrepared, getVisible } from '../../utils'
+import { useListLayout } from './use-list-layout'
 
 export function useVirtualScroll(
   props: { modelValue: string[], data: SearchObject[], debug?: boolean, visibilityPrepared?: boolean },
@@ -22,26 +23,17 @@ export function useVirtualScroll(
     return 24
   })
 
-  const header = ref<HTMLElement>()
   const sentinel = ref<HTMLElement>()
-  const list = ref<HTMLElement>()
   const visible = ref(batchSize.value)
-  const columns = ref(1)
-  const rowHeight = ref(224)
   const startIndex = ref(0)
   const endIndex = ref(batchSize.value)
   const topSpacer = ref(0)
   const bottomSpacer = ref(0)
   let observer: IntersectionObserver | undefined = undefined
-  let scrollParent: HTMLElement | Window = window
-  let resizeObserver: ResizeObserver | undefined = undefined
-  let observedList: HTMLElement | undefined = undefined
-  let observedHeader: HTMLElement | undefined = undefined
   let frame = 0
   let filterFrame = 0
   let settledTimer = 0
   let lastVirtualDebugAt = 0
-  let listTop = 0
   let debugState = {
     timings: {} as Record<string, number>,
     total: 0,
@@ -49,6 +41,9 @@ export function useVirtualScroll(
     visible: 0,
     rendered: 0,
   }
+
+  const layout = useListLayout(scheduleVirtual)
+  const { header, list, columns, rowHeight, bindList, measureLayout } = layout
 
   const loadedPackages = computed(() => packages.value.slice(0, visible.value))
 
@@ -115,17 +110,11 @@ export function useVirtualScroll(
     observer = new IntersectionObserver((entries) => {
       if (entries.some(entry => entry.isIntersecting)) loadMore()
     }, { rootMargin: '240px 0px' })
-    resizeObserver = new ResizeObserver(() => {
-      measureLayout()
-      scheduleVirtual()
-    })
     resetVisible(false)
   })
 
   onUnmounted(() => {
     observer?.disconnect()
-    resizeObserver?.disconnect()
-    removeScrollListener()
     cancelAnimationFrame(frame)
     cancelAnimationFrame(filterFrame)
     clearTimeout(settledTimer)
@@ -153,54 +142,6 @@ export function useVirtualScroll(
     })
   }
 
-  function getScrollParent() {
-    return list.value?.closest('.el-scrollbar')?.querySelector('.el-scrollbar__wrap') as HTMLElement || window
-  }
-
-  function bindList() {
-    if (!list.value) return
-    if (observedList === list.value && scrollParent) return
-    removeScrollListener()
-    if (observedList) resizeObserver?.unobserve(observedList)
-    if (observedHeader) resizeObserver?.unobserve(observedHeader)
-    observedList = list.value
-    observedHeader = header.value
-    scrollParent = getScrollParent()
-    resizeObserver?.observe(observedList)
-    if (observedHeader) resizeObserver?.observe(observedHeader)
-    addScrollListener()
-  }
-
-  function addScrollListener() {
-    scrollParent?.addEventListener('scroll', scheduleVirtual, { passive: true })
-  }
-
-  function removeScrollListener() {
-    scrollParent?.removeEventListener('scroll', scheduleVirtual)
-  }
-
-  function measureLayout() {
-    if (!list.value) return
-    const style = getComputedStyle(list.value)
-    const gap = parseFloat(style.columnGap) || parseFloat(style.gap) || 16
-    const width = list.value.clientWidth
-    const nextColumns = Math.max(1, Math.floor((width + gap) / (336 + gap)))
-    const card = list.value.querySelector<HTMLElement>('.market-package')
-    const nextRowHeight = (card?.offsetHeight || 202) + gap
-    const nextListTop = getListTop()
-    if (columns.value !== nextColumns) columns.value = nextColumns
-    if (rowHeight.value !== nextRowHeight) rowHeight.value = nextRowHeight
-    if (listTop !== nextListTop) listTop = nextListTop
-  }
-
-  function getListTop() {
-    if (!list.value || !scrollParent) return 0
-    const listRect = list.value.getBoundingClientRect()
-    if (scrollParent instanceof Window) return listRect.top + window.scrollY
-    const scrollRect = scrollParent.getBoundingClientRect()
-    return listRect.top - scrollRect.top + scrollParent.scrollTop
-  }
-
   function scheduleVirtual() {
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(updateVirtual)
@@ -210,9 +151,10 @@ export function useVirtualScroll(
     if (!list.value) return
     const start = props.debug ? performance.now() : 0
 
+    const scrollParent = layout.getScrollParent()
     const scrollTop = scrollParent instanceof Window ? window.scrollY : scrollParent.scrollTop
     const viewportHeight = scrollParent instanceof Window ? window.innerHeight : scrollParent.clientHeight
-    const offset = Math.max(0, scrollTop - listTop)
+    const offset = Math.max(0, scrollTop - layout.getListTop())
     const totalRows = Math.ceil(loadedPackages.value.length / columns.value)
     const overscan = 3
     const startRow = Math.max(0, Math.floor(offset / rowHeight.value) - overscan)
@@ -228,7 +170,7 @@ export function useVirtualScroll(
     if (topSpacer.value !== nextTopSpacer) topSpacer.value = nextTopSpacer
     if (bottomSpacer.value !== nextBottomSpacer) bottomSpacer.value = nextBottomSpacer
 
-    const loadedHeight = listTop + totalRows * rowHeight.value
+    const loadedHeight = layout.getListTop() + totalRows * rowHeight.value
     if (hasMore.value && scrollTop + viewportHeight > loadedHeight - rowHeight.value * 4) {
       loadMore()
     }

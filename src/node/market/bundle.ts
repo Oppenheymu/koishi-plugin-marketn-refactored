@@ -13,10 +13,10 @@ import type {
 } from "../../shared/bundle.js";
 import {
     BUNDLE_KEYWORD,
-    getPluginShortname,
     parseBundleManifest,
     validateBundleManifest,
 } from "../../shared/bundle.js";
+import { getPluginShortname } from "../../shared/bundle-idents.js";
 import type { PluginConfigMap } from "../config/plugins-map.js";
 import {
     type BundleConfigWriter,

@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import { store } from '@koishijs/client'
-import { scanSensitiveConfig, type BundleInstallMember } from '../../../src/shared/bundle'
+import { scanSensitiveConfig } from '../../../src/shared/bundle-idents'
+import type { BundleInstallMember } from '../../../src/shared/bundle'
 import { getMarketObject } from '../../market/state'
 
 // bundle-install 对话框的成员展示辅助：市场元信息、安装文案、风险标签等，

@@ -1,58 +1,25 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// 宿主 @koishijs/plugin-config 提供 packages/services/config 三个 Console 服务的
-// 类型声明（Services 键），本文件多处 refresh('packages')/refresh('config') 依赖它
-import type {} from "@koishijs/plugin-config";
-import type { DependencyMetaKey, Registry, RemotePackage } from "@koishijs/registry";
-import type { Context, Dict } from "koishi";
-import type { EnvironmentSnapshotPreview } from "../core/environment/diff.js";
-import type { EnvironmentSnapshotSummary } from "../core/environment/snapshot.js";
-import type {
-    InstallHistoryEntry,
-    InstallLogDetail,
-    InstallOptions,
-    LocalBindingResult,
-} from "../core/install/types.js";
-import type {
-    LocalPackageUploadChunkRequest,
-    LocalPackageUploadCommitResult,
-    LocalPackageUploadFinishRequest,
-    LocalPackageUploadPreview,
-    LocalPackageUploadProgress,
-    LocalPackageUploadStartRequest,
-    LocalPackageUploadStartResult,
-} from "../core/upload/types.js";
-import type {
-    BundleConfigRemoveRequest,
-    BundleConfigRemoveResult,
-    BundleInstallRequest,
-    BundleInstallResult,
-} from "../shared/bundle.js";
-import type { InstallFallbackCandidate } from "../shared/types.js";
-import {
-    AVATAR_CACHE_SWEEP_INTERVAL,
-    type AvatarFetchResult,
-    cleanupAvatarCaches,
-    clearAvatarMemoryCache,
-} from "./avatar/index.js";
+import type { Context } from "koishi";
+import "./declarations.js";
 import type { Config } from "./config/index.js";
-import {
-    ensureInstalledPluginConfigs,
-    ensureMarketNextConfigDefaults,
-    removeLegacyCollapsedGroupsConfig,
-} from "./config/manage.js";
 import { registerCommands } from "./console/commands.js";
-import { registerListeners } from "./console/listeners.js";
+import { registerListeners } from "./console/listeners/index.js";
 import {
     DependencyProvider,
     RegistryProvider,
     RegistryStatusProvider,
 } from "./console/providers.js";
 import { Installer } from "./installer/index.js";
-import { MarketDataStore, type MarketDataStorePayload } from "./market/data-store.js";
+import type { MarketDataStore } from "./market/data-store.js";
 import { setupIdleProbe } from "./market/idle-probe.js";
 import { MarketProvider } from "./market/index.js";
-import { MarketSnapshotTransport } from "./market/snapshot-transport.js";
+import {
+    createDataStore,
+    normalizeConfigDefaults,
+    setupReadyTasks,
+    setupSnapshotRoute,
+} from "./setup.js";
 
 export type {
     EnvironmentChangeStatus,
@@ -85,73 +52,6 @@ export * from "../shared/index.js";
 export { Config } from "./config/index.js";
 export { Installer } from "./installer/index.js";
 
-declare module "koishi" {
-    interface Context {
-        installer: Installer;
-    }
-}
-
-declare module "@koishijs/console" {
-    namespace Console {
-        interface Services {
-            dependencies: DependencyProvider;
-            registry: RegistryProvider;
-            registryStatus: RegistryStatusProvider;
-            marketData: MarketDataStore;
-        }
-    }
-
-    interface Events {
-        "market/install"(
-            deps: Dict<string>,
-            forced?: boolean,
-            options?: InstallOptions,
-        ): Promise<number>;
-        "market/install-bundle"(
-            request: BundleInstallRequest,
-            forced?: boolean,
-            options?: InstallOptions,
-        ): Promise<BundleInstallResult>;
-        "market/install-fallback-candidate"(
-            failedEndpoint?: string,
-        ): Promise<InstallFallbackCandidate | undefined>;
-        "market/install-history"(limit?: number): Promise<InstallHistoryEntry[]>;
-        "market/install-history-detail"(id: string): Promise<InstallLogDetail | undefined>;
-        "market/local-package-upload-start"(
-            request: LocalPackageUploadStartRequest,
-        ): Promise<LocalPackageUploadStartResult>;
-        "market/local-package-upload-chunk"(
-            request: LocalPackageUploadChunkRequest,
-        ): Promise<LocalPackageUploadProgress>;
-        "market/local-package-upload-finish"(
-            request: LocalPackageUploadFinishRequest,
-        ): Promise<LocalPackageUploadPreview>;
-        "market/local-package-upload-commit"(
-            uploadId: string,
-        ): Promise<LocalPackageUploadCommitResult>;
-        "market/local-package-upload-cancel"(uploadId: string): Promise<boolean>;
-        "market/prepare-local-binding"(name: string): Promise<LocalBindingResult>;
-        "market/environment-snapshots"(): Promise<EnvironmentSnapshotSummary[]>;
-        "market/environment-snapshot-preview"(
-            id: string,
-        ): Promise<EnvironmentSnapshotPreview | undefined>;
-        "market/environment-snapshot-apply"(id: string, options?: InstallOptions): Promise<number>;
-        "market/remove-bundle-configs"(
-            request: BundleConfigRemoveRequest,
-        ): Promise<BundleConfigRemoveResult>;
-        "market/update-config"(patch: Partial<Config>): Promise<boolean>;
-        "market/update-data"(
-            patch: Partial<MarketDataStorePayload>,
-        ): Promise<MarketDataStorePayload>;
-        "market/package"(name: string): Promise<Registry | undefined>;
-        "market/registry"(
-            names: string[],
-        ): Promise<Dict<Dict<Pick<RemotePackage, DependencyMetaKey>>>>;
-        "market/ensure-config"(name: string): Promise<boolean>;
-        "market/avatar"(key: string, url?: string): Promise<AvatarFetchResult | undefined>;
-    }
-}
-
 export const name = "market";
 export const inject = ["http"];
 
@@ -173,102 +73,6 @@ export const usage = `
 - Koishi Registry GitHub 代理 2：https://ghfast.top/https://raw.githubusercontent.com/koishijs/registry/release/index.json
 
 要浏览更多社区镜像，请访问 [Koishi 论坛上的镜像一览](https://k.ilharp.cc/4000)。`;
-
-/** 归一化显示配置缺省值并落盘刷新（失败只记日志）。 */
-function normalizeConfigDefaults(ctx: Context, config: Config) {
-    if (!ensureMarketNextConfigDefaults(ctx, config)) return;
-    ctx.logger("market").info("normalized market-next display config in Koishi config");
-    void ctx.loader
-        .writeConfig(true)
-        .then(() => ctx.get("console")?.refresh("config"))
-        .catch((error) => ctx.logger("market").warn(error));
-}
-
-/** 创建 DataStore 并登记激活引用（同一时刻只有一个活跃实例）。 */
-function createDataStore(
-    ctx: Context,
-    active: { dataStore?: MarketDataStore | undefined },
-): MarketDataStore {
-    const dataStore = new MarketDataStore(ctx);
-    active.dataStore = dataStore;
-    ctx.effect(() => () => {
-        if (active.dataStore === dataStore) active.dataStore = undefined;
-    });
-    return dataStore;
-}
-
-/** 市场快照路由 handler 所需的 koa 上下文最小结构。 */
-interface KoaContextLike {
-    params: { id: string };
-    status: number;
-    body: unknown;
-    type: string;
-    set(name: string, value: string): void;
-}
-
-/** 挂载市场快照 HTTP 路由（gzip + 强缓存 + ETag）。 */
-function setupSnapshotRoute(ctx: Context): MarketSnapshotTransport {
-    const uiPath = String(
-        (ctx.console as unknown as { config?: { uiPath?: string } }).config?.uiPath ?? "",
-    ).replace(/\/+$/, "");
-    const marketSnapshotRoute = `${uiPath}/market-next/snapshot`;
-    const marketSnapshotTransport = new MarketSnapshotTransport(ctx, marketSnapshotRoute);
-    const server = (ctx as Context & { server: unknown }).server as {
-        get(path: string, handler: (koa: KoaContextLike) => void): void;
-    };
-    server.get(`${marketSnapshotRoute}/:id`, (koa: KoaContextLike) => {
-        const entry = marketSnapshotTransport.get(koa.params.id);
-        if (!entry) {
-            koa.status = 404;
-            koa.body = "market snapshot not found";
-            return;
-        }
-        koa.type = "application/json";
-        koa.set("Content-Encoding", "gzip");
-        koa.set("Cache-Control", "public, max-age=31536000, immutable");
-        koa.set("ETag", `"${entry.id}"`);
-        koa.set("X-Content-Type-Options", "nosniff");
-        koa.body = entry.body;
-    });
-    return marketSnapshotTransport;
-}
-
-/** ready 阶段任务：数据迁移、配置补齐、头像缓存清扫（含定时器清理）。 */
-function setupReadyTasks(ctx: Context, config: Config, dataStore: MarketDataStore) {
-    ctx.on("ready", () => {
-        void dataStore
-            .migrateFromConfig(config)
-            .then(() => {
-                if (!removeLegacyCollapsedGroupsConfig(ctx, config)) return;
-                return ctx.loader
-                    .writeConfig(true)
-                    .then(() => ctx.get("console")?.refresh("config"));
-            })
-            .catch((error) =>
-                ctx
-                    .logger("market")
-                    .warn(
-                        `failed to migrate market-next data: ${error instanceof Error ? error.message : error}`,
-                    ),
-            );
-        const timer = setTimeout(() => {
-            if (!ctx.scope.isActive) return;
-            void ensureInstalledPluginConfigs(ctx).catch((error) =>
-                ctx.logger("market").warn(error),
-            );
-        }, 1000);
-        void cleanupAvatarCaches(ctx);
-        const avatarTimer = setInterval(
-            () => cleanupAvatarCaches(ctx),
-            AVATAR_CACHE_SWEEP_INTERVAL,
-        );
-        ctx.effect(() => () => {
-            clearTimeout(timer);
-            clearInterval(avatarTimer);
-            clearAvatarMemoryCache();
-        });
-    });
-}
 
 export function apply(ctx: Context, config: Config = {}) {
     if (!ctx.loader?.writable) {

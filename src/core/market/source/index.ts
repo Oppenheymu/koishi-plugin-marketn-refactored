@@ -3,12 +3,11 @@ import type { Dict } from "koishi";
 import type { MarketPerformance, MarketPerformanceSnapshot } from "../../../shared/types.js";
 import { RequestScope } from "../../racing/request-scope.js";
 import { createScanner, type ScannerLike } from "../../registry/manifest.js";
-import { formatError } from "../../utils/format.js";
 import { MarketDiskCache } from "../cache/index.js";
 import { applyDiskCache, warmDiskCache as warmDiskCacheTask } from "../cache/warmup.js";
-import { formatSnapshot } from "../format.js";
 import { buildMarketSnapshot, type MarketSnapshotInput } from "../snapshot.js";
 import { MarketBackgroundRefresher, type MarketBackgroundSource } from "./background.js";
+import { collectMarketIndex, flushMarketPatch } from "./collect.js";
 import {
     clearRouteCooldowns,
     getEndpointCandidates,
@@ -43,17 +42,18 @@ export class MarketIndexSource implements MarketBackgroundSource {
     warmDiskCacheTask: Promise<boolean> | undefined;
     payloadValue: MarketSnapshotInput | undefined;
     cacheMetaPresent = false;
+    /** 跨文件状态：collect.ts 的 collect 编排与补片广播共用。 */
+    failed: string[] = [];
+    fullCache: Dict<SearchObject> = {};
+    tempCache: Dict<SearchObject> = {};
+    debugInfoValue: MarketPerformance | undefined;
+    forceRefresh = false;
 
-    private failed: string[] = [];
-    private fullCache: Dict<SearchObject> = {};
-    private tempCache: Dict<SearchObject> = {};
     private dataVersion = 0;
     private contentHash: string | undefined;
-    private forceRefresh = false;
-    private debugInfoValue: MarketPerformance | undefined;
     private pendingRefreshTask: Promise<unknown> | undefined;
     private collectTask: Promise<SearchResult | undefined> | undefined;
-    private readonly deps: MarketSourceDeps;
+    readonly deps: MarketSourceDeps;
     readonly config: MarketSourceConfig;
 
     constructor(deps: MarketSourceDeps, config: MarketSourceConfig = {}) {
@@ -147,61 +147,9 @@ export class MarketIndexSource implements MarketBackgroundSource {
         return result;
     }
 
-    /** 旧版 collect：磁盘缓存优先，否则网络；legacy 索引补分析。 */
+    /** 旧版 collect：磁盘缓存优先，否则网络（主体在 collect.ts）。 */
     async collect(): Promise<undefined> {
-        const serial = this.scope.current;
-        const start = Date.now();
-        this.failed = [];
-        this.fullCache = {};
-        this.tempCache = {};
-        if (!this.forceRefresh && (await applyDiskCache(this, serial))) {
-            this.background.refreshInBackground(serial, "cache-first");
-            void this.deps.notifyRefresh();
-            return undefined;
-        }
-        const result = await this.fetchAndApply(serial, "initial");
-        if (this.scope.isStale(serial) || !result) return undefined;
-        this.updateDebugInfo(performanceFrom(result, this.scanner.total), "initial");
-        if (!this.scanner.version) {
-            await this.analyzeLegacy();
-        }
-        this.deps.log.info(
-            `market index ready: ${formatSnapshot(performanceFrom(result, this.scanner.total))}, elapsed=${Date.now() - start}ms`,
-        );
-        return undefined;
-    }
-
-    private async analyzeLegacy() {
-        const analyzeStart = Date.now();
-        await this.scanner.analyze({
-            version: "4",
-            onFailure: (name: string, reason: unknown) => {
-                this.failed.push(name);
-                this.deps.log.debug(`failed to analyze package ${name}: ${formatError(reason)}`);
-            },
-            onRegistry: (registry: { name: string }, versions: unknown[]) => {
-                this.deps.onRegistryVersions(registry.name, versions);
-            },
-            onSuccess: (object: SearchObject) => {
-                this.fullCache[object.package.name] = this.tempCache[object.package.name] = object;
-            },
-            after: () => this.flushPatch(),
-        });
-        this.deps.log.debug(
-            `legacy analyze completed: success=${Object.keys(this.fullCache).length}, failed=${this.failed.length}, elapsed=${Date.now() - analyzeStart}ms`,
-        );
-    }
-
-    flushPatch() {
-        if (!Object.keys(this.tempCache).length) return;
-        this.deps.broadcastPatch({
-            data: this.tempCache,
-            failed: this.failed.length,
-            total: this.scanner.total,
-            progress: this.scanner.progress,
-            debug: this.debugInfoValue ?? undefined,
-        });
-        this.tempCache = {};
+        return collectMarketIndex(this);
     }
 
     /** 手动/自动刷新入口（旧 start 主流程）。 */
@@ -226,7 +174,7 @@ export class MarketIndexSource implements MarketBackgroundSource {
         }
         this.collectTask = this.collect();
         await this.collectTask;
-        this.flushPatch();
+        flushMarketPatch(this);
         if (!this.scope.isStale(serial)) {
             void this.deps.notifyRefresh();
         }

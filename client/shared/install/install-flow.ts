@@ -2,7 +2,7 @@ import { type Awaitable, type Dict, message, receive, send, socket } from '@kois
 import { reactive, watch } from 'vue'
 import { translate } from '../../i18n'
 import { extractErrorMessage } from '../error'
-import { active, showEnvironmentVersions } from '../ui/dialogs'
+import { active } from '../ui/dialogs'
 import { formatEndpoint } from './registry-status'
 import type { InstallFallbackCandidate } from '../../../src/shared/types'
 
@@ -36,7 +36,7 @@ receive('market/install-log', (log: LogLine) => {
   }
 })
 
-interface InstallMessages {
+export interface InstallMessages {
   loadingText?: string
   successText?: string
   errorText?: string
@@ -47,7 +47,7 @@ interface InstallMessages {
   allowDisconnectSuccess?: boolean
 }
 
-function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
+export function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
   installProgressState.logs.push({ type, line })
 }
 
@@ -89,7 +89,7 @@ export async function prepareInstallFallbackRetry(run: (options?: InstallOptions
   }
 }
 
-function reportInstallRequestError(error: unknown, messages: InstallMessages) {
+export function reportInstallRequestError(error: unknown, messages: InstallMessages) {
   const detail = extractErrorMessage(error) ?? String(error || 'unknown error')
   const isTimeout = detail === 'timeout'
   pushInstallLog(translate('operations.progress.requestFailed', { detail }), 'stderr')
@@ -103,7 +103,7 @@ function isSelfUpdate(override: Dict<string>) {
 }
 
 /** 监听 socket 断开并返回可竞速的 promise（install 与 environment restore 共用）。 */
-function createSocketDisconnectTracker() {
+export function createSocketDisconnectTracker() {
   let resolveDisconnected: (value: number) => void
   const disconnected = new Promise<number>((resolve) => {
     resolveDisconnected = resolve
@@ -208,61 +208,5 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
     console.error(err)
     installProgressState.status = 'error'
     reportInstallRequestError(err, messages)
-  }
-}
-
-export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
-  resetInstallFallbackState()
-  showEnvironmentVersions.value = false
-  installProgressState.title = translate('operations.progress.environmentTitle')
-  installProgressState.logs = []
-  installProgressState.status = 'running'
-  installProgressState.selfUpdate = false
-  installProgressState.environmentRestore = true
-  installProgressState.visible = true
-  pushInstallLog(translate('operations.progress.environmentPreparing'))
-
-  const runRestore = async (options?: InstallOptions) => {
-    const tracker = createSocketDisconnectTracker()
-    const waitTimer = setTimeout(() => {
-      if (installProgressState.status === 'running') {
-        pushInstallLog(translate('operations.progress.environmentWaiting'))
-      }
-    }, 8000)
-    try {
-      const task = send('market/environment-snapshot-apply', id, options ?? {}) ?? Promise.resolve(1)
-      const code = await Promise.race([task, tracker.disconnected])
-      if (tracker.disconnectedBeforeResponse && !selfUpdate) {
-        installProgressState.status = 'error'
-        pushInstallLog(translate('operations.progress.environmentDisconnected'), 'stderr')
-        message.warning(translate('operations.progress.environmentDisconnectedShort'))
-        return
-      }
-      if (code) {
-        installProgressState.status = 'error'
-        message.error(translate('operations.progress.environmentError'))
-        if (!tracker.disconnectedBeforeResponse) await prepareInstallFallbackRetry(runRestore, options?.installEndpoint)
-        return code
-      }
-      installProgressState.status = 'success'
-      message.success(tracker.disconnectedBeforeResponse
-        ? translate('operations.progress.environmentSubmitted')
-        : translate('operations.progress.environmentSuccess'))
-      return 0
-    } finally {
-      clearTimeout(waitTimer)
-      tracker.dispose()
-    }
-  }
-
-  try {
-    await runRestore()
-  } catch (error) {
-    console.error(error)
-    installProgressState.status = 'error'
-    reportInstallRequestError(error, {
-      errorText: translate('operations.progress.environmentErrorTitle'),
-      timeoutText: translate('operations.progress.environmentTimeout'),
-    })
   }
 }

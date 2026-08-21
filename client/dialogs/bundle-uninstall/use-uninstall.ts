@@ -1,6 +1,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { message, router, send, store, useContext } from '@koishijs/client'
-import { getBundleGroupIdent, type PluginBundleRecord } from '../../../src/shared/bundle'
+import { getBundleGroupIdent } from '../../../src/shared/bundle-idents'
+import type { PluginBundleRecord } from '../../../src/shared/bundle'
 import { fetchBundleRecord, getBundleMemberConfigState, type BundleRecordView } from '../../shared/install/bundle-records'
 import { install } from '../../shared/install/install-flow'
 import { pendingBundleUninstalls, type BundleMemberCleanupTarget } from '../../shared/ui/dialogs'

@@ -8,7 +8,7 @@ import {
     getBundleGroupIdent,
     getBundleMemberIdent,
     getPluginShortname,
-} from "../../shared/bundle.js";
+} from "../../shared/bundle-idents.js";
 import { findPluginConfigKey, type PluginConfigMap } from "../config/plugins-map.js";
 
 export interface BundleGroup {

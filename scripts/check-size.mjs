@@ -12,7 +12,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const WARN = 300
+const WARN = 250
 const FAIL = 350
 
 function walk(dir, out = []) {

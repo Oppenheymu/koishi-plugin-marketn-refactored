@@ -1,15 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fsp } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { PackageJson } from "@koishijs/registry";
 import { createLocalBindingRequest, MAX_LOCAL_BINDING_PACK_SIZE } from "./local-binding.js";
 import {
-    assertInside,
-    createCanonicalLocalPackageFilename,
-    inspectPackageArchive,
-    readFileHash,
-} from "./tar.js";
+    decodeBase64Chunk,
+    formatUploadBytes,
+    LOCAL_UPLOAD_CHUNK_SIZE,
+    placeUploadArchive,
+    sweepTemporaryUploads,
+    validateUploadFilename,
+} from "./session-io.js";
+import { createCanonicalLocalPackageFilename, inspectPackageArchive } from "./tar.js";
 import type {
     LocalPackageUploadChunkRequest,
     LocalPackageUploadCommitResult,
@@ -19,7 +22,6 @@ import type {
     LocalPackageUploadStartResult,
 } from "./types.js";
 
-const LOCAL_UPLOAD_CHUNK_SIZE = 512 * 1024;
 const LOCAL_UPLOAD_TTL = 15 * 60 * 1000;
 
 interface ValidatedLocalPackage {
@@ -163,24 +165,12 @@ export class LocalPackageUploadStore {
         if (!session.validated) throw new Error("请先完成本地插件归档校验。");
         await this.closeHandle(session);
         await fsp.mkdir(this.root, { recursive: true });
-
-        const target = resolve(this.root, session.validated.targetFilename);
-        assertInside(this.root, target);
-        const existing = await readFileHash(target);
-        if (existing && existing !== session.validated.hash) {
-            throw new Error("同名本地插件归档已存在，但文件内容不一致。");
-        }
-        if (!existing) {
-            try {
-                await fsp.rename(session.path, target);
-            } catch (error) {
-                const concurrent = await readFileHash(target);
-                if (concurrent !== session.validated.hash) throw error;
-                await fsp.rm(session.path, { force: true });
-            }
-        } else {
-            await fsp.rm(session.path, { force: true });
-        }
+        await placeUploadArchive(
+            this.root,
+            session.path,
+            session.validated.targetFilename,
+            session.validated.hash,
+        );
         this.sessions.delete(session.id);
 
         return {
@@ -214,22 +204,7 @@ export class LocalPackageUploadStore {
             ),
         );
         const activePaths = new Set([...this.sessions.values()].map((session) => session.path));
-        const entries = await fsp
-            .readdir(this.temporaryRoot, { withFileTypes: true })
-            .catch((error) => {
-                if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") return [];
-                throw error;
-            });
-        await Promise.all(
-            entries.map(async (entry) => {
-                if (!entry.isFile() || !entry.name.endsWith(".part")) return;
-                const path = resolve(this.temporaryRoot, entry.name);
-                if (activePaths.has(path)) return;
-                const stat = await fsp.stat(path);
-                if (now - stat.mtimeMs <= LOCAL_UPLOAD_TTL) return;
-                await fsp.rm(path, { force: true });
-            }),
-        );
+        await sweepTemporaryUploads(this.temporaryRoot, activePaths, now, LOCAL_UPLOAD_TTL);
     }
 
     async dispose() {
@@ -264,35 +239,4 @@ export class LocalPackageUploadStore {
         await this.closeHandle(session).catch(() => {});
         await fsp.rm(session.path, { force: true });
     }
-}
-
-function validateUploadFilename(value: unknown) {
-    if (
-        typeof value !== "string" ||
-        basename(value) !== value ||
-        !value.toLowerCase().endsWith(".tgz")
-    ) {
-        throw new Error("请选择 npm pack 生成的 .tgz 文件。");
-    }
-    return value;
-}
-
-function decodeBase64Chunk(value: unknown) {
-    if (
-        typeof value !== "string" ||
-        value.length > Math.ceil(LOCAL_UPLOAD_CHUNK_SIZE / 3) * 4 + 4 ||
-        value.length % 4 ||
-        !/^[A-Za-z0-9+/]*={0,2}$/.test(value)
-    ) {
-        throw new Error("本地插件上传分块编码无效。");
-    }
-    const buffer = Buffer.from(value, "base64");
-    if (buffer.toString("base64") !== value) throw new Error("本地插件上传分块编码无效。");
-    return buffer;
-}
-
-function formatUploadBytes(value: number) {
-    if (value < 1024) return `${value} B`;
-    if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KiB`;
-    return `${Math.ceil(value / 1024 / 1024)} MiB`;
 }

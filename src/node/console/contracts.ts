@@ -125,3 +125,8 @@ export const contracts = {
 } as const;
 
 export type ContractName = keyof typeof contracts;
+
+/** listener 边界统一校验：入参不符合 zod schema 即抛 ZodError。 */
+export function assertContract(name: ContractName, ...args: unknown[]) {
+    (contracts[name] as z.ZodType).parse(args);
+}

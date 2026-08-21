@@ -7,7 +7,7 @@ import type {
   EnvironmentSnapshotSummary,
 } from 'koishi-plugin-marketn-refactored'
 import { getFrontendMode } from '../../shared/config/market-config'
-import { applyEnvironmentSnapshot } from '../../shared/install/install-flow'
+import { applyEnvironmentSnapshot } from '../../shared/install/environment-flow'
 import { showEnvironmentVersions } from '../../shared/ui/dialogs'
 import { useMarketNextI18n } from '../../i18n'
 

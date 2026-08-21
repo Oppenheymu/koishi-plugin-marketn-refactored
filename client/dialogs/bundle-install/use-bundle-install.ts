@@ -1,25 +1,20 @@
 import { computed, reactive, ref, watch } from 'vue'
-import { message, send, socket, store, useContext } from '@koishijs/client'
-import type { Registry, SearchObject } from '@koishijs/registry'
+import { useContext } from '@koishijs/client'
+import type { Registry } from '@koishijs/registry'
 import {
   type BundleInstallMember,
   type BundleInstallRequest,
-  type BundleInstallResult,
   type PluginBundleManifest,
-  getBundleGroupIdent,
   hasBundleKeyword,
-  parseBundleManifest,
-  scanSensitiveConfig,
   validateBundleManifest,
 } from '../../../src/shared/bundle'
 import { activeBundle } from '../../shared/ui/dialogs'
-import { getBundleMemberConfigState } from '../../shared/install/bundle-records'
-import { installProgressState, prepareInstallFallbackRetry, resetInstallFallbackState, type InstallOptions } from '../../shared/install/install-flow'
-import { satisfies } from 'semver'
+import { resetInstallFallbackState, type InstallOptions, installProgressState } from '../../shared/install/install-flow'
 import { useMarketNextI18n } from '../../i18n'
 import { useMarketModeClass } from '../../shared/ui/market-mode'
-import { loadMarketObjects } from '../../market/state'
 import { useMemberInfo } from './member-info'
+import { createBundleLoader } from './load-bundle'
+import { runBundleInstall } from './bundle-install-runner'
 import { formatInstallError, formatShortname, memberCategory, reportInstallError } from './helpers'
 
 export function useBundleInstall() {
@@ -94,83 +89,26 @@ export function useBundleInstall() {
     }
   }
 
-  function buildMemberEntries(value: SearchObject, parsed: PluginBundleManifest): BundleInstallMember[] {
-    const groupKey = `group:${getBundleGroupIdent(value.package.name)}`
-    return parsed.members.map(member => {
-      const state = getBundleMemberConfigState(ctx, member, groupKey)
-      const hasConfig = !!(state.group.length || state.external.length)
-      const conflictType = state.group.length ? 'same-group' : state.external.length ? 'other-config' : undefined
-
-      const dep = store.dependencies?.[member.package]
-      const isMismatch = dep?.resolved && !satisfies(dep.resolved, member.version, { includePrerelease: true })
-
-      return {
-        ...member,
-        selected: !!member.required || (!!dep && !isMismatch),
-        createConfig: !hasConfig && conflictType !== 'same-group',
-        usePreset: !hasConfig && !!member.config && Object.keys(member.config).length > 0,
-        move: false,
-        conflict: (conflictType || (isMismatch ? 'package-mismatch' : undefined))!,
-      }
-    })
-  }
-
   const canInstall = computed(() => {
-    return !!activeBundle.value 
-      && !!bundle.value 
-      && validation.value.valid 
-      && selectedMembers.value.length > 0 
+    return !!activeBundle.value
+      && !!bundle.value
+      && validation.value.valid
+      && selectedMembers.value.length > 0
       && !loading.value
       && Object.keys(memberJsonErrors).length === 0
   })
 
-  async function loadBundle(value?: SearchObject) {
-    error.value = ''
-    registry.value = undefined
-    bundle.value = undefined
-    resolvedBundleVersion.value = ''
-    members.splice(0)
-    Object.keys(memberJsonErrors).forEach(key => delete memberJsonErrors[key])
-    if (!value) return
-    loading.value = true
-    try {
-      const data = await send('market/package', value.package.name) as Registry
-      if (!data?.versions) {
-        error.value = t('bundle.messages.noMetadata')
-        return
-      }
-      registry.value = data
-      const remoteEntry = data.versions?.[value.package.version]
-        ? [value.package.version, data.versions[value.package.version]] as const
-        : Object.entries(data.versions ?? {})[0]
-      if (!remoteEntry) {
-        error.value = t('bundle.messages.noMetadata')
-        return
-      }
-      const [remoteVersion, remote] = remoteEntry
-      const parsed = parseBundleManifest((remote as any)?.koishi?.bundle)
-      if (!parsed) {
-        error.value = t('bundle.messages.noManifest')
-        return
-      }
-      resolvedBundleVersion.value = remoteVersion
-      bundle.value = parsed
-      void loadMarketObjects(parsed.members.map(member => member.package)).catch(error => {
-        console.error('[market-next] failed to load bundle member metadata', error)
-      })
-      members.push(...buildMemberEntries(value, parsed))
-      const names = parsed.members.map(member => member.package).filter(name => !store.registry?.[name])
-      if (names.length) {
-        const result = await (send('market/registry', names) ?? Promise.resolve(undefined)).catch(() => undefined)
-        if (result) store.registry = { ...store.registry, ...result }
-      }
-    } catch (err) {
-      console.error(err)
-      error.value = err instanceof Error ? err.message : t('bundle.messages.loadFailed')
-    } finally {
-      loading.value = false
-    }
-  }
+  const { loadBundle } = createBundleLoader({
+    ctx,
+    t,
+    loading,
+    error,
+    registry,
+    bundle,
+    resolvedBundleVersion,
+    members,
+    memberJsonErrors,
+  })
 
   watch(activeBundle, (value) => {
     void loadBundle(value)
@@ -215,53 +153,6 @@ export function useBundleInstall() {
     }
   }
 
-  async function runBundleInstall(request: BundleInstallRequest, options?: InstallOptions) {
-    installing.value = true
-    let disconnectedBeforeResponse = false
-    let resolveDisconnected: (value: undefined) => void
-    const disconnected = new Promise<undefined>((resolve) => {
-      resolveDisconnected = resolve
-    })
-    const dispose = watch(socket, (value, previous) => {
-      if (value || !previous) return
-      disconnectedBeforeResponse = true
-      resolveDisconnected(undefined)
-      dispose()
-    })
-    const waitTimer = setTimeout(() => {
-      if (installProgressState.status !== 'running') return
-      installProgressState.logs.push({
-        type: 'stdout',
-        line: t('bundle.messages.waiting'),
-      })
-    }, 8000)
-    try {
-      const task = send('market/install-bundle', request, undefined, options ?? {}) as Promise<BundleInstallResult> | undefined
-      const result = await Promise.race([task ?? Promise.resolve(undefined), disconnected])
-      if (disconnectedBeforeResponse) {
-        installProgressState.status = 'error'
-        reportInstallError(t, t('bundle.messages.disconnected'))
-        return undefined
-      }
-      if (result?.code) {
-        installProgressState.status = 'error'
-        reportInstallError(t, t('bundle.messages.exitCode', { code: result.code }))
-        await prepareInstallFallbackRetry(() => runBundleInstall(request), options?.installEndpoint)
-        return result.code
-      }
-      installProgressState.status = 'success'
-      const moved = result?.moved?.length ? t('bundle.messages.moved', { count: result.moved.length }) : ''
-      const skipped = result?.skipped?.length ? t('bundle.messages.skipped', { count: result.skipped.length }) : ''
-      message.success(t('bundle.messages.completed', { moved, skipped }))
-      activeBundle.value = undefined
-      return 0
-    } finally {
-      clearTimeout(waitTimer)
-      dispose()
-      installing.value = false
-    }
-  }
-
   async function confirmInstall() {
     if (!activeBundle.value || !bundle.value || installing.value) return
     installing.value = true
@@ -289,7 +180,7 @@ export function useBundleInstall() {
     }
 
     try {
-      await runBundleInstall(request)
+      await runBundleInstall(t, request, undefined, installing)
     } catch (err) {
       console.error(err)
       installProgressState.status = 'error'

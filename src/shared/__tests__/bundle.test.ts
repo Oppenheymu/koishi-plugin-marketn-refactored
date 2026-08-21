@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
-    getBundleGroupIdent,
-    getBundleMemberIdent,
-    getPluginShortname,
     hasBundleKeyword,
     isBundleLike,
     isBundlePackageName,
-    normalizeBundleIdent,
     type PluginBundleManifest,
     type PluginBundleMember,
     parseBundleManifest,
-    scanSensitiveConfig,
     validateBundleManifest,
 } from "../bundle.js";
+import {
+    getBundleGroupIdent,
+    getBundleMemberIdent,
+    getPluginShortname,
+    normalizeBundleIdent,
+    scanSensitiveConfig,
+} from "../bundle-idents.js";
 
 function makeMember(overrides: Partial<PluginBundleMember> = {}): PluginBundleMember {
     return {

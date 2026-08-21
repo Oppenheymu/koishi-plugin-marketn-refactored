@@ -1,13 +1,12 @@
 import { type Context, type Dict, send, store } from '@koishijs/client'
 import type { Registry } from '@koishijs/registry'
 import {
-  getBundleGroupIdent,
-  getPluginShortname,
   isBundlePackageName,
   parseBundleManifest,
   type PluginBundleManifest,
   type PluginBundleRecord,
 } from '../../../src/shared/bundle'
+import { getBundleGroupIdent, getPluginShortname } from '../../../src/shared/bundle-idents'
 import { getConfigWriter } from './config-writer'
 import type { BundleMemberCleanupTarget } from '../ui/dialogs'
 

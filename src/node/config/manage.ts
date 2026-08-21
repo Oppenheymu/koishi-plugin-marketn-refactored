@@ -1,12 +1,8 @@
 import type { Context } from "koishi";
 import { loadManifest, Scanner } from "../../core/registry/manifest.js";
 import { sleep } from "../../core/utils/async.js";
-import {
-    BUNDLE_KEYWORD,
-    getPluginShortname,
-    isBundlePackageName,
-    parseBundleManifest,
-} from "../../shared/bundle.js";
+import { BUNDLE_KEYWORD, isBundlePackageName, parseBundleManifest } from "../../shared/bundle.js";
+import { getPluginShortname } from "../../shared/bundle-idents.js";
 import { SELF_PACKAGE } from "../installer/index.js";
 import {
     type Config,
