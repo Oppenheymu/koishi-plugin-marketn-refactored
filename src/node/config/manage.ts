@@ -142,25 +142,39 @@ function findMarketNextConfigNode(
     for (const key in (plugins as PluginConfigMap) ?? {}) {
         if (key.startsWith("$")) continue;
         const value = (plugins as PluginConfigMap)[key];
-        if (!value || typeof value !== "object") continue;
-        const node = value as MarketNextConfigNode["value"];
-        const disabled = key.startsWith("~");
-        const normalized = disabled ? key.slice(1) : key;
-        const [name] = normalized.split(":", 1);
-        if (
-            value === currentConfig ||
-            name === "market-next" ||
-            name === "koishi-plugin-marketn-refactored"
-        ) {
-            if (!disabled) return { parent: plugins as PluginConfigMap, key, value: node };
-            fallback ||= { parent: plugins as PluginConfigMap, key, value: node };
+        const candidate = getMarketConfigCandidate(plugins, key, value, currentConfig);
+        if (candidate?.isMatch) {
+            if (!candidate.disabled) return candidate.node;
+            fallback ||= candidate.node;
         }
-        if (name === "group") {
+        if (candidate?.isGroup) {
             const nested = findMarketNextConfigNode(value, currentConfig);
             if (nested) return nested;
         }
     }
     return fallback;
+}
+
+function getMarketConfigCandidate(
+    parent: unknown,
+    key: string,
+    value: unknown,
+    currentConfig: Config,
+) {
+    if (!value || typeof value !== "object") return;
+    const node = value as MarketNextConfigNode["value"];
+    const disabled = key.startsWith("~");
+    const normalized = disabled ? key.slice(1) : key;
+    const [name] = normalized.split(":", 1);
+    return {
+        disabled,
+        isGroup: name === "group",
+        isMatch:
+            value === currentConfig ||
+            name === "market-next" ||
+            name === "koishi-plugin-marketn-refactored",
+        node: { parent: parent as PluginConfigMap, key, value: node },
+    };
 }
 
 export function ensureMarketNextConfigDefaults(ctx: Context, currentConfig: Config) {
