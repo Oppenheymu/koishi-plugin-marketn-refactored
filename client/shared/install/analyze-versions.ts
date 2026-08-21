@@ -1,7 +1,8 @@
 import { reactive } from 'vue'
-import { type Dict, send, store, valueMap } from '@koishijs/client'
+import { type Dict, store, valueMap } from '@koishijs/client'
 import type { Registry } from '@koishijs/registry'
 import { compare, satisfies } from 'semver'
+import { requestMarketPackage } from '../../market/api'
 
 export type ResultType = 'success' | 'warning' | 'danger' | 'primary'
 
@@ -47,7 +48,7 @@ export function analyzeVersions(name: string, getVersion: (name: string) => stri
 const manualDeps = reactive<Dict<Registry>>({})
 
 export async function addManual(name: string) {
-  const data = await send('market/package', name) as Registry
+  const data = await requestMarketPackage(name) as Registry
   if (!data?.versions) throw new Error(`failed to fetch package metadata: ${name}`)
   data.versions = Object.fromEntries(Object.entries(data.versions).sort((a, b) => compare(b[0], a[0])))
   return manualDeps[name] = data

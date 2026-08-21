@@ -13,3 +13,11 @@ export function requestMarketIndex(request: MarketSnapshotRequest) {
 export function requestMarketLookup(request: MarketLookupRequest) {
     return send("market/lookup", request) as Promise<MarketLookupResult> | undefined;
 }
+
+export function requestMarketPackage(name: string) {
+    return send("market/package", name);
+}
+
+export function requestMarketRegistry(names: string[]) {
+    return send("market/registry", names);
+}

@@ -1,8 +1,9 @@
 import { watch, type ComputedRef, type Ref } from 'vue'
-import { type Dict, send, store } from '@koishijs/client'
+import { type Dict, store } from '@koishijs/client'
 import type { PeerInfo } from '../../shared/install/analyze-versions'
 import { active } from '../../shared/ui/dialogs'
 import { getPendingOverrides } from '../../shared/config/data-store'
+import { requestMarketRegistry } from '../../market/api'
 
 // registry 数据同步所需的版本状态（由 useInstallVersions 构造后传入）。
 export interface InstallRegistrySyncInput {
@@ -23,7 +24,7 @@ export function useInstallRegistrySync(input: InstallRegistrySyncInput) {
     let registry: typeof store.registry = {}
     if (names.length) {
       try {
-        registry = await send('market/registry', names)
+        registry = await requestMarketRegistry(names)
       } catch (error) {
         console.error(error)
       }
@@ -54,7 +55,7 @@ export function useInstallRegistrySync(input: InstallRegistrySyncInput) {
 
     if (shouldFetchRegistry(name)) {
       try {
-        const registry = await send('market/registry', [name])
+        const registry = await requestMarketRegistry([name])
         const versions = registry?.[active.value] || store.registry?.[active.value]
         if (versions) version.value = Object.keys(versions)[0]
       } catch (error) {

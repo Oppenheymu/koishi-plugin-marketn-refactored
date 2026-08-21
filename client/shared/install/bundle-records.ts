@@ -1,4 +1,4 @@
-import { type Context, type Dict, send, store } from '@koishijs/client'
+import { type Context, type Dict, store } from '@koishijs/client'
 import type { Registry } from '@koishijs/registry'
 import {
   isBundlePackageName,
@@ -9,6 +9,7 @@ import {
 import { getBundleGroupIdent, getPluginShortname } from '../../../src/shared/bundle-idents'
 import { getConfigWriter } from './config-writer'
 import type { BundleMemberCleanupTarget } from '../ui/dialogs'
+import { requestMarketPackage } from '../../market/api'
 
 export type BundleRecordView = PluginBundleRecord & {
   fallback?: boolean
@@ -94,7 +95,7 @@ export function getBundleMemberConfigState(ctx: Context, member: BundleMemberCle
 
 export async function fetchBundleRecord(packageName: string): Promise<BundleRecordView | undefined> {
   if (!isBundlePackageName(packageName)) return
-  const registry = await (send('market/package', packageName) ?? Promise.resolve(undefined)).catch((error) => {
+  const registry = await requestMarketPackage(packageName).catch((error) => {
     console.warn(error)
     return undefined
   }) as Registry | undefined

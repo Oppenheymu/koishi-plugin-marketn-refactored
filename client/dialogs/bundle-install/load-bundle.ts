@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { send, store } from '@koishijs/client'
+import { store } from '@koishijs/client'
 import type { Context } from '@koishijs/client'
 import type { Registry, SearchObject } from '@koishijs/registry'
 import { satisfies } from 'semver'
@@ -11,6 +11,7 @@ import {
 } from '../../../src/shared/bundle'
 import { getBundleMemberConfigState } from '../../shared/install/bundle-records'
 import { loadMarketObjects } from '../../market/state'
+import { requestMarketPackage, requestMarketRegistry } from '../../market/api'
 
 // 套装元数据加载所需的响应式状态（由 useBundleInstall 构造后传入）。
 export interface BundleLoaderState {
@@ -60,7 +61,7 @@ export function createBundleLoader(state: BundleLoaderState) {
     if (!value) return
     loading.value = true
     try {
-      const data = await send('market/package', value.package.name) as Registry
+      const data = await requestMarketPackage(value.package.name) as Registry
       if (!data?.versions) {
         error.value = t('bundle.messages.noMetadata')
         return
@@ -87,7 +88,7 @@ export function createBundleLoader(state: BundleLoaderState) {
       members.push(...buildMemberEntries(value, parsed))
       const names = parsed.members.map(member => member.package).filter(name => !store.registry?.[name])
       if (names.length) {
-        const result = await (send('market/registry', names) ?? Promise.resolve(undefined)).catch(() => undefined)
+        const result = await requestMarketRegistry(names).catch(() => undefined)
         if (result) store.registry = { ...store.registry, ...result }
       }
     } catch (err) {
