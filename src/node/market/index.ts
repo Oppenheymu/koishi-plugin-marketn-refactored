@@ -115,6 +115,7 @@ export class MarketProvider extends BaseMarketProvider {
             serverNow: Date.now(),
             refreshing: !!source.backgroundTask,
             loading: !source.hasCurrentData() && !source.error,
+            revision: source.revisionValue,
             dataVersion: source.dataVersionValue,
             debug: source.exportedDebug(),
         };

@@ -23,6 +23,7 @@ export interface MarketSourceDeps {
     /** market/patch 广播（节流在适配层） */
     broadcastPatch: (payload: {
         data: Dict<SearchObject>;
+        revision: number;
         total: number;
         progress: number;
         failed: number;

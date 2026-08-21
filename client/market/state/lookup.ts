@@ -2,7 +2,7 @@ import { receive, store } from '@koishijs/client'
 import { markRaw } from 'vue'
 import { collectServiceProviders } from '../../../src/shared/lookup'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
-import { getCurrentSnapshotData, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
+import { getCurrentSnapshotData, loadMarketSnapshot, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
 import { requestMarketLookup } from '../api'
 import { applyRuntimePatch, marketRuntimeStore } from '../runtime-store'
 
@@ -147,6 +147,10 @@ async function loadMarketLookup(request: MarketLookupRequest, force = false) {
 receive('market/patch', (value: Partial<MarketPayload>) => {
   if (!marketSnapshot.value || !value.data) return
   const snapshot = applyRuntimePatch(value)
-  if (!snapshot || snapshot === marketSnapshot.value) return
+  if (!snapshot) {
+    void loadMarketSnapshot(true).catch(error => console.error('[market-next] failed to recover market patch gap', error))
+    return
+  }
+  if (snapshot === marketSnapshot.value) return
   publishSnapshot(snapshot)
 })

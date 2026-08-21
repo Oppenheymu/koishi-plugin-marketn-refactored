@@ -6,9 +6,10 @@ import {
   marketRuntimeStore,
 } from '../runtime-store'
 
-function snapshot(dataVersion: number, data: Record<string, unknown>) {
+function snapshot(dataVersion: number, data: Record<string, unknown>, revision?: number) {
   return {
     dataVersion,
+    revision,
     data,
     total: Object.keys(data).length,
     failed: 0,
@@ -16,8 +17,8 @@ function snapshot(dataVersion: number, data: Record<string, unknown>) {
   } as unknown as MarketPayload
 }
 
-function patch(dataVersion: number, data: Record<string, unknown>) {
-  return { dataVersion, data } as unknown as Partial<MarketPayload>
+function patch(dataVersion: number, data: Record<string, unknown>, revision?: number) {
+  return { dataVersion, revision, data } as unknown as Partial<MarketPayload>
 }
 
 afterEach(() => {
@@ -62,5 +63,20 @@ describe('market runtime patch', () => {
   it('ignores a patch received before the first snapshot', () => {
     expect(applyRuntimePatch(patch(1, { early: {} }))).toBeUndefined()
     expect(marketRuntimeStore.snapshot.value).toBeUndefined()
+  })
+
+  it('rejects skipped revisions until a complete snapshot is loaded', () => {
+    applyRuntimeSnapshot(snapshot(7, { base: {} }, 10))
+    expect(applyRuntimePatch(patch(7, { skipped: {} }, 12))).toBeUndefined()
+    expect(marketRuntimeStore.snapshot.value?.data).toEqual({ base: {} })
+    applyRuntimePatch(patch(7, { next: {} }, 11))
+    expect(marketRuntimeStore.snapshot.value?.data).toEqual({ base: {}, next: {} })
+  })
+
+  it('ignores duplicate revisions', () => {
+    applyRuntimeSnapshot(snapshot(8, { base: {} }, 10))
+    applyRuntimePatch(patch(8, { next: {} }, 11))
+    applyRuntimePatch(patch(8, { stale: {} }, 11))
+    expect(marketRuntimeStore.snapshot.value?.data).toEqual({ base: {}, next: {} })
   })
 })

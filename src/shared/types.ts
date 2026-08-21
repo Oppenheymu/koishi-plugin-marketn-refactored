@@ -119,6 +119,7 @@ export interface MarketLookupRequest {
 export interface MarketLookupResult {
     data: Dict<SearchObject>;
     services: Dict<string[]>;
+    revision?: number | undefined;
     dataVersion?: number | undefined;
 }
 
@@ -130,6 +131,7 @@ export interface MarketSnapshotRequest {
 export interface MarketPayload {
     registry?: string | undefined;
     data?: Dict<SearchObject> | undefined;
+    revision?: number | undefined;
     dataVersion?: number | undefined;
     total: number;
     failed: number;

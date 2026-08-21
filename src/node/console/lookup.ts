@@ -30,6 +30,7 @@ export async function lookupMarket(
 
     const snapshot = await provider.getSnapshot();
     const data = snapshot?.data ?? {};
+    result.revision = snapshot?.revision;
     result.dataVersion = snapshot?.dataVersion;
     for (const name of names) {
         if (data[name]) result.data[name] = data[name];

@@ -18,6 +18,9 @@ export const marketRuntimeStore = {
 
 export function applyRuntimeSnapshot(value: MarketPayload) {
   const current = marketRuntimeStore.snapshot.value
+  if (current?.revision != null && value.revision != null && value.revision < current.revision) {
+    return current
+  }
   if (current?.dataVersion != null && value.dataVersion != null && value.dataVersion < current.dataVersion) {
     return current
   }
@@ -30,6 +33,12 @@ export function applyRuntimeSnapshot(value: MarketPayload) {
 export function applyRuntimePatch(value: Partial<MarketPayload>) {
   const current = marketRuntimeStore.snapshot.value
   if (!current || !value.data) return current
+  if (current.revision != null && value.revision != null && value.revision <= current.revision) {
+    return current
+  }
+  if (current.revision != null && value.revision != null && value.revision > current.revision + 1) {
+    return undefined
+  }
   if (current.dataVersion != null && value.dataVersion != null && value.dataVersion < current.dataVersion) {
     return current
   }

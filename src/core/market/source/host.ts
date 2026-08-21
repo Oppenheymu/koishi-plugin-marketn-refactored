@@ -36,6 +36,7 @@ export function createSourceSnapshotHost(source: MarketIndexSource): SnapshotHos
         endpointLabel: () => source.endpoint,
         fallbackEndpointLabel: () => source.endpoint || source.config.endpoint || "",
         dataVersion: source.dataVersionValue,
+        revision: source.revisionValue,
         backgroundRunning: () => !!source.backgroundTask,
         backgroundTask: () => source.backgroundTask,
         warmCacheTask: () => source.warmDiskCacheTask,

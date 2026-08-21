@@ -50,6 +50,7 @@ export class MarketIndexSource implements MarketBackgroundSource {
     forceRefresh = false;
 
     private dataVersion = 0;
+    private revision = 0;
     private contentHash: string | undefined;
     private pendingRefreshTask: Promise<unknown> | undefined;
     private collectTask: Promise<SearchResult | undefined> | undefined;
@@ -119,6 +120,7 @@ export class MarketIndexSource implements MarketBackgroundSource {
         this.scanner.total = this.scanner.objects.length;
         this.scanner.version = result.version === undefined ? undefined : String(result.version);
         if (!contentHash || contentHash !== this.contentHash) this.dataVersion++;
+        this.revision++;
         this.contentHash = contentHash;
         this.deps.log.debug(
             `market index applied: endpoint=${endpoint}, version=${result.version ?? "legacy"}, rawObjects=${result.objects.length}, ignored=${ignored}, visible=${this.scanner.total}`,
@@ -199,6 +201,14 @@ export class MarketIndexSource implements MarketBackgroundSource {
 
     get dataVersionValue() {
         return this.dataVersion;
+    }
+
+    get revisionValue() {
+        return this.revision;
+    }
+
+    nextRevision() {
+        return ++this.revision;
     }
 
     updateDebugInfo(info: MarketPerformanceSnapshot, phase?: "initial" | "refresh") {

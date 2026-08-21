@@ -13,6 +13,7 @@ export interface SnapshotHost {
     endpointLabel(): string;
     fallbackEndpointLabel(): string;
     dataVersion: number;
+    revision?: number;
     backgroundRunning(): boolean;
     backgroundTask(): Promise<void> | undefined;
     warmCacheTask(): Promise<boolean> | undefined;
@@ -49,6 +50,7 @@ function buildBackgroundPayload(
         refreshing: true,
         loading: false,
         dataVersion: host.dataVersion,
+        revision: host.revision ?? 0,
         serverNow: Date.now(),
     };
 }
@@ -60,6 +62,7 @@ function buildCurrentPayload(host: SnapshotHost): MarketSnapshotInput | undefine
     return {
         ...current,
         dataVersion: host.dataVersion,
+        revision: host.revision ?? 0,
         serverNow: Date.now(),
         debug: host.debugInfo(),
     };
@@ -107,6 +110,7 @@ function buildErrorPayload(host: SnapshotHost, start: number): MarketSnapshotInp
             refreshing: false,
             loading: false,
             dataVersion: host.dataVersion,
+            revision: host.revision ?? 0,
             serverNow: Date.now(),
             debug: host.debugInfo(),
         };
@@ -170,6 +174,7 @@ function emptyPayload(host: SnapshotHost, start: number): MarketSnapshotInput {
         refreshing: false,
         loading: false,
         dataVersion: host.dataVersion,
+        revision: host.revision ?? 0,
         serverNow: Date.now(),
         debug: host.debugInfo({ total: Date.now() - start }),
     };
@@ -188,6 +193,7 @@ export function assemblePayload(
         registry: host.endpointLabel(),
         data,
         dataVersion: host.dataVersion,
+        revision: host.revision ?? 0,
         failed: host.isModern() ? 0 : host.failedCount(),
         total: host.scannerTotal(),
         progress: host.isModern() ? host.scannerTotal() : host.scannerProgress(),

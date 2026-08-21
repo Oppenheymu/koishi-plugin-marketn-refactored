@@ -22,6 +22,8 @@ export interface MarketCollectSource extends MarketWarmupSource {
     fullCache: Dict<SearchObject>;
     tempCache: Dict<SearchObject>;
     debugInfoValue: MarketPerformance | undefined;
+    readonly revisionValue: number;
+    readonly nextRevision: () => number;
     forceRefresh: boolean;
     readonly deps: Pick<
         MarketSourceDeps,
@@ -83,6 +85,7 @@ export function flushMarketPatch(source: MarketCollectSource) {
     if (!Object.keys(source.tempCache).length) return;
     source.deps.broadcastPatch({
         data: source.tempCache,
+        revision: source.nextRevision(),
         failed: source.failed.length,
         total: source.scanner.total,
         progress: source.scanner.progress,
