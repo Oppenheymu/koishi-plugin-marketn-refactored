@@ -10,6 +10,10 @@
  * 注意：本模块未列入 shared/index.ts 出口，client 通过相对路径直接引用源文件。
  */
 
+// fa69d5b 补注释时误删，此处恢复（getBundleMemberIdent / scanSensitiveConfig 依赖）。
+import type { Dict } from "koishi";
+import type { PluginBundleMember } from "./bundle.js";
+
 /** 命中即视为敏感的配置键名（命令执行/文件路径/凭据/网络地址等）。 */
 const SENSITIVE_RE =
     /(command|script|exec|shell|path|file|token|secret|password|sql|url|webhook|endpoint)/i;
