@@ -1,11 +1,7 @@
 import type { Context } from "koishi";
 import { assertContract, type ContractName } from "../contracts.js";
 
-export type ConsoleRefreshChannel = "dependencies" | "registry" | "packages" | "config";
-
-export function refreshConsole(ctx: Context, channels: readonly ConsoleRefreshChannel[]) {
-    return Promise.all(channels.map((channel) => ctx.get("console")?.refresh(channel)));
-}
+export { refreshConsole } from "../refresh.js";
 
 export function registerContractListener(
     ctx: Context,

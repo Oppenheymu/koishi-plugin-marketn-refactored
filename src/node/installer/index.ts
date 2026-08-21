@@ -35,6 +35,7 @@ import type {
 } from "../../core/upload/types.js";
 import type { JsonStore } from "../../core/utils/json-store.js";
 import type { InstallFallbackCandidate, RegistryStatus } from "../../shared/types.js";
+import { refreshConsole } from "../console/refresh.js";
 import type { InstallerConfig, InstallerGetDepsOptions } from "./config.js";
 import { createInstallerCore, createInstallLogger } from "./wire.js";
 
@@ -189,12 +190,7 @@ export class Installer extends Service {
     }
 
     async refreshData() {
-        await Promise.all([
-            this.ctx.get("console")?.refresh("dependencies"),
-            this.ctx.get("console")?.refresh("registry"),
-            this.ctx.get("console")?.refresh("registryStatus"),
-            this.ctx.get("console")?.refresh("packages"),
-        ]);
+        await refreshConsole(this.ctx, ["dependencies", "registry", "registryStatus", "packages"]);
     }
 
     async refresh(refresh = false, waitMetadata = false) {

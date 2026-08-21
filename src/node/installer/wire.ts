@@ -22,6 +22,7 @@ import { type RegistryReason, registryFailurePenalty } from "../../core/registry
 import { LocalPackageUploadStore } from "../../core/upload/session.js";
 import { JsonStore } from "../../core/utils/json-store.js";
 import type { RegistryStatus } from "../../shared/types.js";
+import { refreshConsole } from "../console/refresh.js";
 import type { InstallerConfig } from "./config.js";
 
 const REGISTRY_FAST_ROUTE_THRESHOLD = 800;
@@ -147,7 +148,7 @@ export function createInstallerCore(
         formatError: (error) => registry.formatError(error),
         ensureProbe: (name) => registry.ensureMetadataEndpoint(name, scope.current),
         log: owner.log,
-        onMetadataRefreshed: () => void ctx.get("console")?.refresh("dependencies"),
+        onMetadataRefreshed: () => void refreshConsole(ctx, ["dependencies"]),
     });
 
     const environments = new EnvironmentSnapshotStore(
@@ -185,7 +186,7 @@ export function createInstallerCore(
         logs,
         agent: owner.agent,
         refreshChannels: () => owner.refreshData(),
-        refreshDependenciesChannel: () => ctx.get("console")?.refresh("dependencies"),
+        refreshDependenciesChannel: () => refreshConsole(ctx, ["dependencies"]),
         clearRegistryStatus: () => owner.clearRegistryStatus(),
         fullReload: () => ctx.loader.fullReload(),
         isActive: () => ctx.scope.isActive,
