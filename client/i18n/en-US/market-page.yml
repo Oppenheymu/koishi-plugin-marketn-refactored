@@ -11,16 +11,10 @@ cache:
   stale: Market refresh failed. The last usable data is still shown.
   cached: Showing locally cached market data.
   refreshing: Refreshing the latest data in the background…
-  registry: 'Registry: {value}'
-  unknownRegistry: Unknown
-  reason: 'Reason: {value}'
   cachedAt: 'Cached: {value}'
   validatedAt: 'Validated: {value}'
 error:
   title: 'The plugin market could not be reached. Possible causes:'
-  network: The network is unavailable. Check your network connection and proxy settings.
-  unsupportedRegistry: This registry does not support search. Consider switching to another source.
-  openSettings: Open settings to change the registry
   reason: 'Reason: {value}'
   registry: 'Registry: {value}'
   openRegistrySettings: Open settings to change the registry

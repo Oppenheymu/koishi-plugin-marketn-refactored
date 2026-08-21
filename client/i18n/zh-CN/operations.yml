@@ -39,9 +39,6 @@ install:
   waitingInstall: 等待安装
   downloaded: 已下载
   select: 选择
-  added: 依赖已添加。
-  addFailed: 依赖添加失败！
-  addTimeout: 依赖添加超时！
   uninstalling: 正在卸载插件……
   uninstalled: 卸载成功！
   uninstallFailed: 卸载失败！

@@ -56,13 +56,3 @@ groups:
   installed:
     label: Installed
     description: Installed and currently has no action requiring attention.
-card:
-  bundle: Plugin bundle
-  update: Update
-  configure: Configure
-  ignore: Ignore
-  restore: Restore
-  remove: Remove dependency
-  current: (current)
-  undo: Undo
-  cancelChange: Cancel change

@@ -14,11 +14,6 @@ actions:
   cancel: 取消
   confirm: 确定
   close: 关闭
-  remove: 移除
-  uninstall: 卸载
-  configure: 配置
-  update: 更新
-  install: 安装
   retry: 重试
 messages:
   refreshMarketSubmitted: 插件市场刷新请求已提交。
@@ -40,13 +35,6 @@ ignore:
   separator: ，
 format:
   listSeparator: 、
-status:
-  loading: 获取中
-  waiting: 等待
-  ready: 准备就绪
-  success: 成功
-  failed: 失败
-  unknown: 状态未知
 labels:
   current: 当前
   target: 目标

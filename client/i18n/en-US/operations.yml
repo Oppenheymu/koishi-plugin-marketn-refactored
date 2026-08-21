@@ -39,9 +39,6 @@ install:
   waitingInstall: Waiting to install
   downloaded: Downloaded
   select: Select
-  added: Dependency added.
-  addFailed: Failed to add dependency!
-  addTimeout: Adding dependency timed out!
   uninstalling: Uninstalling plugin…
   uninstalled: Uninstalled successfully!
   uninstallFailed: Uninstall failed!
