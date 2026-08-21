@@ -1,7 +1,7 @@
 label: 插件包
 loading: 正在读取插件包清单……
 stats:
-  selected: 已选 / {count} 成员
+  selected: '已选 {count} / {total} 成员'
   presets: 将应用预设
   moved: 将移动配置
 bulk:

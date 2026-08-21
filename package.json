@@ -53,7 +53,7 @@
         "access": "public"
     },
     "scripts": {
-        "check": "node scripts/generate-node-locales.mjs && biome check . && yarn ts7 --noEmit && yarn ts7 --noEmit -p client/tsconfig.json && eslint \"client/**/*.vue\" && node scripts/check-size.mjs",
+        "check": "node scripts/generate-node-locales.mjs && node scripts/check-i18n.mjs && biome check . && yarn ts7 --noEmit && yarn ts7 --noEmit -p client/tsconfig.json && eslint \"client/**/*.vue\" && node scripts/check-size.mjs",
         "check:size": "node scripts/check-size.mjs",
         "build": "node scripts/generate-node-locales.mjs && tsdown && vite build",
         "build:client": "vite build",
