@@ -24,11 +24,11 @@
 2. [design/P3-node适配层设计.md](design/P3-node适配层设计.md) — 目标结构、执行顺序、门禁
 3. [reference/前后端调用契约.md](reference/前后端调用契约.md) — 必须保持不变的对外契约面（验收基线）
 
-**接手 P4（client 移植）**：
+**接手 P5（宿主联调）**：
 
-1. [design/P4-client移植设计.md](design/P4-client移植设计.md) — 目标结构、拆分方案、砍除清单
-2. [reference/client端全量结构.md](reference/client端全量结构.md) — 旧 client 的全量结构底册（移植来源）
-3. [reference/构建与宿主接线.md](reference/构建与宿主接线.md) — client 构建链路与宿主加载机制
+1. [handover/P4交接P5.md](handover/P4交接P5.md) — P4 门禁状态、剩余收尾清单、类型接线与 .vue 盲区等关键坑
+2. [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) — 冒烟全清单、契约冻结核对表
+3. [reference/前后端调用契约.md](reference/前后端调用契约.md) — 必须保持不变的对外契约面（验收基线）
 
 ## 文档清单
 
@@ -42,6 +42,9 @@
 | [design/P4-client移植设计.md](design/P4-client移植设计.md) | 设计 | client feature-first 重组方案、lib 拆分、砍除清单 |
 | [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) | 设计 | 宿主联调冒烟清单、契约冻结核对表、收尾事项 |
 | [handover/P2交接P3.md](handover/P2交接P3.md) | 交接 | P2 完成时的门禁状态、core 构造 deps 签名、P3 注意事项 |
+| [handover/P3进行中交接.md](handover/P3进行中交接.md) | 交接 | P3 实现过程中的架构决策与 tsc 修复记录 |
+| [handover/P4交接P5.md](handover/P4交接P5.md) | 交接 | P4 门禁修复全记录、剩余收尾清单、P5 必读坑 |
+| [P4-PORTING-GUIDE.md](P4-PORTING-GUIDE.md) | 指南 | P4 子任务执行规范：移植原则、import 约定、严格 TS、砍除清单 |
 | [reference/前后端调用契约.md](reference/前后端调用契约.md) | 考据 | 旧代码（`Waiting_refactored/`）对外契约面全量清单 |
 | [reference/client端全量结构.md](reference/client端全量结构.md) | 考据 | 旧 client 全量结构（组件/模块/i18n/彩蛋）逐文件说明 |
 | [reference/构建与宿主接线.md](reference/构建与宿主接线.md) | 考据 | client 构建加载链路、宿主 workspace 集成、dev/prod 解析机制 |

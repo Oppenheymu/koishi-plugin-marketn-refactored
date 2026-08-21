@@ -9,8 +9,8 @@
 | P0 | 基线：工具链 / tsdown / vite / vitest / lint + check-size | ✅ | — |
 | P1 | shared 平移：bundle / dependency-source / provider / types / update | ✅ | — |
 | P2 | core 建设：utils → racing → registry → market → deps → install → upload → environment | ✅ | [P2交接P3.md](../handover/P2交接P3.md) |
-| P3 | node 适配层：contracts → installer.service → market.service → providers → listeners → commands → avatar → snapshot-transport → bundle → idle-probe → index 接线 | 🚧 进行中 | — |
-| P4 | client 移植拆分：入口/bootstrap/lib → market 模块细化 → 对话框拆分 → dependency-card 拆分 → dependencies 页拆分 → extensions/i18n/icons/styles | ⏳ | — |
+| P3 | node 适配层：contracts → installer.service → market.service → providers → listeners → commands → avatar → snapshot-transport → bundle → idle-probe → index 接线 | ✅ | [P3进行中交接.md](../handover/P3进行中交接.md) |
+| P4 | client 移植拆分：入口/bootstrap/lib → market 模块细化 → 对话框拆分 → dependency-card 拆分 → dependencies 页拆分 → extensions/i18n/icons/styles | 🚧 收尾（门禁全绿，待 build:client 复验） | [P4交接P5.md](../handover/P4交接P5.md) |
 | P5 | 宿主联调：构建 lib+dist → 改宿主 koishi.yml → dev 冒烟 → prod 复验 | ⏳ | — |
 | P6 | 收尾：契约核对 → 删 Waiting_refactored/ → README 定稿 → 最终 commit | ⏳ | — |
 
@@ -41,17 +41,17 @@
 
 附带修复的旧 bug：agent 检测未 await（永远退回 npm）、execa v10 API 适配。
 
-### P3 node 适配层 🚧
+### P3 node 适配层 ✅
 
-> **状态更新**：P3 已开工（并行实现中）。实际落地为**扁平结构**（`contracts.ts` 单文件、`config.ts`/`config-manage.ts`、`avatar.ts`、`bundle.ts`、`locales-schema.ts`/`locales-message.ts` 等，不设子目录），与本页及设计文档的目录划分有差异——**以实现为准**，收尾时回填本文档。
+> **状态更新**：P3 已完成（commit 3f651f2）。实际落地为**扁平结构**（`contracts.ts` 单文件、`config.ts`/`config-manage.ts`、`avatar.ts`、`bundle.ts`、`locales-schema.ts`/`locales-message.ts` 等，不设子目录），与本页及设计文档的目录划分有差异——**以实现为准**。门禁：`tsc --noEmit`（src）✅、tsdown 产出 lib/ ✅。过程中的类型修复记录见 [handover/P3进行中交接.md](../handover/P3进行中交接.md)。
 
 **目标**：把 core 组装成 Koishi 服务，不含业务逻辑。设计：[design/P3-node适配层设计.md](../design/P3-node适配层设计.md)；组装签名：[handover/P2交接P3.md](../handover/P2交接P3.md) §4。
 
 **执行顺序**：contracts（zod ×23）→ installer.service（门面）→ market.service → providers → listeners → commands → avatar → snapshot-transport → bundle → idle-probe → index 接线。
 
-**门禁**：tsc + tsdown + 启动加载无报错。
+### P4 client 移植拆分 🚧 收尾
 
-### P4 client 移植拆分 ⏳
+> **状态更新**：全部源文件已落盘，`yarn check`（biome + tsc×2 + eslint + check-size）**全量通过**；use-card / use-bundle-install 两个超限文件已拆分。仅剩 `yarn build:client` 复验（已修 3 处仅 vite 可检的 `.vue` import 错误）与 `yarn test`，详见 [handover/P4交接P5.md](../handover/P4交接P5.md)。
 
 **目标**：client feature-first 重组（~38 文件），全部维持 `<script setup>`，样式出仓、逻辑下沉。设计：[design/P4-client移植设计.md](../design/P4-client移植设计.md)；移植底册：[client端全量结构.md](../reference/client端全量结构.md)。
 
