@@ -3,7 +3,7 @@ import { type Context, type Dict, receive, store } from '@koishijs/client'
 import type { RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import { translate } from '../../i18n'
 import { getPendingOverrides, patchMarketNextData } from '../config/data-store'
-import { refreshMarketLookups, restoreMarketSnapshot } from '../../market/state'
+import { refreshMarketLookups } from '../../market/state'
 
 const REGISTRY_STATUS_TIMEOUT = 120000
 const REGISTRY_STATUS_SWEEP_INTERVAL = 15000
@@ -63,10 +63,6 @@ export function setupStoreSync(ctx: Context) {
     if (!data || !isReactive(data)) return
     const raw = markRaw(toRaw(data))
     if (store.market) store.market.data = raw
-  }, { immediate: true, flush: 'sync' }))
-
-  ctx.effect(() => watch(() => store.market, () => {
-    restoreMarketSnapshot()
   }, { immediate: true, flush: 'sync' }))
 
   ctx.effect(() => watch(() => store.market?.dataVersion, (version, previous) => {

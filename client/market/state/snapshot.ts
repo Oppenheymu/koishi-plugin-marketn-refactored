@@ -84,14 +84,6 @@ export function getMarketSnapshotData() {
   return marketSnapshot.value?.data ?? store.market?.data ?? {}
 }
 
-export function restoreMarketSnapshot() {
-  if (!store.market || store.market.data || !marketSnapshot.value) return
-  store.market = {
-    ...store.market,
-    data: marketSnapshot.value.data,
-  }
-}
-
 export function loadMarketSnapshot(force = false) {
   return loadMarketSnapshotAttempt(force, 0)
 }
