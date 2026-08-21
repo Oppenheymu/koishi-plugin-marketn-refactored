@@ -29,15 +29,15 @@
 
 <script setup lang="ts">
 import { provide } from 'vue'
-import { useBundleInstall } from './use-bundle-install'
-import { bundleContextKey } from './bundle-context'
-import BundleBulkRow from './bundle-bulk-row.vue'
-import BundleDiff from './bundle-diff.vue'
-import BundleFooter from './bundle-footer.vue'
-import BundleHero from './bundle-hero.vue'
-import BundleMemberSection from './bundle-member-section.vue'
-import BundleStats from './bundle-stats.vue'
-import BundleStatus from './bundle-status.vue'
+  import { useBundleInstall } from './logic/use-bundle-install'
+  import { bundleContextKey } from './logic/bundle-context'
+  import BundleBulkRow from './components/bundle-bulk-row.vue'
+  import BundleDiff from './components/bundle-diff.vue'
+  import BundleFooter from './components/bundle-footer.vue'
+  import BundleHero from './components/bundle-hero.vue'
+  import BundleMemberSection from './components/bundle-member-section.vue'
+  import BundleStats from './components/bundle-stats.vue'
+  import BundleStatus from './components/bundle-status.vue'
 
 const ctx = useBundleInstall()
 provide(bundleContextKey, ctx)

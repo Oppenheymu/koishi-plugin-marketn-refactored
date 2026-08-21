@@ -19,12 +19,12 @@
 <script setup lang="ts">
 import { provide } from 'vue'
 import MarketIcon from '../../../../market/icons'
-import { cardContextKey, useCard, type DependencyCardProps } from './use-card'
-import CardActions from './card-actions.vue'
-import CardDialogs from './card-dialogs.vue'
-import CardHeader from './card-header.vue'
-import CardMeta from './card-meta.vue'
-import CardSummary from './card-summary.vue'
+  import { cardContextKey, useCard, type DependencyCardProps } from './logic/use-card'
+  import CardActions from './components/card-actions.vue'
+  import CardDialogs from './components/card-dialogs.vue'
+  import CardHeader from './components/card-header.vue'
+  import CardMeta from './components/card-meta.vue'
+  import CardSummary from './components/card-summary.vue'
 
 const props = defineProps<DependencyCardProps>()
 const card = useCard(props)

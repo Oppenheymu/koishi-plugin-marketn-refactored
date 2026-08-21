@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveCardDetailText, type CardDetailState } from '../card-view-text-logic'
+import { resolveCardDetailText, type CardDetailState } from '../logic/card-view-text-logic'
 
 function state(overrides: Partial<CardDetailState> = {}): CardDetailState {
   return {
