@@ -93,7 +93,7 @@ const marketDataPatch = z.object({
 });
 
 /** 事件名 → 入参 tuple schema。listener 用 contracts[name].parse(args) 统一校验。 */
-export const contracts = {
+const contracts = {
     "market/install": z.tuple([dictString, z.boolean().optional(), installOptions.optional()]),
     "market/install-bundle": z.tuple([
         bundleInstallRequest,
