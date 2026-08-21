@@ -1,19 +1,19 @@
 import { store } from '@koishijs/client'
-import { markRaw, ref, shallowRef } from 'vue'
 import type {
   MarketPayload,
   MarketSnapshotResponse,
   MarketSnapshotTransfer,
 } from '../../../src/shared/types'
 import { requestMarketIndex } from '../api'
+import { applyRuntimeSnapshot, marketRuntimeStore } from '../runtime-store'
 
 export type MarketSnapshot = MarketPayload & {
   data: NonNullable<MarketPayload['data']>
 }
 
-export const marketSnapshot = shallowRef<MarketSnapshot>()
-export const marketSnapshotLoading = ref(false)
-export const marketSnapshotError = ref<unknown>()
+export const marketSnapshot = marketRuntimeStore.snapshot
+export const marketSnapshotLoading = marketRuntimeStore.loading
+export const marketSnapshotError = marketRuntimeStore.error
 
 let snapshotTask: Promise<MarketSnapshot> | undefined
 let snapshotTaskKey = ''
@@ -31,9 +31,8 @@ function getSummaryKey(value: Partial<MarketPayload> | undefined) {
 }
 
 export function publishSnapshot(value: MarketPayload): MarketSnapshot {
-  const data = markRaw(value.data ?? {})
-  const snapshot = markRaw({ ...value, data }) as MarketSnapshot
-  marketSnapshot.value = snapshot
+  const snapshot = applyRuntimeSnapshot(value) as MarketSnapshot
+  const data = snapshot.data
   snapshotKey = getSummaryKey(snapshot)
   marketSnapshotError.value = undefined
 

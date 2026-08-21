@@ -1,12 +1,13 @@
 import { receive, store } from '@koishijs/client'
-import { markRaw, shallowRef } from 'vue'
+import { markRaw } from 'vue'
 import { collectServiceProviders } from '../../../src/shared/lookup'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
 import { getCurrentSnapshotData, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
 import { requestMarketLookup } from '../api'
+import { applyRuntimePatch, marketRuntimeStore } from '../runtime-store'
 
-const marketLookupData = shallowRef<MarketSnapshot['data']>({})
-const marketLookupServices = shallowRef<Record<string, string[]>>({})
+const marketLookupData = marketRuntimeStore.lookupData
+const marketLookupServices = marketRuntimeStore.lookupServices
 
 let lookupDataVersion: number | undefined
 let lookupGeneration = 0
@@ -145,12 +146,7 @@ async function loadMarketLookup(request: MarketLookupRequest, force = false) {
 
 receive('market/patch', (value: Partial<MarketPayload>) => {
   if (!marketSnapshot.value || !value.data) return
-  publishSnapshot({
-    ...marketSnapshot.value,
-    ...value,
-    data: {
-      ...marketSnapshot.value.data,
-      ...value.data,
-    },
-  })
+  const snapshot = applyRuntimePatch(value)
+  if (!snapshot || snapshot === marketSnapshot.value) return
+  publishSnapshot(snapshot)
 })
