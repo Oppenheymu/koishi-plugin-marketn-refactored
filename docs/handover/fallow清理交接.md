@@ -119,3 +119,17 @@
 `src/core/install/local-sources.ts`、`src/core/market/cache-io.ts`、`src/core/market/warmup.ts`、
 `src/core/market/source-types.ts`、`client/market/utils/filters.test.ts`、`src/shared/update.test.ts`。
 完整清单：`git status --short`。
+
+## 8. 批次 4 收尾（2026-08-21 追加，§4 待办全部完成）
+
+- **最终复验**：`yarn check` ✅ exit 0（biome 仅剩 5 个预存在 any 警告、tsc 双通道/eslint/size 全绿）；
+  `yarn test` ✅ 30/30；`yarn build`（tsdown）✅ lib/node + lib/shared；`yarn build:client`（vite 8.2.2）✅。
+- **vite CSS 产物名**：`build.lib.cssFileName: 'style'` 已生效，产物 `dist/style.css`（161.36 kB）+ `dist/index.js`（436.57 kB）。
+  顺手修掉全局 scss 里无效的 `:deep()` 包装（install/index.scss），lightningcss 警告归零。
+- **fallow 复扫**：dead-code 78 → **10 条全豁免（真实发现 0）**；循环依赖/未声明依赖/死文件/unused_exports/unused_types 全部归零。
+- **批次 4 清理**：删真死成员 `RegistryClient.stats`（RegistryFetchHost 接口不含，无调用）、`JsonStore.dispose`（无调用点）；
+  `REGISTRY_FALLBACK_ENDPOINTS`、client 端 `LogLine` 去导出；`conditionalHeaders` 用 JSDoc `@public` 豁免 Pick 分发误报
+  （注意：fallow 的 `fallow-ignore-next-line` 需附 issue kind，不带 kind 会报 stale-suppression）。
+- **health 复查**：70 B → **88 A**（+18），unit_size 超阈值函数 347 → 336。
+- **收尾文档**：新建 `docs/overview/FALLOW.md`（用法/基线/豁免清单/复扫数据）；`.fallowrc.jsonc` 注释更新为已验证表述。
+- 本批改动已提交（`git log --oneline -3` 可查），工作区干净。

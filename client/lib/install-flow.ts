@@ -5,7 +5,7 @@ import { active, showEnvironmentVersions } from './dialogs'
 import { formatEndpoint } from './registry-status'
 import type { InstallFallbackCandidate } from '../../src/shared/types'
 
-export interface LogLine {
+interface LogLine {
   type: 'stdout' | 'stderr'
   line: string
 }

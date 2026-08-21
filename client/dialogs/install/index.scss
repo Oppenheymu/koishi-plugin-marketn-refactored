@@ -266,7 +266,7 @@
     --el-border-color: var(--k-color-border);
     --el-text-color-regular: var(--fg1);
 
-    :deep(.el-input__wrapper) {
+    .el-input__wrapper {
       min-height: 30px;
       border-radius: 8px;
       box-shadow: 0 0 0 1px var(--k-color-border) inset;

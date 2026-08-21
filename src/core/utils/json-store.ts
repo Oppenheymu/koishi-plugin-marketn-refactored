@@ -53,9 +53,4 @@ export class JsonStore<T> {
             this.options.onError?.(error);
         }
     }
-
-    dispose() {
-        clearTimeout(this.timer);
-        this.timer = undefined;
-    }
 }

@@ -10,7 +10,7 @@
         "dist/**",
         "client-tsc-out.txt"
     ]
-    // 动态加载入口：client/ 是控制台前端，经 `ctx.console.addEntry`
-    // 动态注册（见 src/node/console 接线），静态分析看不到引用。
-    // 基线验证记录见 docs/overview/FALLOW.md。
+    // 已验证：client/ 无需 dynamicallyLoaded 豁免——fallow 能识别 koishi 插件入口，
+    // 控制台前端仅误报过 1 个死文件（已删）。
+    // 用法、基线数据与误报豁免清单见 docs/overview/FALLOW.md。
 }

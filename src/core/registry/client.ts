@@ -74,10 +74,6 @@ export class RegistryClient implements RegistryFetchHost {
         return this.deps.scope;
     }
 
-    get stats() {
-        return this.deps.stats;
-    }
-
     formatError(error: unknown): RegistryErrorDetail {
         return formatRegistryError(error, this.deps.isHttpError);
     }

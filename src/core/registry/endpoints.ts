@@ -2,7 +2,7 @@ import type { InstallFallbackCandidate } from "../../shared/types.js";
 import type { RouteStatsBook } from "../racing/stats.js";
 import { formatEndpointHost } from "../utils/format.js";
 
-export const REGISTRY_FALLBACK_ENDPOINTS = [
+const REGISTRY_FALLBACK_ENDPOINTS = [
     "https://registry.npmmirror.com",
     "https://mirrors.cloud.tencent.com/npm",
     "https://mirrors.huaweicloud.com/repository/npm",
