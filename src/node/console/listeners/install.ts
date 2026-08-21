@@ -4,7 +4,7 @@ import { SELF_PACKAGE } from "../../installer/index.js";
 import { installBundle } from "../../market/bundle.js";
 import type { MarketDataStore } from "../../market/data-store.js";
 import { assertContract } from "../contracts.js";
-import { refreshConsole } from "./helpers.js";
+import { refreshConsole, registerContractListener } from "./helpers.js";
 
 /** 安装类 listener：market/install 主流程、套装安装与安装历史/回退端点查询。 */
 export function registerInstallListeners(ctx: Context, dataStore: MarketDataStore) {
@@ -45,39 +45,16 @@ export function registerInstallListeners(ctx: Context, dataStore: MarketDataStor
         { authority: 4 },
     );
 
-    ctx.console.addListener(
-        "market/install-fallback-candidate",
-        async (failedEndpoint) => {
-            assertContract("market/install-fallback-candidate", failedEndpoint);
-            return ctx.installer.getInstallFallbackCandidate(failedEndpoint);
-        },
-        { authority: 4 },
+    registerContractListener(ctx, "market/install-fallback-candidate", (failedEndpoint) =>
+        ctx.installer.getInstallFallbackCandidate(failedEndpoint),
     );
-
-    ctx.console.addListener(
-        "market/install-history",
-        async (limit) => {
-            assertContract("market/install-history", limit);
-            return ctx.installer.getInstallHistory(limit);
-        },
-        { authority: 4 },
+    registerContractListener(ctx, "market/install-history", (limit) =>
+        ctx.installer.getInstallHistory(limit),
     );
-
-    ctx.console.addListener(
-        "market/install-history-detail",
-        async (id) => {
-            assertContract("market/install-history-detail", id);
-            return ctx.installer.getInstallLogDetail(id);
-        },
-        { authority: 4 },
+    registerContractListener(ctx, "market/install-history-detail", (id) =>
+        ctx.installer.getInstallLogDetail(id),
     );
-
-    ctx.console.addListener(
-        "market/prepare-local-binding",
-        async (name) => {
-            assertContract("market/prepare-local-binding", name);
-            return ctx.installer.prepareLocalBinding(name);
-        },
-        { authority: 4 },
+    registerContractListener(ctx, "market/prepare-local-binding", (name) =>
+        ctx.installer.prepareLocalBinding(name),
     );
 }
