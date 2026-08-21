@@ -47,10 +47,10 @@ export interface RegistryHttpClient {
 }
 
 export interface RegistryClientConfig {
-    endpoint?: string;
-    timeout?: number;
-    autoRoute?: boolean;
-    retry?: number;
+    endpoint?: string | undefined;
+    timeout?: number | undefined;
+    autoRoute?: boolean | undefined;
+    retry?: number | undefined;
 }
 
 export interface RegistryClientDeps {

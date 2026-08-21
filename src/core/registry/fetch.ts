@@ -8,7 +8,7 @@ import type { RouteProbeResult } from "./probe.js";
 
 export interface RegistryFetchHost {
     scope: { isStale(serial: number): boolean; current: number };
-    config: { retry?: number };
+    config: { retry?: number | undefined };
     log: {
         debug(message: string): void;
         info(message: string): void;

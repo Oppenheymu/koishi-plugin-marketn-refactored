@@ -7,9 +7,7 @@
     },
     "files": {
         "ignoreUnknown": false,
-        "includes": [
-            "**/src/**/*.{ts,tsx,mts,cts,js,mjs,cjs,jsx}"
-        ]
+        "includes": ["**/src/**/*.{ts,tsx,mts,cts,js,mjs,cjs,jsx}"]
     },
     "formatter": {
         "enabled": true,
@@ -38,29 +36,19 @@
                                 "selector": {
                                     "kind": "typeParameter"
                                 },
-                                "formats": [
-                                    "PascalCase"
-                                ]
+                                "formats": ["PascalCase"]
                             },
                             {
                                 "selector": {
                                     "kind": "typeMember"
                                 },
-                                "formats": [
-                                    "camelCase",
-                                    "snake_case",
-                                    "PascalCase"
-                                ]
+                                "formats": ["camelCase", "snake_case", "PascalCase"]
                             },
                             {
                                 "selector": {
                                     "kind": "objectLiteralMember"
                                 },
-                                "formats": [
-                                    "camelCase",
-                                    "snake_case",
-                                    "CONSTANT_CASE"
-                                ]
+                                "formats": ["camelCase", "snake_case", "CONSTANT_CASE"]
                             }
                         ]
                     }
@@ -74,6 +62,16 @@
     "overrides": [
         {
             "includes": ["src/core/registry/manifest.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useNamingConvention": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["src/node/locales-schema.ts"],
             "linter": {
                 "rules": {
                     "style": {

@@ -10,10 +10,10 @@ export interface UpdateIgnoreRule {
 export type IgnoredUpdates = Record<string, string | UpdateIgnoreRule | undefined>;
 
 export interface UpdateIgnorePolicy {
-    updateIgnored?: IgnoredUpdates;
-    updateIgnoredPackages?: string;
-    updateIgnoreVersions?: number;
-    updateIgnorePrerelease?: boolean;
+    updateIgnored?: IgnoredUpdates | undefined;
+    updateIgnoredPackages?: string | undefined;
+    updateIgnoreVersions?: number | undefined;
+    updateIgnorePrerelease?: boolean | undefined;
 }
 
 export function normalizeUpdateIgnoreRule(value?: string | UpdateIgnoreRule) {

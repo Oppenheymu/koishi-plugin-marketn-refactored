@@ -5,7 +5,7 @@ export interface PluginBundleMember {
     package: string;
     plugin: string;
     version: string;
-    required?: boolean;
+    required?: boolean | undefined;
     config?: Dict | undefined;
 }
 
@@ -33,8 +33,8 @@ export interface PluginBundleRecordMember extends PluginBundleMember {
 export interface PluginBundleRecord {
     package: string;
     version: string;
-    label?: string;
-    groupKey?: string;
+    label?: string | undefined;
+    groupKey?: string | undefined;
     installedAt: number;
     members: PluginBundleRecordMember[];
 }
@@ -60,8 +60,8 @@ export interface BundleInstallResult {
     configured: string[];
     moved: string[];
     skipped: string[];
-    groupKey?: string;
-    record?: PluginBundleRecord;
+    groupKey?: string | undefined;
+    record?: PluginBundleRecord | undefined;
 }
 
 export interface BundleConfigRemoveRequest {
@@ -71,7 +71,7 @@ export interface BundleConfigRemoveRequest {
 }
 
 export interface BundleConfigRemoveResult {
-    groupKey?: string;
+    groupKey?: string | undefined;
     removed: string[];
     removedGroup?: boolean;
 }
