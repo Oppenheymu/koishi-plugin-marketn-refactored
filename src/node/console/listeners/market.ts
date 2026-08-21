@@ -12,7 +12,7 @@ import type { MarketProvider } from "../../market/index.js";
 import type { MarketSnapshotTransport } from "../../market/snapshot-transport.js";
 import { assertContract } from "../contracts.js";
 import { lookupMarket } from "../lookup.js";
-import { refreshConsole, registerContractListener } from "./helpers.js";
+import { refreshConsole, registerContractListener, registerContractListeners } from "./helpers.js";
 
 /** 市场查询/配置类 listener：环境快照、配置与数据补丁、索引查询、头像。 */
 export function registerMarketListeners(
@@ -21,12 +21,18 @@ export function registerMarketListeners(
     dataStore: MarketDataStore,
     marketSnapshotTransport: MarketSnapshotTransport,
 ) {
-    registerContractListener(ctx, "market/environment-snapshots", () =>
-        ctx.installer.getEnvironmentSnapshots(),
-    );
-    registerContractListener(ctx, "market/environment-snapshot-preview", (id) =>
-        ctx.installer.getEnvironmentSnapshotPreview(id),
-    );
+    registerContractListeners(ctx, [
+        ["market/environment-snapshots", () => ctx.installer.getEnvironmentSnapshots()],
+        [
+            "market/environment-snapshot-preview",
+            (id) => ctx.installer.getEnvironmentSnapshotPreview(id),
+        ],
+        ["market/remove-bundle-configs", (request) => removeBundleConfigs(ctx, request)],
+        ["market/update-config", (patch) => updateMarketNextConfig(ctx, config, patch)],
+        ["market/update-data", (patch) => dataStore.patch(patch)],
+        ["market/package", (name) => ctx.installer.getRegistry(name)],
+        ["market/ensure-config", (name) => ensurePluginConfig(ctx, name)],
+    ]);
 
     ctx.console.addListener(
         "market/environment-snapshot-apply",
@@ -39,18 +45,10 @@ export function registerMarketListeners(
         { authority: 4 },
     );
 
-    registerContractListener(ctx, "market/remove-bundle-configs", (request) =>
-        removeBundleConfigs(ctx, request),
-    );
-    registerContractListener(ctx, "market/update-config", (patch) =>
-        updateMarketNextConfig(ctx, config, patch),
-    );
-    registerContractListener(ctx, "market/update-data", (patch) => dataStore.patch(patch));
     registerContractListener(ctx, "market/refresh-dependencies", async () => {
         await ctx.installer.refresh(true);
         await ctx.get("console")?.refresh("config");
     });
-    registerContractListener(ctx, "market/package", (name) => ctx.installer.getRegistry(name));
 
     ctx.console.addListener(
         "market/index",
