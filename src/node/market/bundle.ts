@@ -36,25 +36,10 @@ export async function removeBundleConfigs(
     };
     if (!group || !ctx.loader.writable) return result;
 
-    const memberNames = new Set(
-        (request.members ?? [])
-            .map((member) => getPluginShortname(member.plugin || member.package))
-            .filter(Boolean),
-    );
-    let needsFullReload = false;
-
-    for (const key of Object.keys(group.plugins)) {
-        if (key.startsWith("$")) continue;
-        const prefix = key.split(":", 1)[0]!;
-        const shortname = prefix.replace(/^~/, "");
-        if (memberNames.size && !memberNames.has(shortname)) continue;
-        delete group.plugins[key];
-        result.removed.push(key);
-        if (!key.startsWith("~")) needsFullReload = true;
-    }
-
-    const children = Object.keys(group.plugins).filter((key) => !key.startsWith("$"));
-    if (request.removeEmptyGroup !== false && !children.length) {
+    const memberNames = getBundleMemberNames(request);
+    const removal = removeBundleMembers(group.plugins, memberNames);
+    result.removed.push(...removal.removed);
+    if (request.removeEmptyGroup !== false && hasNoBundleMembers(group.plugins)) {
         delete (ctx.loader.config as { plugins?: PluginConfigMap }).plugins![group.key];
         result.removedGroup = true;
     }
@@ -65,7 +50,7 @@ export async function removeBundleConfigs(
             ctx.get("console")?.refresh("config"),
             ctx.get("console")?.refresh("packages"),
         ]);
-        if (needsFullReload) {
+        if (removal.needsFullReload) {
             setTimeout(() => {
                 if (ctx.scope.isActive) ctx.loader.fullReload();
             }, 1000);
@@ -73,6 +58,32 @@ export async function removeBundleConfigs(
     }
 
     return result;
+}
+
+function getBundleMemberNames(request: BundleConfigRemoveRequest) {
+    return new Set(
+        (request.members ?? [])
+            .map((member) => getPluginShortname(member.plugin || member.package))
+            .filter(Boolean),
+    );
+}
+
+function removeBundleMembers(plugins: PluginConfigMap, memberNames: Set<string>) {
+    const removed: string[] = [];
+    let needsFullReload = false;
+    for (const key of Object.keys(plugins)) {
+        if (key.startsWith("$")) continue;
+        const shortname = key.split(":", 1)[0]!.replace(/^~/, "");
+        if (memberNames.size && !memberNames.has(shortname)) continue;
+        delete plugins[key];
+        removed.push(key);
+        if (!key.startsWith("~")) needsFullReload = true;
+    }
+    return { removed, needsFullReload };
+}
+
+function hasNoBundleMembers(plugins: PluginConfigMap) {
+    return Object.keys(plugins).every((key) => key.startsWith("$"));
 }
 
 async function assertNoDirectBundleCycles(
