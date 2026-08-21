@@ -11,6 +11,7 @@ import Dependencies from './pages/dependencies/index.vue'
 import './icons'
 import './styles/scrollbars.scss'
 import './styles/version-select.scss'
+import './styles/polished.scss'
 
 import 'virtual:uno.css'
 

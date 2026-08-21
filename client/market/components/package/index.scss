@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as *;
+
 .cursor-pointer {
   cursor: pointer;
 }
@@ -17,21 +19,7 @@
   border: 1px solid var(--k-color-border);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 
-  &.cat-adapter    { --c: #38bdf8; }
-  &.cat-general    { --c: #4ade80; }
-  &.cat-extension  { --c: #a78bfa; }
-  &.cat-webui      { --c: #fb923c; }
-  &.cat-manage     { --c: #facc15; }
-  &.cat-preset     { --c: #60a5fa; }
-  &.cat-image      { --c: #f472b6; }
-  &.cat-media      { --c: #e879f9; }
-  &.cat-tool       { --c: #94a3b8; }
-  &.cat-life       { --c: #34d399; }
-  &.cat-ai         { --c: #818cf8; }
-  &.cat-meme       { --c: #fbbf24; }
-  &.cat-game       { --c: #f87171; }
-  &.cat-gametool   { --c: #c084fc; }
-  &.cat-other      { --c: #64748b; }
+  @include category-color-map;
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);

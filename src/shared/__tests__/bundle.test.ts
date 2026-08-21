@@ -7,11 +7,11 @@ import {
     isBundleLike,
     isBundlePackageName,
     normalizeBundleIdent,
+    type PluginBundleManifest,
+    type PluginBundleMember,
     parseBundleManifest,
     scanSensitiveConfig,
     validateBundleManifest,
-    type PluginBundleManifest,
-    type PluginBundleMember,
 } from "../bundle.js";
 
 function makeMember(overrides: Partial<PluginBundleMember> = {}): PluginBundleMember {

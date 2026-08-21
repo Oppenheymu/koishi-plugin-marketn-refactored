@@ -20,4 +20,3 @@ describe("sanitizeInstallLogText", () => {
         expect(sanitizeInstallLogText("hello world")).toBe("hello world");
     });
 });
-

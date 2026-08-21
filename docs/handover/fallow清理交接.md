@@ -156,3 +156,11 @@
 - **验证**：`yarn check` ✅ exit 0（TS7 tsc 双通道 + TS6 eslint，仅剩 5 个预存 any 警告）；
   `yarn build` ✅（tsdown + vite 272 modules 无警告，dist/style.css 正常）；`yarn test` ✅ 30/30。
 - **移除条件**：typescript-eslint 官方声明支持 TS ≥7.1 后可移除 typescript6 兼容层，恢复正常 typescript 依赖。
+## 10. 批次 5 补充（2026-08-21，P6 期间 dupes 大清理）
+
+- 背景：P5/P6 新增代码引入重复，fallow dupes 0 → 24 组 / 982 行（3.6%）。本轮消解为 **5 组 / 210 行（0.8%）**。
+- 详情见 docs/overview/FALLOW.md §7-8；dead-code 10 条全为已知豁免（真实 0）；health 86 A。
+- 本轮改动未 commit，yarn check / yarn test（242）/ yarn build 全绿。
+- 注意：JSDoc @public 对类成员豁免在 cache/index.ts 不生效，conditionalHeaders 改用行内 fallow-ignore-next-line；
+  @typescript/native 已加入 .fallowrc ignoreDependencies。
+

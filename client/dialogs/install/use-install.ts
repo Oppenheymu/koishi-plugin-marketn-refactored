@@ -7,7 +7,8 @@ import { ensureInstalledConfig, getConfigWriter } from '../../shared/install/con
 import { active } from '../../shared/ui/dialogs'
 import { getBundleRecords, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../shared/config/data-store'
 import { install } from '../../shared/install/install-flow'
-import { getBulkMode, getFrontendMode, getRemoveConfig, patchMarketNextConfig } from '../../shared/config/market-config'
+import { getBulkMode, getRemoveConfig, patchMarketNextConfig } from '../../shared/config/market-config'
+import { useMarketModeClass } from '../../shared/ui/market-mode'
 import { getRegistryStatus, getRegistryStatusText } from '../../shared/install/registry-status'
 import { isBundlePackageName } from '../../../src/shared/bundle'
 import { isLocalDependency } from '../../../src/shared/dependency-source'
@@ -18,9 +19,7 @@ export function useInstall() {
   const ctx = useContext()
   const config = useConfig()
   const { t } = useMarketNextI18n()
-  const frontendMode = computed(() => getFrontendMode())
-  const modeClass = computed(() => `market-mode-${frontendMode.value}`)
-  const versionPopperClass = computed(() => `market-version-popper ${modeClass.value}`)
+  const { modeClass, versionPopperClass } = useMarketModeClass()
 
   const saveChoice = ref(false)
   const showRemoveDialog = ref(false)

@@ -9,6 +9,10 @@
         "lib/**",
         "dist/**",
         "client-tsc-out.txt"
+    ],
+    // @typescript/native 被 yarn ts7 脚本经 node 直调（path 越出项目根，fallow 扫不到入口）
+    "ignoreDependencies": [
+        "@typescript/native"
     ]
     // 已验证：client/ 无需 dynamicallyLoaded 豁免——fallow 能识别 koishi 插件入口，
     // 控制台前端仅误报过 1 个死文件（已删）。

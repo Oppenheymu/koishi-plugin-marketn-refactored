@@ -1,56 +1,24 @@
 import { type Dict, Schema, Time } from "koishi";
 import type { PluginBundleRecord } from "../../shared/bundle.js";
+import type {
+    MarketSilentCustomRule,
+    MarketSilentDateRule,
+    MarketSilentRecentRule,
+    MarketSilentRule,
+    MarketSilentStatusRule,
+} from "../../shared/types.js";
 import type { UpdateIgnoreRule } from "../../shared/update.js";
 import { InstallerConfig } from "../installer/config.js";
 import { schemaEn, schemaZh } from "../locales/schema.js";
 import { MarketProviderConfig } from "../market/index.js";
 
-export interface MarketSilentStatusRule {
-    target?: "preview" | "insecure" | "bundle";
-    note?: string;
-    enabled?: boolean;
-}
-
-export interface MarketSilentDateRule {
-    field?: "created" | "updated";
-    relation?: "before" | "after";
-    date?: string;
-    note?: string;
-    enabled?: boolean;
-}
-
-export interface MarketSilentRecentRule {
-    field?: "created" | "updated";
-    days?: number;
-    note?: string;
-    enabled?: boolean;
-}
-
-export interface MarketSilentCustomRule {
-    query?: string;
-    note?: string;
-    enabled?: boolean;
-}
-
-export interface MarketSilentRule {
-    type?:
-        | "custom"
-        | "preview"
-        | "insecure"
-        | "bundle"
-        | "created-before"
-        | "created-after"
-        | "updated-before"
-        | "updated-after"
-        | "created-within"
-        | "updated-within";
-    value?: string;
-    date?: string;
-    days?: number;
-    query?: string;
-    note?: string;
-    enabled?: boolean;
-}
+export type {
+    MarketSilentCustomRule,
+    MarketSilentDateRule,
+    MarketSilentRecentRule,
+    MarketSilentRule,
+    MarketSilentStatusRule,
+} from "../../shared/types.js";
 
 export interface Config {
     registry?: InstallerConfig;

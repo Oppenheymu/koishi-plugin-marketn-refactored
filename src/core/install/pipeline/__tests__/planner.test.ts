@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { Dependency } from "../../../deps/types.js";
 import {
     createInstallHistoryChanges,
     formatDeps,
     formatLocalDeps,
     requiresPackageManager,
 } from "../planner.js";
-import type { Dependency } from "../../../deps/types.js";
 
 function localDeps(overrides: Record<string, Partial<Dependency>> = {}) {
     const result: Record<string, Dependency> = {};
@@ -60,9 +60,7 @@ describe("createInstallHistoryChanges", () => {
 
 describe("requiresPackageManager", () => {
     it("forced 总是返回 true", () => {
-        expect(
-            requiresPackageManager({}, {}, {}, {}, true),
-        ).toBe(true);
+        expect(requiresPackageManager({}, {}, {}, {}, true)).toBe(true);
     });
 
     it("空变更返回 false", () => {
@@ -71,16 +69,12 @@ describe("requiresPackageManager", () => {
 
     it("本地解析已满足请求范围时跳过", () => {
         const deps = localDeps({ foo: { resolved: "1.2.3" } });
-        expect(
-            requiresPackageManager({ foo: "^1.0.0" }, deps, { foo: "^1.0.0" }, {}),
-        ).toBe(false);
+        expect(requiresPackageManager({ foo: "^1.0.0" }, deps, { foo: "^1.0.0" }, {})).toBe(false);
     });
 
     it("已装版本不满足请求时返回 true", () => {
         const deps = localDeps({ foo: { resolved: "1.2.3" } });
-        expect(
-            requiresPackageManager({ foo: "^2.0.0" }, deps, { foo: "^2.0.0" }, {}),
-        ).toBe(true);
+        expect(requiresPackageManager({ foo: "^2.0.0" }, deps, { foo: "^2.0.0" }, {})).toBe(true);
     });
 
     it("空请求（移除依赖）返回 true", () => {
@@ -88,28 +82,21 @@ describe("requiresPackageManager", () => {
     });
 
     it("请求变化且涉及本地来源时返回 true", () => {
-        expect(
-            requiresPackageManager(
-                { foo: "file:../b" },
-                {},
-                { foo: "file:../a" },
-                {},
-            ),
-        ).toBe(true);
+        expect(requiresPackageManager({ foo: "file:../b" }, {}, { foo: "file:../a" }, {})).toBe(
+            true,
+        );
     });
 
     it("本地依赖且请求一致时跳过", () => {
         const deps = localDeps({ foo: { local: true, source: "file" } });
-        expect(
-            requiresPackageManager({ foo: "file:../a" }, deps, { foo: "file:../a" }, {}),
-        ).toBe(false);
+        expect(requiresPackageManager({ foo: "file:../a" }, deps, { foo: "file:../a" }, {})).toBe(
+            false,
+        );
     });
 
     it("请求变化但均为 registry 源时按满足性判定", () => {
         const deps = localDeps({ foo: { resolved: "1.2.3", source: "registry" } });
         // 请求从 ^1.0.0 改为 ^1.2.0，1.2.3 仍满足 → 不需要跑包管理器
-        expect(
-            requiresPackageManager({ foo: "^1.2.0" }, deps, { foo: "^1.0.0" }, {}),
-        ).toBe(false);
+        expect(requiresPackageManager({ foo: "^1.2.0" }, deps, { foo: "^1.0.0" }, {})).toBe(false);
     });
 });

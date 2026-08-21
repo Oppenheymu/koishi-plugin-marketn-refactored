@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue'
 import { store, useContext } from '@koishijs/client'
 import { isLocalDependency } from '../../../../../src/shared/dependency-source'
-import { getFrontendMode, getMarketNextPolicy } from '../../../../shared/config/market-config'
+import { getMarketNextPolicy } from '../../../../shared/config/market-config'
+import { useMarketModeClass } from '../../../../shared/ui/market-mode'
 import { getBundleRecords, getPendingOverrides, patchMarketNextData } from '../../../../shared/config/data-store'
 import { getIgnoredUpdateVersion, getLatestVersion, hasUpdate, isUpdateCheckDisabled, isUpdateIgnored } from '../../../../shared/config/update-policy'
 import { expandedDependency } from '../../../../shared/ui/dialogs'
@@ -28,9 +29,7 @@ export function useCard(props: DependencyCardProps) {
   const removeValue = '__market_next_remove__'
   const ctx = useContext()
   const { t, locale } = useMarketNextI18n()
-  const frontendMode = computed(() => getFrontendMode())
-  const modeClass = computed(() => `market-mode-${frontendMode.value}`)
-  const versionPopperClass = computed(() => `market-version-popper ${modeClass.value}`)
+  const { modeClass, versionPopperClass } = useMarketModeClass()
   const configuring = ref(false)
   const editing = computed({
     get: () => expandedDependency.value === props.name,

@@ -80,6 +80,15 @@ export class InstallOrchestrator {
         return snapshot;
     }
 
+    /** 记录环境快照并吞掉失败（安装前后两处共用；失败只记日志不中断流程）。 */
+    private async recordSnapshotSafely(kind: "external" | "operation", operationId?: string) {
+        await this.recordCurrentEnvironmentSnapshot(kind, operationId).catch((error) => {
+            this.deps.log.warn(
+                `failed to record ${kind === "operation" ? "dependency" : "pre-operation"} environment snapshot: ${error instanceof Error ? error.message : error}`,
+            );
+        });
+    }
+
     /** 安装主流程（旧 _installLocked）：快照 → 来源校验 → 包管理器 → 回滚/刷新/重载。 */
     installLocked(
         deps: Dict<string>,
@@ -105,11 +114,7 @@ export class InstallOrchestrator {
             const changes = snapshot
                 ? createInstallHistoryChanges(snapshot.dependencies, deps, localDeps)
                 : [];
-            await this.recordCurrentEnvironmentSnapshot("external").catch((error) => {
-                this.deps.log.warn(
-                    `failed to record pre-operation environment snapshot: ${error instanceof Error ? error.message : error}`,
-                );
-            });
+            await this.recordSnapshotSafely("external");
             await this.deps.logs.start(deps, forced, options, changes).catch((error) => {
                 this.deps.log.warn(
                     `failed to start dependency install log: ${error instanceof Error ? error.message : error}`,
@@ -214,14 +219,7 @@ export class InstallOrchestrator {
         shouldReload: boolean,
         start: number,
     ) {
-        await this.recordCurrentEnvironmentSnapshot(
-            "operation",
-            this.deps.logs.activeMetadata?.id,
-        ).catch((error) => {
-            this.deps.log.warn(
-                `failed to record dependency environment snapshot: ${error instanceof Error ? error.message : error}`,
-            );
-        });
+        await this.recordSnapshotSafely("operation", this.deps.logs.activeMetadata?.id);
         this.deps.log.info(
             `dependency install completed: deps=${formatDeps(deps)}, forced=${!!needsPackageManager}, fullReload=${shouldReload}, elapsed=${Date.now() - start}ms`,
         );

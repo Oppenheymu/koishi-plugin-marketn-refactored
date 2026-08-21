@@ -84,7 +84,11 @@ describe("buildMarketSnapshot", () => {
             warmCacheTask: () => warmTask,
             buildPayload: () => ({ total: 9, failed: 0, progress: 9 }),
         });
-        await expect(buildMarketSnapshot(host)).resolves.toEqual({ total: 9, failed: 0, progress: 9 });
+        await expect(buildMarketSnapshot(host)).resolves.toEqual({
+            total: 9,
+            failed: 0,
+            progress: 9,
+        });
     });
 
     it("无预热任务时调用 warmCache 拉取", async () => {
@@ -97,7 +101,11 @@ describe("buildMarketSnapshot", () => {
             }),
             buildPayload: () => ({ total: 4, failed: 0, progress: 4 }),
         });
-        await expect(buildMarketSnapshot(host)).resolves.toEqual({ total: 4, failed: 0, progress: 4 });
+        await expect(buildMarketSnapshot(host)).resolves.toEqual({
+            total: 4,
+            failed: 0,
+            progress: 4,
+        });
         expect(host.warmCache).toHaveBeenCalledWith("first get");
     });
 
@@ -138,7 +146,11 @@ describe("buildMarketSnapshot", () => {
                 }),
             buildPayload: () => ({ total: 2, failed: 0, progress: 2 }),
         });
-        await expect(buildMarketSnapshot(host)).resolves.toEqual({ total: 2, failed: 0, progress: 2 });
+        await expect(buildMarketSnapshot(host)).resolves.toEqual({
+            total: 2,
+            failed: 0,
+            progress: 2,
+        });
     });
 
     it("有错误且有缓存 payload → 返回 stale 旧快照", async () => {

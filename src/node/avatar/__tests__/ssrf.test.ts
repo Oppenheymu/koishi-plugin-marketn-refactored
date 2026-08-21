@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { lookup } from "node:dns/promises";
+import { describe, expect, it, vi } from "vitest";
 import {
     isAvatarCacheLikelyDefault,
     isAvatarDefaultResponse,
@@ -21,26 +21,42 @@ describe("isBlockedAvatarTarget", () => {
     });
 
     it("白名单主机直接放行（不查 DNS）", async () => {
-        await expect(isBlockedAvatarTarget(new URL("https://s.gravatar.com/avatar/a.png"))).resolves.toBe(
+        await expect(
+            isBlockedAvatarTarget(new URL("https://s.gravatar.com/avatar/a.png")),
+        ).resolves.toBe(false);
+        await expect(isBlockedAvatarTarget(new URL("https://www.npmjs.com/x"))).resolves.toBe(
             false,
         );
-        await expect(isBlockedAvatarTarget(new URL("https://www.npmjs.com/x"))).resolves.toBe(false);
         expect(mockedLookup).not.toHaveBeenCalled();
     });
 
     it("IPv4 私网地址判定", async () => {
-        for (const ip of ["127.0.0.1", "10.1.2.3", "192.168.0.1", "172.16.0.1", "172.31.255.255", "169.254.1.1", "0.0.0.0", "224.0.0.1", "255.255.255.255"]) {
+        for (const ip of [
+            "127.0.0.1",
+            "10.1.2.3",
+            "192.168.0.1",
+            "172.16.0.1",
+            "172.31.255.255",
+            "169.254.1.1",
+            "0.0.0.0",
+            "224.0.0.1",
+            "255.255.255.255",
+        ]) {
             await expect(isBlockedAvatarTarget(new URL("http://" + ip + "/x"))).resolves.toBe(true);
         }
         for (const ip of ["8.8.8.8", "172.32.0.1", "1.1.1.1"]) {
-            await expect(isBlockedAvatarTarget(new URL("http://" + ip + "/x"))).resolves.toBe(false);
+            await expect(isBlockedAvatarTarget(new URL("http://" + ip + "/x"))).resolves.toBe(
+                false,
+            );
         }
         expect(mockedLookup).not.toHaveBeenCalled();
     });
 
     it("IPv6 地址判定", async () => {
         for (const ip of ["::1", "fe80::1", "fc00::1", "fd00::1", "ff02::1", "::ffff:8.8.8.8"]) {
-            await expect(isBlockedAvatarTarget(new URL("http://[" + ip + "]/x"))).resolves.toBe(true);
+            await expect(isBlockedAvatarTarget(new URL("http://[" + ip + "]/x"))).resolves.toBe(
+                true,
+            );
         }
         await expect(isBlockedAvatarTarget(new URL("http://[2001:db8::1]/x"))).resolves.toBe(false);
     });
@@ -66,7 +82,10 @@ describe("isBlockedAvatarTarget", () => {
 describe("isAvatarCacheLikelyDefault", () => {
     it("gravatar 默认占位参数命中", () => {
         expect(
-            isAvatarCacheLikelyDefault("https://s.gravatar.com/avatar/a.png?d=default", "gravatar:x"),
+            isAvatarCacheLikelyDefault(
+                "https://s.gravatar.com/avatar/a.png?d=default",
+                "gravatar:x",
+            ),
         ).toBe(true);
         expect(
             isAvatarCacheLikelyDefault("https://www.gravatar.com/avatar/a.png?d=mp", "gravatar:x"),
@@ -83,13 +102,15 @@ describe("isAvatarCacheLikelyDefault", () => {
         expect(
             isAvatarCacheLikelyDefault("https://s.gravatar.com/avatar/a.png", "gravatar:x"),
         ).toBe(true);
-        expect(
-            isAvatarCacheLikelyDefault("https://s.gravatar.com/avatar/a.png", "url:x"),
-        ).toBe(false);
+        expect(isAvatarCacheLikelyDefault("https://s.gravatar.com/avatar/a.png", "url:x")).toBe(
+            false,
+        );
     });
 
     it("非 gravatar 主机与非法 URL 返回 false", () => {
-        expect(isAvatarCacheLikelyDefault("https://example.com/a?d=default", "gravatar:x")).toBe(false);
+        expect(isAvatarCacheLikelyDefault("https://example.com/a?d=default", "gravatar:x")).toBe(
+            false,
+        );
         expect(isAvatarCacheLikelyDefault("not a url", "gravatar:x")).toBe(false);
     });
 });

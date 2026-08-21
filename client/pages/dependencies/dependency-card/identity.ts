@@ -12,15 +12,7 @@ export function isPluginPackage(name: string) {
   return /^@koishijs\/plugin-[0-9a-z-]+$/.test(name) || /(^|\/)koishi-plugin-[0-9a-z-]+$/.test(name)
 }
 
-export function formatPackageDisplayName(name: string) {
-  const shortname = getMarketObject(name)?.shortname
-  if (shortname && shortname !== name) return shortname
-  if (name.startsWith('@koishijs/plugin-')) return name.slice('@koishijs/plugin-'.length)
-  if (name.startsWith('koishi-plugin-')) return name.slice('koishi-plugin-'.length)
-  const scoped = name.match(/^@([^/]+)\/koishi-plugin-(.+)$/)
-  if (scoped) return `@${scoped[1]}/${scoped[2]}`
-  return name
-}
+export { formatPackageDisplayName } from '../../../market/utils/format'
 
 export function pickDescription(value: unknown, locale: string) {
   if (typeof value === 'string') return value.trim()

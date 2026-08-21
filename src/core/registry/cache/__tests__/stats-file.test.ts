@@ -66,7 +66,14 @@ describe("restoreRegistryStats", () => {
             version: 1,
             savedAt: NOW - 1000,
             stats: {
-                a: { score: 1, successes: 5, failures: 2, consecutiveFailures: 3, averageElapsed: 300, lastSuccess: NOW - 1000 },
+                a: {
+                    score: 1,
+                    successes: 5,
+                    failures: 2,
+                    consecutiveFailures: 3,
+                    averageElapsed: 300,
+                    lastSuccess: NOW - 1000,
+                },
             },
         });
         expect(book.get("a")).toMatchObject({
@@ -91,10 +98,11 @@ describe("restoreRegistryStats", () => {
 
     it("版本不匹配不恢复", () => {
         const book = new RouteStatsBook(makePolicy());
-        restoreRegistryStats(
-            book,
-            { version: 2, savedAt: NOW, stats: { a: { score: 1, successes: 1, failures: 0 } } } as never,
-        );
+        restoreRegistryStats(book, {
+            version: 2,
+            savedAt: NOW,
+            stats: { a: { score: 1, successes: 1, failures: 0 } },
+        } as never);
         expect(book.get("a")).toBeUndefined();
     });
 

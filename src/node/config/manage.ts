@@ -14,20 +14,7 @@ import {
     configReloadKeys,
     normalizeMarketSilentRules,
 } from "./index.js";
-
-type PluginConfigMap = Record<string, unknown>;
-
-function hasPluginConfig(plugins: unknown, shortname: string): boolean {
-    for (const key in (plugins as PluginConfigMap) ?? {}) {
-        if (key.startsWith("$")) continue;
-        const prefix = key.split(":", 1)[0]!;
-        const name = prefix.replace(/^~/, "");
-        if (name === shortname) return true;
-        if (name === "group" && hasPluginConfig((plugins as PluginConfigMap)[key], shortname))
-            return true;
-    }
-    return false;
-}
+import { hasPluginConfigInTree, type PluginConfigMap } from "./plugins-map.js";
 
 function createDisabledPluginConfig(ctx: Context, shortname: string) {
     const plugins = ctx.loader.config?.plugins as PluginConfigMap | undefined;
@@ -87,10 +74,10 @@ export async function ensurePluginConfig(ctx: Context, name: string, write = tru
     }
 
     const shortname = getPluginShortname(name);
-    if (hasPluginConfig(ctx.loader.config?.plugins, shortname)) return false;
+    if (hasPluginConfigInTree(ctx.loader.config?.plugins, shortname)) return false;
 
     await requestPluginRuntime(ctx, name).catch((error) => ctx.logger("market").warn(error));
-    if (hasPluginConfig(ctx.loader.config?.plugins, shortname)) return false;
+    if (hasPluginConfigInTree(ctx.loader.config?.plugins, shortname)) return false;
 
     const key = createDisabledPluginConfig(ctx, shortname);
     if (!key) return false;
@@ -127,7 +114,7 @@ export async function ensureInstalledPluginConfigs(ctx: Context) {
         .filter((name) => Scanner.isPlugin(name))
         .filter((name) => !isPluginBundleDependency(ctx, name));
     const missing = names.filter(
-        (name) => !hasPluginConfig(ctx.loader.config?.plugins, getPluginShortname(name)),
+        (name) => !hasPluginConfigInTree(ctx.loader.config?.plugins, getPluginShortname(name)),
     );
     if (!missing.length) return false;
     await sleep(0);

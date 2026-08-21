@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { InstallQueue } from "../queue.js";
 import type { InstallLogger } from "../../types.js";
+import { InstallQueue } from "../queue.js";
 
 function makeLogger() {
     return {

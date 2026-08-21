@@ -36,7 +36,10 @@ export class MarketDiskCache {
         this.deps = deps;
     }
 
-    /** 条件请求头（etag/If-Modified-Since），经 fetch-index 的 Pick 接口分发后被 fetch-endpoint 消费。 @public */
+    /**
+     * 条件请求头（etag/If-Modified-Since），经 fetch-index 的 Pick 接口分发后被 fetch-endpoint 消费。
+     */
+    // fallow-ignore-next-line unused-class-member
     conditionalHeaders(endpoint: string) {
         const meta =
             this.entries[endpoint] || (this.meta?.endpoint === endpoint ? this.meta : undefined);

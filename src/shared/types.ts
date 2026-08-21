@@ -19,6 +19,58 @@ export interface InstallFallbackCandidate {
     reason: string;
 }
 
+/** 静默过滤：状态类规则（node market 配置与 client 前端配置共用，原分别定义于 config/index.ts 与 market-config.ts）。 */
+export interface MarketSilentStatusRule {
+    target?: "preview" | "insecure" | "bundle";
+    note?: string;
+    enabled?: boolean;
+}
+
+/** 静默过滤：日期类规则。 */
+export interface MarketSilentDateRule {
+    field?: "created" | "updated";
+    relation?: "before" | "after";
+    date?: string;
+    note?: string;
+    enabled?: boolean;
+}
+
+/** 静默过滤：最近 N 天规则。 */
+export interface MarketSilentRecentRule {
+    field?: "created" | "updated";
+    days?: number;
+    note?: string;
+    enabled?: boolean;
+}
+
+/** 静默过滤：自定义查询规则。 */
+export interface MarketSilentCustomRule {
+    query?: string;
+    note?: string;
+    enabled?: boolean;
+}
+
+/** 静默过滤：归一化后的通用规则（marketSilentRules）。 */
+export interface MarketSilentRule {
+    type?:
+        | "custom"
+        | "preview"
+        | "insecure"
+        | "bundle"
+        | "created-before"
+        | "created-after"
+        | "updated-before"
+        | "updated-after"
+        | "created-within"
+        | "updated-within";
+    value?: string;
+    date?: string;
+    days?: number;
+    query?: string;
+    note?: string;
+    enabled?: boolean;
+}
+
 /** 一次索引/元数据请求的性能快照（市场页 debug 卡的数据来源）。 */
 export interface MarketPerformanceSnapshot {
     source?: "network" | "disk-cache" | "http-304" | "hash-cache" | "legacy" | undefined;

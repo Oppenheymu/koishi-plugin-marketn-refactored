@@ -1,3 +1,4 @@
+import { collectServiceProviders } from "../../shared/lookup.js";
 import type { MarketLookupRequest, MarketLookupResult } from "../../shared/types.js";
 import type { MarketProvider } from "../market/index.js";
 
@@ -33,17 +34,8 @@ export async function lookupMarket(
     for (const name of names) {
         if (data[name]) result.data[name] = data[name];
     }
-    if (!services.length) return result;
-
-    const requestedServices = new Set(services);
-    for (const object of Object.values(data)) {
-        const implemented = object?.manifest?.service?.implements;
-        if (!Array.isArray(implemented)) continue;
-        for (const service of implemented) {
-            if (!requestedServices.has(service)) continue;
-            result.services[service]!.push(object.package.name);
-        }
+    if (services.length) {
+        result.services = collectServiceProviders(data, services);
     }
-    for (const service of services) result.services[service]!.sort();
     return result;
 }

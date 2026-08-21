@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildEnvironmentDependencies, planEnvironmentApply } from "../apply.js";
 import type { Dependency } from "../../deps/types.js";
+import { buildEnvironmentDependencies, planEnvironmentApply } from "../apply.js";
 import type { EnvironmentDependencySnapshot, EnvironmentSnapshot } from "../snapshot.js";
 
 function snapshot(deps: Record<string, EnvironmentDependencySnapshot>): EnvironmentSnapshot {

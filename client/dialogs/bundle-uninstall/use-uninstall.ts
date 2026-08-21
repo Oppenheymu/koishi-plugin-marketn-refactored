@@ -4,7 +4,8 @@ import { getBundleGroupIdent, type PluginBundleRecord } from '../../../src/share
 import { fetchBundleRecord, getBundleMemberConfigState, type BundleRecordView } from '../../shared/install/bundle-records'
 import { install } from '../../shared/install/install-flow'
 import { pendingBundleUninstalls, type BundleMemberCleanupTarget } from '../../shared/ui/dialogs'
-import { getBulkMode, getFrontendMode } from '../../shared/config/market-config'
+import { getBulkMode } from '../../shared/config/market-config'
+import { useMarketModeClass } from '../../shared/ui/market-mode'
 import { getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../shared/config/data-store'
 import { useMarketNextI18n } from '../../i18n'
 
@@ -27,8 +28,7 @@ const protectedDeps = new Set(['@koishijs/plugin-console', '@koishijs/plugin-con
 
 export function useBundleUninstall(props: Readonly<BundleUninstallProps>, emit: BundleUninstallEmits) {
   const { t } = useMarketNextI18n()
-  const frontendMode = computed(() => getFrontendMode())
-  const modeClass = computed(() => `market-mode-${frontendMode.value}`)
+  const { modeClass } = useMarketModeClass()
 
   function setAllActions(action: MemberAction) {
     for (const row of memberRows.value) {

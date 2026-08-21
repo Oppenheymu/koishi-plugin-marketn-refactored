@@ -15,8 +15,8 @@ import { activeBundle } from '../../shared/ui/dialogs'
 import { getBundleMemberConfigState } from '../../shared/install/bundle-records'
 import { installProgressState, prepareInstallFallbackRetry, resetInstallFallbackState, type InstallOptions } from '../../shared/install/install-flow'
 import { satisfies } from 'semver'
-import { getFrontendMode } from '../../shared/config/market-config'
 import { useMarketNextI18n } from '../../i18n'
+import { useMarketModeClass } from '../../shared/ui/market-mode'
 import { loadMarketObjects } from '../../market/state'
 import { useMemberInfo } from './member-info'
 import { formatInstallError, formatShortname, memberCategory, reportInstallError } from './helpers'
@@ -33,8 +33,7 @@ export function useBundleInstall() {
   const { t, locale } = useMarketNextI18n()
   const memberInfoHelpers = useMemberInfo({ t, locale })
 
-  const frontendMode = computed(() => getFrontendMode())
-  const modeClass = computed(() => `market-mode-${frontendMode.value}`)
+  const { modeClass } = useMarketModeClass()
 
   const title = computed(() => activeBundle.value?.shortname || activeBundle.value?.package.name || t('bundle.label'))
   const bundleVersion = computed(() => resolvedBundleVersion.value || activeBundle.value?.package.version || '')

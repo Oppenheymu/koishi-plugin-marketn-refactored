@@ -10,6 +10,13 @@ import { ensurePluginConfigs } from "../config/manage.js";
 import { messageEn, messageZh } from "../locales/message.js";
 import { type MarketDataStore, readMarketDataStore } from "../market/data-store.js";
 
+/** 解析命令参数并返回已在依赖中的候选名（install/uninstall 共用）。 */
+async function findInstalledName(ctx: Context, name: string): Promise<string | undefined> {
+    const names = ctx.installer.resolveName(name);
+    const deps = (await ctx.installer.getDeps()) ?? {};
+    return names.find((candidate) => deps[candidate]);
+}
+
 /** 注册 plugin.install / plugin.uninstall / plugin.upgrade / plugin.clear-avatar-cache 四个命令。 */
 export function registerCommands(
     ctx: Context,
@@ -24,12 +31,10 @@ export function registerCommands(
         .action(async ({ session }, name) => {
             if (!session) return;
             if (!name) return session.text(".expect-name");
-            const names = ctx.installer.resolveName(name);
-            const deps = (await ctx.installer.getDeps()) ?? {};
-            const installed = names.find((candidate) => deps[candidate]);
+            const installed = await findInstalledName(ctx, name);
             if (installed) return session.text(".already-installed");
 
-            const result = await ctx.installer.findVersion(names);
+            const result = await ctx.installer.findVersion(ctx.installer.resolveName(name));
             if (!result) return session.text(".not-found");
 
             ctx.loader.envData.message = {
@@ -49,9 +54,7 @@ export function registerCommands(
         .action(async ({ session }, name) => {
             if (!session) return;
             if (!name) return session.text(".expect-name");
-            const names = ctx.installer.resolveName(name);
-            const deps = (await ctx.installer.getDeps()) ?? {};
-            const installed = names.find((candidate) => deps[candidate]);
+            const installed = await findInstalledName(ctx, name);
             if (!installed) return session.text(".not-installed");
 
             await ctx.installer.install({ [installed]: null as unknown as string });

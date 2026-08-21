@@ -87,9 +87,9 @@ describe("LocalPackageUploadStore", () => {
         await expect(store.start({ filename: "demo.tgz", size: 0 })).rejects.toThrow(
             "本地插件归档大小必须在 1 B 到",
         );
-        await expect(store.start({ filename: "demo.tgz", size: 64 * 1024 * 1024 + 1 })).rejects.toThrow(
-            "本地插件归档大小必须在 1 B 到",
-        );
+        await expect(
+            store.start({ filename: "demo.tgz", size: 64 * 1024 * 1024 + 1 }),
+        ).rejects.toThrow("本地插件归档大小必须在 1 B 到");
         await expect(store.start({ filename: "demo.tgz", size: 1.5 })).rejects.toThrow(
             "本地插件归档大小必须在 1 B 到",
         );
@@ -130,9 +130,9 @@ describe("LocalPackageUploadStore", () => {
     });
 
     it("非法 uploadId 拒绝", async () => {
-        await expect(store.append({ uploadId: "not-a-uuid", index: 0, data: CHUNK })).rejects.toThrow(
-            "上传会话无效",
-        );
+        await expect(
+            store.append({ uploadId: "not-a-uuid", index: 0, data: CHUNK }),
+        ).rejects.toThrow("上传会话无效");
         await expect(store.finish({ uploadId: "not-a-uuid" })).rejects.toThrow("上传会话无效");
     });
 

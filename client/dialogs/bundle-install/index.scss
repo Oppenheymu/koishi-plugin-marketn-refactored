@@ -1,3 +1,4 @@
+@use '../../styles/mixins' as *;
 
 .bundle-install-panel {
   --bundle-color: #8b5cf6;
@@ -288,21 +289,7 @@
 
     .market-icon { width: 1.05rem; height: 1.05rem; }
 
-    &.cat-adapter    { --c: #38bdf8; }
-    &.cat-general    { --c: #4ade80; }
-    &.cat-extension  { --c: #a78bfa; }
-    &.cat-webui      { --c: #fb923c; }
-    &.cat-manage     { --c: #facc15; }
-    &.cat-preset     { --c: #60a5fa; }
-    &.cat-image      { --c: #f472b6; }
-    &.cat-media      { --c: #e879f9; }
-    &.cat-tool       { --c: #94a3b8; }
-    &.cat-life       { --c: #34d399; }
-    &.cat-ai         { --c: #818cf8; }
-    &.cat-meme       { --c: #fbbf24; }
-    &.cat-game       { --c: #f87171; }
-    &.cat-gametool   { --c: #c084fc; }
-    &.cat-other      { --c: #64748b; }
+    @include category-color-map;
   }
 
   .member-main { flex: 1 1 auto; min-width: 0; }

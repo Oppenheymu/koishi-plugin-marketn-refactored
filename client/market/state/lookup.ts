@@ -1,5 +1,6 @@
 import { receive, send, store } from '@koishijs/client'
 import { markRaw, shallowRef } from 'vue'
+import { collectServiceProviders } from '../../../src/shared/lookup'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
 import { getCurrentSnapshotData, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
 
@@ -51,20 +52,6 @@ function normalizeLookupValues(values: Iterable<string>) {
     .filter(value => typeof value === 'string')
     .map(value => value.trim())
     .filter(Boolean)))
-}
-
-function collectServiceProviders(data: MarketSnapshot['data'], services: string[]) {
-  const result = Object.fromEntries(services.map(name => [name, [] as string[]]))
-  const requested = new Set(services)
-  for (const object of Object.values(data)) {
-    const implemented = object?.manifest?.service?.implements
-    if (!Array.isArray(implemented)) continue
-    for (const service of implemented) {
-      if (requested.has(service)) result[service].push(object.package.name)
-    }
-  }
-  for (const service of services) result[service].sort()
-  return result
 }
 
 async function loadMarketLookup(request: MarketLookupRequest, force = false) {

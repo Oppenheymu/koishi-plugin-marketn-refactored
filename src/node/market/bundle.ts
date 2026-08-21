@@ -19,6 +19,7 @@ import {
     parseBundleManifest,
     validateBundleManifest,
 } from "../../shared/bundle.js";
+import { findPluginConfigKey } from "../config/plugins-map.js";
 import type { MarketDataStore } from "./data-store.js";
 
 type PluginConfigMap = Record<string, any>;
@@ -290,13 +291,7 @@ export async function installBundle(
 }
 
 function hasPluginConfigInGroup(plugins: PluginConfigMap, shortname: string) {
-    for (const key in plugins ?? {}) {
-        if (key.startsWith("$")) continue;
-        const prefix = key.split(":", 1)[0]!;
-        const name = prefix.replace(/^~/, "");
-        if (name === shortname) return true;
-    }
-    return false;
+    return findPluginConfigKey(plugins, shortname) !== undefined;
 }
 
 function findPluginConfig(

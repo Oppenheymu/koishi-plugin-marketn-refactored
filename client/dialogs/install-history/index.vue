@@ -28,14 +28,14 @@
           >
             <span :class="['status-dot', entry.status]"></span>
             <span class="row-main">
-              <span class="row-title">{{ historyTitle(entry) }}</span>
+              <span class="row-title">{{ historyTitle(t, entry) }}</span>
               <span class="row-packages">{{ historyPackages(entry) }}</span>
               <span class="row-meta">
-                {{ formatDate(entry.startedAt) }}
-                <template v-if="entry.duration != null"> · {{ formatDuration(entry.duration) }}</template>
+                {{ historyDate(t, entry.startedAt, locale.value) }}
+                <template v-if="entry.duration != null"> · {{ historyDuration(t, entry.duration) }}</template>
               </span>
             </span>
-            <span :class="['status-label', entry.status]">{{ statusText(entry.status) }}</span>
+            <span :class="['status-label', entry.status]">{{ historyStatusText(t, entry.status) }}</span>
           </button>
 
           <div v-if="loading && !entries.length" class="history-state">{{ t('operations.history.reading') }}</div>
@@ -64,6 +64,7 @@ import type { InstallHistoryEntry, InstallLogDetail } from 'koishi-plugin-market
 import { getFrontendMode } from '../../shared/config/market-config'
 import { showInstallHistory } from '../../shared/ui/dialogs'
 import { useMarketNextI18n } from '../../i18n'
+import { historyDate, historyDuration, historyStatusText, historyTitle } from './format'
 import InstallHistoryDetail from './detail.vue'
 
 const { t, locale } = useMarketNextI18n()
@@ -126,51 +127,11 @@ async function selectEntry(id: string, force = false) {
   }
 }
 
-function statusText(status: InstallHistoryEntry['status']) {
-  switch (status) {
-    case 'running': return t('operations.history.statusRunning')
-    case 'success': return t('operations.history.statusSuccess')
-    case 'error': return t('operations.history.statusError')
-    default: return t('operations.history.statusUnknown')
-  }
-}
-
-function historyTitle(entry: InstallHistoryEntry) {
-  if (!entry.changes.length) return t('operations.history.operation')
-  let installed = 0
-  let removed = 0
-  let updated = 0
-  for (const change of entry.changes) {
-    if (!change.beforeRequest && change.afterRequest) installed++
-    else if (change.beforeRequest && !change.afterRequest) removed++
-    else updated++
-  }
-  const groups = [
-    installed && t('operations.history.install', { count: installed }),
-    updated && t('operations.history.update', { count: updated }),
-    removed && t('operations.history.uninstall', { count: removed }),
-  ].filter(Boolean)
-  if (groups.length === 1) return groups[0]
-  return t('operations.history.changed', { count: entry.changes.length })
-}
-
 function historyPackages(entry: InstallHistoryEntry) {
   if (!entry.changes.length) return entry.deps
   return entry.changes.map(change => change.name).join(t('common.format.listSeparator'))
 }
 
-function formatDate(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return t('operations.history.unknownTime')
-  return new Date(value).toLocaleString(locale.value)
-}
-
-function formatDuration(value: number) {
-  if (value < 1000) return `${Math.max(0, Math.round(value))} ms`
-  if (value < 60000) return t('common.time.seconds', { count: (value / 1000).toFixed(value < 10000 ? 1 : 0) })
-  const minutes = Math.floor(value / 60000)
-  const seconds = Math.round(value % 60000 / 1000)
-  return t('common.time.minutesSeconds', { minutes, seconds })
-}
 </script>
 
 <style src="./index.scss" lang="scss"></style>

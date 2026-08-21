@@ -1,46 +1,18 @@
 import { send, store } from '@koishijs/client'
 import type { IgnoredUpdates } from '../../../src/shared/update'
+import type {
+  MarketSilentCustomRule,
+  MarketSilentDateRule,
+  MarketSilentRecentRule,
+  MarketSilentRule,
+  MarketSilentStatusRule,
+} from '../../../src/shared/types'
 import { getMarketDataStore } from './data-store'
+
+export type { MarketSilentCustomRule, MarketSilentDateRule, MarketSilentRecentRule, MarketSilentRule, MarketSilentStatusRule } from '../../../src/shared/types'
 
 export type FrontendMode = 'performance' | 'polished'
 export type LayoutMode = 'grid' | 'list'
-
-export interface MarketSilentStatusRule {
-  target?: 'preview' | 'insecure' | 'bundle'
-  note?: string
-  enabled?: boolean
-}
-
-export interface MarketSilentDateRule {
-  field?: 'created' | 'updated'
-  relation?: 'before' | 'after'
-  date?: string
-  note?: string
-  enabled?: boolean
-}
-
-export interface MarketSilentRecentRule {
-  field?: 'created' | 'updated'
-  days?: number
-  note?: string
-  enabled?: boolean
-}
-
-export interface MarketSilentCustomRule {
-  query?: string
-  note?: string
-  enabled?: boolean
-}
-
-export interface MarketSilentRule {
-  type?: 'custom' | 'preview' | 'insecure' | 'bundle' | 'created-before' | 'created-after' | 'updated-before' | 'updated-after' | 'created-within' | 'updated-within'
-  value?: string
-  date?: string
-  days?: number
-  query?: string
-  note?: string
-  enabled?: boolean
-}
 
 export interface UpdateIgnoreOptions {
   duration?: number

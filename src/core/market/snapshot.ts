@@ -1,6 +1,6 @@
 import type { SearchObject, SearchResult } from "@koishijs/registry";
 import type { Dict } from "koishi";
-import type { MarketPerformance } from "../../shared/types.js";
+import type { MarketPayload, MarketPerformance } from "../../shared/types.js";
 import { waitFor } from "../utils/async.js";
 import { formatError } from "../utils/format.js";
 
@@ -31,24 +31,8 @@ export interface SnapshotHost {
     log: { debug(message: string): void; info(message: string): void; warn(message: string): void };
 }
 
-export interface MarketSnapshotInput {
-    registry?: string | undefined;
-    data?: Dict<SearchObject> | undefined;
-    dataVersion?: number | undefined;
-    total: number;
-    failed: number;
-    progress: number;
-    gravatar?: string | undefined;
-    stale?: boolean | undefined;
-    error?: string | undefined;
-    cached?: boolean | undefined;
-    cachedAt?: number | undefined;
-    validatedAt?: number | undefined;
-    serverNow?: number | undefined;
-    refreshing?: boolean | undefined;
-    loading?: boolean | undefined;
-    debug?: MarketPerformance | undefined;
-}
+/** getSnapshot 的 payload 结构：与 shared/types 的 MarketPayload 完全一致（fallow 重复报告驱动统一）。 */
+export type MarketSnapshotInput = MarketPayload;
 
 /**
  * getSnapshot 快照组装：后台任务复用 → 缓存 payload → 磁盘缓存预热等待 →

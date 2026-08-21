@@ -4,8 +4,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HOUR } from "../../../utils/time.js";
-import { getInstallLogDir, getInstallLogPath, getInstallLogRetention, InstallLogRetention } from "../retention.js";
 import type { InstallLogger } from "../../types.js";
+import {
+    getInstallLogDir,
+    getInstallLogPath,
+    getInstallLogRetention,
+    InstallLogRetention,
+} from "../retention.js";
 
 function makeLogger() {
     return {

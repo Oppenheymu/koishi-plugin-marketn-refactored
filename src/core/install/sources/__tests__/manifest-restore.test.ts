@@ -2,15 +2,15 @@ import { promises as fsp } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PackageJson } from "@koishijs/registry";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { InstallLogger } from "../../types.js";
 import {
     overrideDependencies,
+    type PackageManifestSnapshot,
     resolveLocalDeps,
     restorePackageManifest,
-    type PackageManifestSnapshot,
 } from "../manifest-restore.js";
-import type { InstallLogger } from "../../types.js";
 
 function makeLogger() {
     return {
@@ -23,7 +23,10 @@ function makeLogger() {
 
 describe("overrideDependencies", () => {
     it("增改删请求并按键排序", () => {
-        const manifest = { name: "app", dependencies: { foo: "1.0.0", baz: "3.0.0" } } as unknown as PackageJson;
+        const manifest = {
+            name: "app",
+            dependencies: { foo: "1.0.0", baz: "3.0.0" },
+        } as unknown as PackageJson;
         overrideDependencies(manifest, { foo: "2.0.0", bar: "1.0.0", baz: "" });
         expect(manifest.dependencies).toEqual({ bar: "1.0.0", foo: "2.0.0" });
     });
@@ -106,7 +109,11 @@ describe("resolveLocalDeps", () => {
 
     it("回填已装版本并按请求归类来源", () => {
         const deps = resolveLocalDeps(
-            { "koishi-plugin-chat": "1.0.0", "koishi-plugin-echo": "^2.0.0", "local-pkg": "file:../local" },
+            {
+                "koishi-plugin-chat": "1.0.0",
+                "koishi-plugin-echo": "^2.0.0",
+                "local-pkg": "file:../local",
+            },
             cwd,
         );
         expect(deps["koishi-plugin-chat"]).toMatchObject({

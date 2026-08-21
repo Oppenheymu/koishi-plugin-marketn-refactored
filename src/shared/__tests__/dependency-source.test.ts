@@ -3,6 +3,7 @@ import {
     allRegistryAttemptsNotFound,
     classifyDependencySource,
     classifyRegistryNotFoundDependency,
+    type DependencySourceState,
     findDependenciesNeedingSourceCheck,
     findUnboundLocalDependencies,
     getRegistryAttemptReasons,
@@ -10,7 +11,6 @@ import {
     reuseConfirmedDependencySource,
     shouldIncludeDiscoveredLocalPlugin,
     shouldPenalizeRegistryRoute,
-    type DependencySourceState,
 } from "../dependency-source.js";
 
 describe("classifyDependencySource", () => {

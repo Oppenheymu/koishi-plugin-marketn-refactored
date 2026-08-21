@@ -1,6 +1,7 @@
 import { type Awaitable, type Dict, message, receive, send, socket } from '@koishijs/client'
 import { reactive, watch } from 'vue'
 import { translate } from '../../i18n'
+import { extractErrorMessage } from '../error'
 import { active, showEnvironmentVersions } from '../ui/dialogs'
 import { formatEndpoint } from './registry-status'
 import type { InstallFallbackCandidate } from '../../../src/shared/types'
@@ -88,19 +89,8 @@ export async function prepareInstallFallbackRetry(run: (options?: InstallOptions
   }
 }
 
-function formatInstallError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
-  if (error && typeof error === 'object') {
-    const value = error as any
-    if (typeof value.message === 'string') return value.message
-    if (typeof value.error === 'string') return value.error
-  }
-  return String(error || 'unknown error')
-}
-
 function reportInstallRequestError(error: unknown, messages: InstallMessages) {
-  const detail = formatInstallError(error)
+  const detail = extractErrorMessage(error) ?? String(error || 'unknown error')
   const isTimeout = detail === 'timeout'
   pushInstallLog(translate('operations.progress.requestFailed', { detail }), 'stderr')
   message.error(isTimeout
@@ -110,6 +100,28 @@ function reportInstallRequestError(error: unknown, messages: InstallMessages) {
 
 function isSelfUpdate(override: Dict<string>) {
   return Object.prototype.hasOwnProperty.call(override, MARKET_NEXT_PACKAGE)
+}
+
+/** 监听 socket 断开并返回可竞速的 promise（install 与 environment restore 共用）。 */
+function createSocketDisconnectTracker() {
+  let resolveDisconnected: (value: number) => void
+  const disconnected = new Promise<number>((resolve) => {
+    resolveDisconnected = resolve
+  })
+  let flag = false
+  const dispose = watch(socket, (value, previous) => {
+    if (value || !previous) return
+    flag = true
+    resolveDisconnected(0)
+    dispose()
+  })
+  return {
+    disconnected,
+    get disconnectedBeforeResponse() {
+      return flag
+    },
+    dispose,
+  }
 }
 
 export async function install(override: Dict<string>, callback?: () => Awaitable<void>, forced?: boolean, messages: InstallMessages = {}) {
@@ -129,17 +141,7 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
   }
 
   const runInstall = async (options?: InstallOptions) => {
-    let resolveDisconnected: (value: number) => void
-    const disconnected = new Promise<number>((resolve) => {
-      resolveDisconnected = resolve
-    })
-    let disconnectedBeforeResponse = false
-    const dispose = watch(socket, (value, previous) => {
-      if (value || !previous) return
-      disconnectedBeforeResponse = true
-      resolveDisconnected(0)
-      dispose()
-    })
+    const tracker = createSocketDisconnectTracker()
     const waitTimer = setTimeout(() => {
       if (installProgressState.status !== 'running') return
       pushInstallLog(messages.waitingText ?? (selfUpdate
@@ -148,8 +150,8 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
     }, 8000)
     try {
       const task = send('market/install', override, forced, options ?? {}) ?? Promise.resolve(1)
-      const code = await Promise.race([task, disconnected])
-      if (disconnectedBeforeResponse && !selfUpdate && !messages.allowDisconnectSuccess) {
+      const code = await Promise.race([task, tracker.disconnected])
+      if (tracker.disconnectedBeforeResponse && !selfUpdate && !messages.allowDisconnectSuccess) {
         installProgressState.status = 'error'
         pushInstallLog(translate('operations.progress.disconnected'), 'stderr')
         message.warning(translate('operations.progress.disconnectedShort'))
@@ -158,22 +160,22 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
       if (code) {
         installProgressState.status = 'error'
         message.error(messages.errorText ?? translate('operations.progress.installError'))
-        if (!disconnectedBeforeResponse) await prepareInstallFallbackRetry(runInstall, options?.installEndpoint)
+        if (!tracker.disconnectedBeforeResponse) await prepareInstallFallbackRetry(runInstall, options?.installEndpoint)
         return code
       }
       installProgressState.status = 'success'
       const shouldSkipCallback = selfUpdate
-        && disconnectedBeforeResponse
+        && tracker.disconnectedBeforeResponse
         && messages.skipCallbackOnDisconnect !== false
       if (!shouldSkipCallback) {
         try {
           await callback?.()
         } catch (error) {
-          if (!disconnectedBeforeResponse) throw error
+          if (!tracker.disconnectedBeforeResponse) throw error
           console.warn(error)
         }
       }
-      if (disconnectedBeforeResponse && !socket.value) {
+      if (tracker.disconnectedBeforeResponse && !socket.value) {
         message.success(messages.successText ?? (selfUpdate
           ? translate('operations.progress.selfSubmittedSuccess')
           : translate('operations.progress.dependenciesSubmittedSuccess')))
@@ -185,7 +187,7 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
       return 0
     } finally {
       clearTimeout(waitTimer)
-      dispose()
+      tracker.dispose()
     }
   }
 
@@ -211,17 +213,7 @@ export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
   pushInstallLog(translate('operations.progress.environmentPreparing'))
 
   const runRestore = async (options?: InstallOptions) => {
-    let resolveDisconnected: (value: number) => void
-    const disconnected = new Promise<number>((resolve) => {
-      resolveDisconnected = resolve
-    })
-    let disconnectedBeforeResponse = false
-    const dispose = watch(socket, (value, previous) => {
-      if (value || !previous) return
-      disconnectedBeforeResponse = true
-      resolveDisconnected(0)
-      dispose()
-    })
+    const tracker = createSocketDisconnectTracker()
     const waitTimer = setTimeout(() => {
       if (installProgressState.status === 'running') {
         pushInstallLog(translate('operations.progress.environmentWaiting'))
@@ -229,8 +221,8 @@ export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
     }, 8000)
     try {
       const task = send('market/environment-snapshot-apply', id, options ?? {}) ?? Promise.resolve(1)
-      const code = await Promise.race([task, disconnected])
-      if (disconnectedBeforeResponse && !selfUpdate) {
+      const code = await Promise.race([task, tracker.disconnected])
+      if (tracker.disconnectedBeforeResponse && !selfUpdate) {
         installProgressState.status = 'error'
         pushInstallLog(translate('operations.progress.environmentDisconnected'), 'stderr')
         message.warning(translate('operations.progress.environmentDisconnectedShort'))
@@ -239,17 +231,17 @@ export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
       if (code) {
         installProgressState.status = 'error'
         message.error(translate('operations.progress.environmentError'))
-        if (!disconnectedBeforeResponse) await prepareInstallFallbackRetry(runRestore, options?.installEndpoint)
+        if (!tracker.disconnectedBeforeResponse) await prepareInstallFallbackRetry(runRestore, options?.installEndpoint)
         return code
       }
       installProgressState.status = 'success'
-      message.success(disconnectedBeforeResponse
+      message.success(tracker.disconnectedBeforeResponse
         ? translate('operations.progress.environmentSubmitted')
         : translate('operations.progress.environmentSuccess'))
       return 0
     } finally {
       clearTimeout(waitTimer)
-      dispose()
+      tracker.dispose()
     }
   }
 
