@@ -50,7 +50,7 @@ function installed(data: SearchObject) {
 function useMarketDataState() {
   const config = useConfig() as Ref<PageConfigSource>
   const frontendMode = computed(() => getFrontendMode(config.value))
-  const marketGravatar = computed(() => config.value.market?.gravatar || store.market?.gravatar)
+  const marketGravatar = computed(() => config.value.market?.gravatar || marketSnapshot.value?.gravatar)
   const silentConfig = config.value as Parameters<typeof getMarketSilentRules>[0]
   const silentFilters = computed(() => {
     const rules = getMarketSilentRules(silentConfig)
@@ -85,16 +85,16 @@ function useMarketLoadingState() {
     if (data.value.length) return false
     if (marketSnapshotError.value) return false
     if (marketSnapshotLoading.value) return true
-    const state = marketSnapshot.value ?? store.market
+    const state = marketSnapshot.value
     if (!state || state.loading) return true
-    const hasResolvedSnapshot = !!marketSnapshot.value || !!store.market?.data
+    const hasResolvedSnapshot = !!marketSnapshot.value
     return !hasResolvedSnapshot && (state.total ?? 0) > 0
   })
   const loadingSlow = ref(false)
   let loadingTimer: ReturnType<typeof setTimeout>
   const config = useConfig() as Ref<PageConfigSource>
   const loadingEndpoint = computed(() => {
-    return store.market?.registry || config.value.market?.search?.endpoint || 'https://registry.koishi.t4wefan.pub/index.json'
+    return marketSnapshot.value?.registry || config.value.market?.search?.endpoint || 'https://registry.koishi.t4wefan.pub/index.json'
   })
   const loadingTimeout = computed(() => {
     const timeout = config.value.market?.search?.timeout
@@ -188,7 +188,7 @@ export function useMarketPage() {
     clearTimeout(loadingState.loadingTimer)
     if (loading) loadingState.scheduleLoadingWarning()
   }, { immediate: true })
-  watch(() => store.market?.dataVersion, (version, previous) => {
+  watch(() => marketSnapshot.value?.dataVersion, (version, previous) => {
     if (version == null || version === previous) return
     void loadMarketSnapshot().catch(error => console.error('[market-next] failed to refresh market index', error))
   })
