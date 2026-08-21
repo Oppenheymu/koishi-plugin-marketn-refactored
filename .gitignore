@@ -1,6 +1,7 @@
 # build outputs（仅根目录产物，避免误伤 client/lib 等源码目录）
 /lib/
 /dist/
+/src/node/locales/generated.ts
 
 # local / temp
 external/

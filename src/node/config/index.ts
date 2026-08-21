@@ -9,7 +9,7 @@ import type {
 } from "../../shared/types.js";
 import type { UpdateIgnoreRule } from "../../shared/update.js";
 import { InstallerConfig } from "../installer/config.js";
-import { schemaEn, schemaZh } from "../locales/schema.js";
+import { schemaEn, schemaZh } from "../locales/generated.js";
 import { MarketProviderConfig } from "../market/index.js";
 
 export type {

@@ -7,7 +7,7 @@ import {
 import { clearAvatarCacheStorage } from "../avatar/index.js";
 import type { Config } from "../config/index.js";
 import { ensurePluginConfigs } from "../config/manage.js";
-import { messageEn, messageZh } from "../locales/message.js";
+import { messageEn, messageZh } from "../locales/generated.js";
 import { type MarketDataStore, readMarketDataStore } from "../market/data-store.js";
 
 /** 解析命令参数并返回已在依赖中的候选名（install/uninstall 共用）。 */

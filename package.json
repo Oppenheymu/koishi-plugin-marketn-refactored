@@ -53,11 +53,11 @@
         "access": "public"
     },
     "scripts": {
-        "check": "biome check . && yarn ts7 --noEmit && yarn ts7 --noEmit -p client/tsconfig.json && eslint \"client/**/*.vue\" && node scripts/check-size.mjs",
+        "check": "node scripts/generate-node-locales.mjs && biome check . && yarn ts7 --noEmit && yarn ts7 --noEmit -p client/tsconfig.json && eslint \"client/**/*.vue\" && node scripts/check-size.mjs",
         "check:size": "node scripts/check-size.mjs",
-        "build": "tsdown && vite build",
+        "build": "node scripts/generate-node-locales.mjs && tsdown && vite build",
         "build:client": "vite build",
-        "test": "vitest run",
+        "test": "node scripts/generate-node-locales.mjs && vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "test:health": "vitest run --coverage && pnpm dlx fallow health --coverage coverage/coverage-final.json",
@@ -113,6 +113,7 @@
         "@koishijs/client": "^5.30.11",
         "@koishijs/plugin-config": "^2.8.6",
         "@maikolib/vite-plugin-yaml": "^1.1.1-0",
+        "js-yaml": "^4.1.0",
         "@types/node": "^26.1.2",
         "@types/semver": "^7.5.8",
         "@typescript-eslint/parser": "^8.67.0",
