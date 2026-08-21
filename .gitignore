@@ -40,6 +40,6 @@ pnpm-debug.log*
 _tsc_errors.txt
 client-tsc-out.txt
 Waiting_refactored/
-
+coverage/
 
 原版参考/
