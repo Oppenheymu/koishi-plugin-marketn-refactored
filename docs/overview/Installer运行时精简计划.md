@@ -2,10 +2,10 @@
 
 ## 目标
 
-当前重构版把旧 Installer 拆成 core 模块后，又保留了一层 Node facade 和一层 wire 组装：
+当前重构版把旧 Installer 拆成 core 模块后，又保留了一层 Node Service facade 和一层 wire 组装：
 
 ```text
-ctx.installer public facade
+ctx.installer Service 入口
         ↓
 Installer wire / owner callbacks
         ↓
@@ -13,9 +13,9 @@ DependencyResolver / RegistryClient / PackageCache
 InstallOrchestrator / EnvironmentSnapshotOps / UploadService
 ```
 
-这不是有效精简。专项目标是删除旧 facade 的兼容职责，让 Node 入口直接依赖一个新 Installer runtime，生产源码净减少 **500～900 行**。
+这不是有效精简。专项目标是保留 `ctx.installer` 这个 Koishi 服务入口，但删除其旧版兼容方法集合，让 Node 入口直接依赖一个新 Installer runtime，生产源码净减少 **500～900 行**。
 
-不以保留旧版 `ctx.installer` public 方法为约束。新契约只服务当前仓库的 listener、command、market provider 和插件自身入口。
+`ctx.installer` 仍然是正式服务入口；不再保证旧版方法集合和参数语义。新契约只服务当前仓库的 listener、command、market provider 和插件自身入口。
 
 ## 基线
 
@@ -27,7 +27,7 @@ InstallOrchestrator / EnvironmentSnapshotOps / UploadService
 |---|---|---|
 | `src/node/installer/index.ts` | Service、旧 public facade、状态转发 | 324 行，混合生命周期、适配和业务入口 |
 | `src/node/installer/wire.ts` | core 对象组装和 owner callback | 约 230 行，与 facade 双重表达依赖关系 |
-| `src/node/declarations.ts` | 给 `ctx.installer` 注入完整旧类型 | 放大旧契约传播范围 |
+| `src/node/declarations.ts` | 给 `ctx.installer` 注入完整旧类型 | 放大旧契约传播范围，不能删除服务声明 |
 | `src/node/console/listeners/*.ts` | 通过 `ctx.installer` 间接访问 core | 每个入口重复依赖转发方法 |
 | `src/node/console/commands.ts` | 通过旧 facade 调用安装能力 | 命令层无法表达真实依赖 |
 | `src/node/market/index.ts` | 通过旧 facade 写 registry cache | Market 与 Installer 产生反向适配 |
@@ -36,7 +36,7 @@ InstallOrchestrator / EnvironmentSnapshotOps / UploadService
 
 ### InstallerRuntime
 
-新增一个明确的 runtime 类型，但不再同时保留旧 facade 方法。runtime 只组合当前入口确实使用的能力：
+新增一个明确的 runtime 类型，但不再同时保留旧 facade 方法。`ctx.installer` 继续注册为 Koishi Service，并持有该 runtime；runtime 只组合当前入口确实使用的能力：
 
 ```ts
 interface InstallerRuntime {
@@ -75,7 +75,7 @@ registerCommands(ctx, runtime)
 MarketProvider(ctx, runtime.market dependencies)
 ```
 
-禁止在新代码中读取 `ctx.installer`。
+core 不读取 `ctx.installer`。Node 入口统一从 Service 的 runtime 获取能力，外部插件只能使用新契约中明确保留的 Service 方法。
 
 ## 删除清单
 
@@ -114,9 +114,9 @@ MarketProvider(ctx, runtime.market dependencies)
 
 如果某个 callback 仍然需要跨生命周期访问，必须保留明确的接口并写出原因，不用通用 facade 恢复旧耦合。
 
-### 第三批：删除旧类型传播
+### 第三批：收缩旧类型传播
 
-- 删除 `ctx.installer` 的完整旧类型声明。
+- 保留 `ctx.installer` 的模块声明，但替换为新 Service 类型。
 - 更新 `src/node/declarations.ts`，只声明新 service/runtime 入口。
 - 更新所有 listener、command、provider、market provider 调用点。
 - 删除只为旧 public API 存在的类型别名和 import。
@@ -148,7 +148,7 @@ MarketProvider(ctx, runtime.market dependencies)
 - 环境快照读取、预览、恢复行为不变。
 - 本地上传完整生命周期通过。
 - Market registry、market snapshot、registry status 正常。
-- 旧版 `ctx.installer` 方法不再作为兼容契约测试目标。
+- 旧版 `ctx.installer` 方法不再作为兼容契约测试目标；`ctx.installer` 服务注册和新契约入口必须通过测试。
 
 工程验收：
 
