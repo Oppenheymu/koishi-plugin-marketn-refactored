@@ -8,33 +8,33 @@ import { z } from "zod";
  */
 
 /** Dict<string>（依赖请求表）。 */
-export const dictString = z.record(z.string(), z.string());
+const dictString = z.record(z.string(), z.string());
 /** 任意 Dict（配置/数据补丁）。 */
-export const dictAny = z.record(z.string(), z.any());
+const dictAny = z.record(z.string(), z.any());
 
 /** 安装选项（installer.service 的 InstallOptions）。 */
-export const installOptions = z
+const installOptions = z
     .object({
         installEndpoint: z.string().optional(),
     })
     .passthrough();
 
 /** 本地包上传：开始。 */
-export const localUploadStart = z.object({
+const localUploadStart = z.object({
     filename: z.string(),
     size: z.number().int().nonnegative(),
 });
 /** 本地包上传：分片。 */
-export const localUploadChunk = z.object({
+const localUploadChunk = z.object({
     uploadId: z.string(),
     index: z.number().int().nonnegative(),
     data: z.string(),
 });
 /** 本地包上传：完成。 */
-export const localUploadFinish = z.object({ uploadId: z.string() });
+const localUploadFinish = z.object({ uploadId: z.string() });
 
 /** bundle 成员安装选项。 */
-export const bundleInstallMember = z.object({
+const bundleInstallMember = z.object({
     package: z.string(),
     plugin: z.string(),
     version: z.string(),
@@ -47,7 +47,7 @@ export const bundleInstallMember = z.object({
     move: z.boolean().optional(),
 });
 /** bundle 清单（members 结构）。 */
-export const bundleManifest = z.object({
+const bundleManifest = z.object({
     label: z.string().optional(),
     description: z.string().optional(),
     members: z.array(
@@ -61,31 +61,31 @@ export const bundleManifest = z.object({
     ),
 });
 /** market/install-bundle 请求。 */
-export const bundleInstallRequest = z.object({
+const bundleInstallRequest = z.object({
     package: z.string(),
     version: z.string(),
     bundle: bundleManifest,
     members: z.array(bundleInstallMember),
 });
 /** market/remove-bundle-configs 请求。 */
-export const bundleConfigRemoveRequest = z.object({
+const bundleConfigRemoveRequest = z.object({
     package: z.string(),
     members: z.array(z.object({ package: z.string(), plugin: z.string() })).optional(),
     removeEmptyGroup: z.boolean().optional(),
 });
 
 /** market/lookup 请求。 */
-export const marketLookupRequest = z.object({
+const marketLookupRequest = z.object({
     names: z.array(z.string()).optional(),
     services: z.array(z.string()).optional(),
 });
 /** market/index 请求（transport 枚举）。 */
-export const marketSnapshotRequest = z.object({
+const marketSnapshotRequest = z.object({
     transport: z.enum(["inline", "http-gzip"]).optional(),
 });
 
 /** market/update-data 补丁（MarketDataStorePayload）。 */
-export const marketDataPatch = z.object({
+const marketDataPatch = z.object({
     override: dictString.optional(),
     updateIgnored: z.record(z.string(), z.any()).optional(),
     bundleRecords: z.record(z.string(), z.any()).optional(),

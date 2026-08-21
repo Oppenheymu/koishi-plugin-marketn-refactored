@@ -44,7 +44,7 @@ export function analyzeVersions(name: string, getVersion: (name: string) => stri
   })
 }
 
-export const manualDeps = reactive<Dict<Registry>>({})
+const manualDeps = reactive<Dict<Registry>>({})
 
 export async function addManual(name: string) {
   const data = await send('market/package', name) as Registry

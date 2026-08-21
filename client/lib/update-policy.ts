@@ -3,17 +3,17 @@ import { gt } from 'semver'
 import { translate } from '../i18n'
 import {
   getUpdateCandidates as getSharedUpdateCandidates,
-  isUpdateCheckDisabled as isSharedUpdateCheckDisabled,
+  isUpdateCheckDisabled,
   isUpdateVersionIgnored,
   normalizeUpdateIgnoreCount,
   normalizeUpdateIgnoreRule,
-  type IgnoredUpdates,
   type UpdateIgnoreRule,
 } from '../../src/shared/update'
 import { isLocalDependency } from '../../src/shared/dependency-source'
 import type { UpdateIgnoreOptions, UpdatePolicy } from './market-config'
 
-export type { IgnoredUpdates, UpdateIgnoreRule } from '../../src/shared/update'
+export type { UpdateIgnoreRule } from '../../src/shared/update'
+export { isUpdateCheckDisabled } from '../../src/shared/update'
 
 export function createUpdateIgnoreRule(name: string, policy?: UpdatePolicy, options: UpdateIgnoreOptions = {}): UpdateIgnoreRule | undefined {
   const version = getLatestVersion(name, policy)
@@ -61,10 +61,6 @@ export function hasUpdate(name: string, policy?: UpdatePolicy) {
   try {
     return gt(latest, local.resolved)
   } catch {}
-}
-
-export function isUpdateCheckDisabled(name: string, policy?: UpdatePolicy) {
-  return isSharedUpdateCheckDisabled(name, policy)
 }
 
 function getUpdateCandidates(name: string, policy?: UpdatePolicy) {

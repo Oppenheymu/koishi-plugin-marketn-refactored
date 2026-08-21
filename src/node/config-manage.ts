@@ -17,7 +17,7 @@ import { SELF_PACKAGE } from "./installer.service.js";
 
 type PluginConfigMap = Record<string, unknown>;
 
-export function hasPluginConfig(plugins: unknown, shortname: string): boolean {
+function hasPluginConfig(plugins: unknown, shortname: string): boolean {
     for (const key in (plugins as PluginConfigMap) ?? {}) {
         if (key.startsWith("$")) continue;
         const prefix = key.split(":", 1)[0]!;

@@ -1,3 +1,12 @@
+import type { DependencyResolver } from "../deps/resolver.js";
+import type { EnvironmentSnapshotStore } from "../environment/snapshot.js";
+import type { RequestScope } from "../racing/request-scope.js";
+import type { PackageCache } from "../registry/cache.js";
+import type { RegistryClient } from "../registry/client.js";
+import type { InstallLogStore } from "./logs/store.js";
+import type { InstallQueue } from "./queue.js";
+import type { PackageManagerAgent } from "./runner.js";
+
 export interface InstallLogger {
     debug(message: string): void;
     info(message: string): void;
@@ -9,10 +18,32 @@ export interface InstallOptions {
     installEndpoint?: string | undefined;
 }
 
-export interface InstallFallbackCandidate {
-    endpoint: string;
-    label: string;
-    reason: string;
+export interface InstallOrchestratorConfig {
+    endpoint?: string | undefined;
+    timeout?: number | undefined;
+}
+
+export interface InstallOrchestratorDeps {
+    cwd: string;
+    log: InstallLogger;
+    config: InstallOrchestratorConfig;
+    scope: RequestScope;
+    registry: RegistryClient;
+    packages: PackageCache;
+    resolver: DependencyResolver;
+    environments: EnvironmentSnapshotStore;
+    queue: InstallQueue;
+    logs: InstallLogStore;
+    agent: PackageManagerAgent | undefined;
+    /** console.refresh ×4（dependencies/registry/registryStatus/packages） */
+    refreshChannels: () => Promise<unknown>;
+    /** console.refresh('dependencies') 单通道 */
+    refreshDependenciesChannel: () => Promise<unknown> | undefined;
+    clearRegistryStatus: () => void;
+    fullReload: () => void;
+    isActive: () => boolean;
+    /** require.resolve(name) in require.cache 的等价判定（含解析失败 → true） */
+    isPackageLoaded: (name: string) => boolean;
 }
 
 export type InstallHistoryStatus = "running" | "success" | "error" | "unknown";

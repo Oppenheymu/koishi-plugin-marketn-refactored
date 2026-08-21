@@ -8,6 +8,7 @@ import type { JsonStore } from "../utils/json-store.js";
 import {
     installFallbackCandidate,
     preferredMetadataEndpoint,
+    type RegistryClientConfig,
     registryRouteScores,
     sortRouteProbeEndpoints,
 } from "./endpoints.js";
@@ -17,7 +18,7 @@ import {
     type RegistryErrorDetail,
     type RegistryReason,
 } from "./errors.js";
-import { fetchRegistryWithRetry } from "./fetch.js";
+import { fetchRegistryWithRetry, type RegistryFetchHost } from "./fetch.js";
 import type { Registry } from "./manifest.js";
 import { RouteProbe } from "./probe.js";
 import {
@@ -26,31 +27,11 @@ import {
     serializeRegistryStats,
 } from "./stats-file.js";
 
-export const REGISTRY_FALLBACK_ENDPOINTS = [
-    "https://registry.npmmirror.com",
-    "https://mirrors.cloud.tencent.com/npm",
-    "https://mirrors.huaweicloud.com/repository/npm",
-    "https://registry.npmjs.org",
-    "https://r.cnpmjs.org",
-];
 const ROUTE_STAGGER = 120;
 const FAST_ROUTE_THRESHOLD = 800;
 
-export interface InstallFallbackCandidate {
-    endpoint: string;
-    label: string;
-    reason: string;
-}
-
 export interface RegistryHttpClient {
     get(path: string, config?: { signal?: AbortSignal }): Promise<Registry>;
-}
-
-export interface RegistryClientConfig {
-    endpoint?: string | undefined;
-    timeout?: number | undefined;
-    autoRoute?: boolean | undefined;
-    retry?: number | undefined;
 }
 
 export interface RegistryClientDeps {
@@ -72,7 +53,7 @@ export interface RegistryClientDeps {
  * npm registry 元数据客户端：多端点竞速 + 学习型路由 + 重试。
  * 成块移植自旧 Installer 的路由相关方法，算法未改。
  */
-export class RegistryClient {
+export class RegistryClient implements RegistryFetchHost {
     endpoint = "";
     metadataEndpoint = "";
     private readonly deps: RegistryClientDeps;

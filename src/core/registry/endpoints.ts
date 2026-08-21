@@ -1,15 +1,26 @@
+import type { InstallFallbackCandidate } from "../../shared/types.js";
 import type { RouteStatsBook } from "../racing/stats.js";
 import { formatEndpointHost } from "../utils/format.js";
-import {
-    type InstallFallbackCandidate,
-    REGISTRY_FALLBACK_ENDPOINTS,
-    type RegistryClientConfig,
-} from "./client.js";
+
+export const REGISTRY_FALLBACK_ENDPOINTS = [
+    "https://registry.npmmirror.com",
+    "https://mirrors.cloud.tencent.com/npm",
+    "https://mirrors.huaweicloud.com/repository/npm",
+    "https://registry.npmjs.org",
+    "https://r.cnpmjs.org",
+];
+
+export interface RegistryClientConfig {
+    endpoint?: string | undefined;
+    timeout?: number | undefined;
+    autoRoute?: boolean | undefined;
+    retry?: number | undefined;
+}
 
 export type RouteScoreFn = (endpoint: string) => number;
 
 /** 去重后的候选端点：主端点 + （autoRoute 时的）镜像列表。 */
-export function registryEndpointCandidates(config: RegistryClientConfig, endpoint: string) {
+function registryEndpointCandidates(config: RegistryClientConfig, endpoint: string) {
     return [endpoint, ...(config.autoRoute === false ? [] : REGISTRY_FALLBACK_ENDPOINTS)].filter(
         (item, index, array): item is string => !!item && array.indexOf(item) === index,
     );

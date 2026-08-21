@@ -1,9 +1,16 @@
 {
-    "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json"
-    // 动态加载入口（2026-08-14 豁免）：client/ 是控制台前端，经
-    // `ctx.console.addEntry` 动态注册（src/bot/console-entry.ts），静态分析
-    // 看不到引用——fallow 误报 unused-files，标记为动态入口即正确。（待验证）
-    //"dynamicallyLoaded": [
-    //    "client/**"
-    //]
+    "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+    // 移植参照与构建产物，不参与分析：
+    // - Waiting_refactored/ 原版代码快照（P5 冒烟的移植参照，P6 删除）
+    // - 原版参考/ 官方 @koishijs/plugin-market 拷贝（本地对照）
+    "ignorePatterns": [
+        "Waiting_refactored/**",
+        "原版参考/**",
+        "lib/**",
+        "dist/**",
+        "client-tsc-out.txt"
+    ]
+    // 动态加载入口：client/ 是控制台前端，经 `ctx.console.addEntry`
+    // 动态注册（见 src/node/console 接线），静态分析看不到引用。
+    // 基线验证记录见 docs/overview/FALLOW.md。
 }

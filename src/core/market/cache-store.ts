@@ -1,22 +1,15 @@
-import { createHash } from "node:crypto";
 import { promises as fsp } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { SearchResult } from "@koishijs/registry";
 import type { Dict } from "koishi";
 import type { RouteStatsBook } from "../racing/stats.js";
 import { formatAge, formatBytes, formatError, formatTime } from "../utils/format.js";
 import { clamp } from "../utils/math.js";
 import { DAY, HOUR } from "../utils/time.js";
+import { serializeRouteStats, writeCacheStore } from "./cache-io.js";
 import { type MarketScoreContext, marketRouteScore } from "./endpoints.js";
 import { isLegacyInlineCacheStore, normalizeCacheStore } from "./normalize.js";
-import type {
-    CacheEntry,
-    CacheFile,
-    CacheMeta,
-    CacheStore,
-    EndpointResult,
-    PersistedRouteStats,
-} from "./types.js";
+import type { CacheEntry, CacheFile, CacheMeta, CacheStore, EndpointResult } from "./types.js";
 
 const MAX_CACHE_ENTRIES = 3;
 const CACHE_ENTRY_TTL = 30 * DAY;
@@ -37,16 +30,10 @@ export class MarketDiskCache {
     meta: CacheMeta | undefined;
     result: SearchResult | undefined;
     private cacheWriteTimer: ReturnType<typeof setTimeout> | undefined;
-    private routeStatsWriteTimer: ReturnType<typeof setTimeout> | undefined;
     private readonly deps: DiskCacheDeps;
 
     constructor(deps: DiskCacheDeps) {
         this.deps = deps;
-    }
-
-    dispose() {
-        clearTimeout(this.cacheWriteTimer);
-        clearTimeout(this.routeStatsWriteTimer);
     }
 
     conditionalHeaders(endpoint: string) {
@@ -211,28 +198,23 @@ export class MarketDiskCache {
         this.entries = entries;
         this.cacheWriteTimer = setTimeout(() => {
             this.cacheWriteTimer = undefined;
-            void this.write({
+            if (!this.deps.isAlive()) return;
+            void writeCacheStore(this.ioDeps(), {
                 version: 3,
                 entries,
                 lastUsed: entry.endpoint,
-                routeStats: this.serializeStats(),
+                routeStats: serializeRouteStats(this.deps.stats),
             });
         }, 0);
     }
 
-    scheduleStatsWrite() {
-        clearTimeout(this.routeStatsWriteTimer);
-        this.routeStatsWriteTimer = setTimeout(() => {
-            this.routeStatsWriteTimer = undefined;
-            if (!this.deps.isAlive()) return;
-            const lastUsed = this.meta?.endpoint;
-            void this.write({
-                version: 3,
-                entries: lastUsed ? this.prune(lastUsed) : this.entries,
-                lastUsed,
-                routeStats: this.serializeStats(),
-            });
-        }, 1000);
+    private ioDeps() {
+        return {
+            cacheFile: this.deps.cacheFile,
+            cacheDir: this.deps.cacheDir,
+            stats: this.deps.stats,
+            log: this.deps.log,
+        };
     }
 
     prune(lastUsed: string): Dict<CacheEntry> {
@@ -255,80 +237,5 @@ export class MarketDiskCache {
             })
             .slice(0, MAX_CACHE_ENTRIES);
         return Object.fromEntries(entries.map((entry) => [entry.endpoint, entry]));
-    }
-
-    private serializeStats(): Dict<PersistedRouteStats> {
-        const result: Dict<PersistedRouteStats> = {};
-        for (const [endpoint, stats] of Object.entries(this.deps.stats.stats)) {
-            if (!stats) continue;
-            result[endpoint] = {
-                score: clamp(stats.score, -6, 3),
-                averageElapsed: stats.averageElapsed,
-                lastSuccess: stats.lastSuccess,
-                contentEncoding: stats.contentEncoding,
-                consecutiveFailures: stats.consecutiveFailures,
-                cooldownUntil: stats.cooldownUntil,
-            };
-        }
-        return result;
-    }
-
-    private async write(cache: CacheStore) {
-        if (!this.deps.isAlive()) return;
-        try {
-            await fsp.mkdir(dirname(this.deps.cacheFile), { recursive: true });
-            const entries: Dict<CacheEntry> = {};
-            for (const [endpoint, entry] of Object.entries(cache.entries)) {
-                if (!entry) continue;
-                if (Array.isArray(entry.result?.objects)) {
-                    await this.writeEntryFile(entry as CacheFile);
-                    const { result: _result, ...meta } = entry as CacheFile;
-                    entries[endpoint] = {
-                        ...meta,
-                        file: this.entryFilename(endpoint),
-                        objects: _result.objects.length,
-                    };
-                } else if (entry.file) {
-                    entries[endpoint] = entry;
-                }
-            }
-            const tempFile = `${this.deps.cacheFile}.${process.pid}.${Date.now()}.tmp`;
-            await fsp.writeFile(tempFile, JSON.stringify({ ...cache, version: 3, entries }));
-            await fsp.rename(tempFile, this.deps.cacheFile);
-            await this.pruneFiles(entries);
-        } catch (error) {
-            this.deps.log.warn(`failed to write market disk cache: ${formatError(error)}`);
-        }
-        return undefined;
-    }
-
-    private entryFilename(endpoint: string) {
-        return `${createHash("sha1").update(endpoint).digest("hex").slice(0, 16)}.json`;
-    }
-
-    private async writeEntryFile(entry: CacheFile) {
-        await fsp.mkdir(this.deps.cacheDir, { recursive: true });
-        const file = resolve(this.deps.cacheDir, this.entryFilename(entry.endpoint));
-        const tempFile = `${file}.${process.pid}.${Date.now()}.tmp`;
-        await fsp.writeFile(tempFile, JSON.stringify(entry.result));
-        await fsp.rename(tempFile, file);
-    }
-
-    private async pruneFiles(entries: Dict<CacheEntry>) {
-        try {
-            const keep = new Set(
-                Object.values(entries)
-                    .map((entry) => entry?.file)
-                    .filter(Boolean),
-            );
-            const files = await fsp.readdir(this.deps.cacheDir).catch(() => [] as string[]);
-            await Promise.all(
-                files
-                    .filter((file) => file.endsWith(".json") && !keep.has(file))
-                    .map((file) => fsp.unlink(resolve(this.deps.cacheDir, file)).catch(() => {})),
-            );
-        } catch (error) {
-            this.deps.log.debug(`failed to prune split market cache files: ${formatError(error)}`);
-        }
     }
 }

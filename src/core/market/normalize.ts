@@ -90,7 +90,7 @@ function normalizeCacheEntry(value: unknown): CacheEntry | undefined {
     return { ...(value as CacheEntry), fetchedAt };
 }
 
-export function hasCacheResultReference(value: unknown): value is CacheEntry {
+function hasCacheResultReference(value: unknown): value is CacheEntry {
     return (
         Array.isArray((value as { result?: { objects?: unknown } } | undefined)?.result?.objects) ||
         typeof (value as { file?: unknown } | undefined)?.file === "string"

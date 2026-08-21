@@ -82,23 +82,3 @@ export function registryFailurePenalty(reason?: RegistryReason) {
             return 1.5;
     }
 }
-
-export function formatRouteScores(
-    routes: Array<{
-        endpoint: string;
-        score: number;
-        successes?: number;
-        failures?: number;
-        averageElapsed?: number;
-        fallbackDelay?: number;
-        lastFailureReason?: RegistryReason;
-    }>,
-) {
-    if (!routes.length) return "(none)";
-    return routes
-        .map(
-            (route) =>
-                `${route.endpoint} score=${route.score.toFixed(1)} ok=${route.successes ?? 0} fail=${route.failures ?? 0} avg=${route.averageElapsed ?? "-"} delay=${route.fallbackDelay ?? "-"} last=${route.lastFailureReason ?? "-"}`,
-        )
-        .join(" | ");
-}

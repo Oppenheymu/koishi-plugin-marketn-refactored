@@ -62,29 +62,68 @@ export function validateWord(word: string) {
   return operators.includes(key)
 }
 
+// 日期过滤表：顺序沿用旧实现的 else-if 链（<= 必须先于 < 匹配）。
+const dateFilterTable = [
+  { prefix: 'updated:within:', field: 'updated', op: 'within' },
+  { prefix: 'created:within:', field: 'created', op: 'within' },
+  { prefix: 'updated:<=', field: 'updated', op: '<=' },
+  { prefix: 'updated:>=', field: 'updated', op: '>=' },
+  { prefix: 'updated:<', field: 'updated', op: '<' },
+  { prefix: 'updated:>', field: 'updated', op: '>' },
+  { prefix: 'created:<=', field: 'created', op: '<=' },
+  { prefix: 'created:>=', field: 'created', op: '>=' },
+  { prefix: 'created:<', field: 'created', op: '<' },
+  { prefix: 'created:>', field: 'created', op: '>' },
+] as const
+
+function matchDateFilter(word: string, index: MarketSearchIndex): boolean | undefined {
+  for (const { prefix, field, op } of dateFilterTable) {
+    if (!word.startsWith(prefix)) continue
+    const value = word.slice(prefix.length)
+    if (op === 'within') {
+      return withinDays(index[field === 'updated' ? 'updatedTimestamp' : 'createdTimestamp'], value)
+    }
+    return compareDate(
+      index[field === 'updated' ? 'updatedAt' : 'createdAt'],
+      index[field === 'updated' ? 'updatedTimestamp' : 'createdTimestamp'],
+      op,
+      value,
+    )
+  }
+}
+
+interface FlagContext {
+  data: SearchObject
+  index: MarketSearchIndex
+  config: ValidateConfig
+}
+
+// is:/not: 谓词表；installed/bundle 之外的字段依赖 manifest 存在。
+const flagPredicates: Record<string, (ctx: FlagContext) => boolean> = {
+  verified: ({ data }) => data.verified,
+  insecure: ({ data }) => data.insecure,
+  portable: ({ data }) => data.portable,
+  preview: ({ data }) => !!data.manifest?.preview,
+  installed: ({ data, config }) => !!config.installed?.(data),
+  bundle: ({ index }) => index.bundle,
+}
+
+function matchFlagFilter(word: string, ctx: FlagContext): boolean | undefined {
+  const negate = word.startsWith('not:')
+  if (!negate && !word.startsWith('is:')) return undefined
+  const key = negate ? word.slice(4) : word.slice(3)
+  const predicate = flagPredicates[key]
+  const manifestOnly = key !== 'installed' && key !== 'bundle'
+  if (!predicate || (manifestOnly && !ctx.data.manifest)) return negate
+  return negate ? !predicate(ctx) : predicate(ctx)
+}
+
 export function validate(data: SearchObject, word: string, config: ValidateConfig = {}) {
   const index = config.index ?? getSearchIndex(data)
-  if (word.startsWith('updated:within:')) {
-    return withinDays(index.updatedTimestamp, word.slice(15))
-  } else if (word.startsWith('created:within:')) {
-    return withinDays(index.createdTimestamp, word.slice(15))
-  } else if (word.startsWith('updated:<=')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '<=', word.slice(10))
-  } else if (word.startsWith('updated:>=')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '>=', word.slice(10))
-  } else if (word.startsWith('updated:<')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '<', word.slice(9))
-  } else if (word.startsWith('updated:>')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '>', word.slice(9))
-  } else if (word.startsWith('created:<=')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '<=', word.slice(10))
-  } else if (word.startsWith('created:>=')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '>=', word.slice(10))
-  } else if (word.startsWith('created:<')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '<', word.slice(9))
-  } else if (word.startsWith('created:>')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '>', word.slice(9))
-  }
+  const dateResult = matchDateFilter(word, index)
+  if (dateResult !== undefined) return dateResult
+  const flagResult = matchFlagFilter(word, { data, index, config })
+  if (flagResult !== undefined) return flagResult
 
   if (data.manifest) {
     const { locales, service } = data.manifest
@@ -101,35 +140,11 @@ export function validate(data: SearchObject, word: string, config: ValidateConfi
       const users = config.users ?? getUsers(data)
       const target = word.slice(6)
       return users.some(({ email }) => email?.toLowerCase() === target)
-    } else if (word.startsWith('is:')) {
-      if (word === 'is:verified') return data.verified
-      if (word === 'is:insecure') return data.insecure
-      if (word === 'is:portable') return data.portable
-      if (word === 'is:preview') return !!data.manifest.preview
-      if (word === 'is:installed') return !!config.installed?.(data)
-      if (word === 'is:bundle') return index.bundle
-      return false
-    } else if (word.startsWith('not:')) {
-      if (word === 'not:verified') return !data.verified
-      if (word === 'not:insecure') return !data.insecure
-      if (word === 'not:portable') return !data.portable
-      if (word === 'not:preview') return !data.manifest.preview
-      if (word === 'not:installed') return !config.installed?.(data)
-      if (word === 'not:bundle') return !index.bundle
-      return true
     } else if (word.includes(':')) {
       return true
     }
   } else {
-    if (word.startsWith('is:')) {
-      if (word === 'is:installed') return !!config.installed?.(data)
-      if (word === 'is:bundle') return index.bundle
-      return false
-    } else if (word.startsWith('not:')) {
-      if (word === 'not:installed') return !config.installed?.(data)
-      if (word === 'not:bundle') return !index.bundle
-      return true
-    } else if (word.includes(':')) {
+    if (word.includes(':')) {
       return true
     }
   }

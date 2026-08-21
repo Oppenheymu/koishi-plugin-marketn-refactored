@@ -44,7 +44,7 @@ export function createScanner(
     return new ctor(request);
 }
 
-export interface LocalPackage extends PackageJson {
+interface LocalPackage extends PackageJson {
     private?: boolean;
     $workspace?: boolean | undefined;
 }

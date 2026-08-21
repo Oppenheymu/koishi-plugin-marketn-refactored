@@ -2,75 +2,35 @@ import type { SearchObject, SearchResult } from "@koishijs/registry";
 import type { Dict } from "koishi";
 import type { MarketPerformance, MarketPerformanceSnapshot } from "../../shared/types.js";
 import { RequestScope } from "../racing/request-scope.js";
-import { RouteStatsBook } from "../racing/stats.js";
 import { createScanner, type ScannerLike } from "../registry/manifest.js";
-import { formatError, shortHash } from "../utils/format.js";
-import { MarketBackgroundRefresher } from "./background.js";
+import { formatError } from "../utils/format.js";
+import { MarketBackgroundRefresher, type MarketBackgroundSource } from "./background.js";
 import { MarketDiskCache } from "./cache-store.js";
 import {
     clearRouteCooldowns,
     getEndpointCandidates,
     type MarketScoreContext,
 } from "./endpoints.js";
-import { fetchMarketIndex } from "./fetch-index.js";
+import { buildMarketFetchDeps, fetchMarketIndex } from "./fetch-index.js";
 import { formatSnapshot } from "./format.js";
 import { buildMarketSnapshot, type MarketSnapshotInput } from "./snapshot.js";
 import { createSourceSnapshotHost, performanceFrom } from "./source-host.js";
+import {
+    createMarketRouteStatsBook,
+    type MarketSourceConfig,
+    type MarketSourceDeps,
+} from "./source-types.js";
+import { applyDiskCache, warmDiskCache as warmDiskCacheTask } from "./warmup.js";
 
-export interface MarketSourceConfig {
-    endpoint?: string | undefined;
-    timeout?: number | undefined;
-    autoRoute?: boolean | undefined;
-    logLevel?: string | undefined;
-}
-
-export interface MarketSourceDeps {
-    /** koishi HTTP 适配（按端点创建） */
-    http: (endpoint: string) => { getText: never } | never;
-    scannerRequest: (url: string, config?: { timeout?: number }) => Promise<unknown>;
-    cacheFile: string;
-    cacheDir: string;
-    log: { debug(message: string): void; info(message: string): void; warn(message: string): void };
-    /** console.refresh('market') 等价物 */
-    notifyRefresh: () => Promise<unknown> | unknown;
-    /** market/patch 广播（节流在适配层） */
-    broadcastPatch: (payload: {
-        data: Dict<SearchObject>;
-        total: number;
-        progress: number;
-        failed: number;
-        debug?: MarketPerformance | undefined;
-    }) => void;
-    /** legacy 分析阶段把 registry 版本喂回 installer.setPackage */
-    onRegistryVersions: (name: string, versions: unknown[]) => void;
-}
+export type { MarketSourceConfig, MarketSourceDeps };
 
 /**
  * 市场索引源：竞速拉取 + 磁盘缓存 + 后台刷新编排。
  * 成块移植自旧 node/MarketProvider（剥离 DataService 壳后的主体）。
  */
-export class MarketIndexSource {
+export class MarketIndexSource implements MarketBackgroundSource {
     readonly scope = new RequestScope();
-    readonly stats = new RouteStatsBook({
-        fastThreshold: 500,
-        successClamp: [-6, 3],
-        failureClamp: [-10, 3],
-        failurePenalty: (options) => (options.rescue ? 0.25 : 1.2),
-        cooldown: (failures) =>
-            failures <= 0
-                ? 0
-                : failures === 1
-                  ? 60_000
-                  : failures === 2
-                    ? 300_000
-                    : failures === 3
-                      ? 1_800_000
-                      : failures === 4
-                        ? 14_400_000
-                        : 43_200_000,
-        roundAverage: false,
-        trackFailureMeta: false,
-    });
+    readonly stats = createMarketRouteStatsBook();
     readonly cache: MarketDiskCache;
     readonly scanner: ScannerLike;
     readonly background: MarketBackgroundRefresher;
@@ -146,45 +106,7 @@ export class MarketIndexSource {
     }
 
     async warmDiskCache(reason: string) {
-        if (this.warmDiskCacheTask) return this.warmDiskCacheTask;
-        const serial = this.scope.current;
-        this.warmDiskCacheTask = this.applyDiskCache(serial)
-            .then((loaded) => {
-                if (loaded) {
-                    void this.deps.notifyRefresh();
-                }
-                return loaded;
-            })
-            .finally(() => {
-                this.warmDiskCacheTask = undefined;
-            });
-        void reason;
-        return this.warmDiskCacheTask;
-    }
-
-    private async applyDiskCache(serial: number) {
-        const warmTask = this.warmDiskCacheTask;
-        if (warmTask) {
-            const warmed = await warmTask;
-            if (warmed && !this.scope.isStale(serial)) return true;
-        }
-        const { applied } = await this.cache.load();
-        if (!applied) return false;
-        if (this.scope.isStale(serial)) return false;
-        this.applyIndex(applied.result, applied.endpoint, applied.hash);
-        this.cacheMetaPresent = true;
-        this.updateDebugInfo(
-            {
-                source: "disk-cache",
-                endpoint: applied.endpoint,
-                objects: this.scanner.total,
-                hash: shortHash(applied.hash),
-                cachedAt: applied.fetchedAt,
-                timings: {},
-            },
-            "initial",
-        );
-        return true;
+        return warmDiskCacheTask(this, reason);
     }
 
     applyIndex(result: SearchResult, endpoint: string, contentHash?: string) {
@@ -203,27 +125,13 @@ export class MarketIndexSource {
         );
     }
 
-    private fetchDeps() {
-        return {
-            http: this.deps.http as never,
-            scope: this.scope,
-            stats: this.stats,
-            scoreContext: () => this.scoreContext(),
-            config: this.config,
-            onEndpointSelected: (endpoint: string) => {
-                this.endpoint = endpoint;
-            },
-            getCachedEntry: (endpoint: string) => this.cache.entries[endpoint],
-            loadCacheEntryResult: (entry: never) => this.cache.loadEntryResult(entry),
-            conditionalHeaders: (endpoint: string) => this.cache.conditionalHeaders(endpoint),
-            log: this.deps.log,
-        };
-    }
-
     /** 竞速拉取并落盘（collect 的网络部分）。 */
     async fetchAndApply(serial: number, phase: "initial" | "refresh") {
         const start = Date.now();
-        const result = await fetchMarketIndex(this.fetchDeps() as never, serial);
+        const result = await fetchMarketIndex(
+            buildMarketFetchDeps(this, this.deps) as never,
+            serial,
+        );
         if (this.scope.isStale(serial)) return undefined;
         const applyStart = Date.now();
         this.applyIndex(result.result, result.endpoint, result.hash);
@@ -246,7 +154,7 @@ export class MarketIndexSource {
         this.failed = [];
         this.fullCache = {};
         this.tempCache = {};
-        if (!this.forceRefresh && (await this.applyDiskCache(serial))) {
+        if (!this.forceRefresh && (await applyDiskCache(this, serial))) {
             this.background.refreshInBackground(serial, "cache-first");
             void this.deps.notifyRefresh();
             return undefined;
@@ -305,7 +213,7 @@ export class MarketIndexSource {
         this.forceRefresh = false;
         if (refresh) {
             clearRouteCooldowns(this.stats);
-            if (this.hasCurrentData() || (await this.applyDiskCache(serial))) {
+            if (this.hasCurrentData() || (await applyDiskCache(this, serial))) {
                 if (!this.scope.isStale(serial)) {
                     if (!this.hasCurrentData())
                         this.background.refreshInBackground(serial, "soft refresh");
@@ -343,10 +251,6 @@ export class MarketIndexSource {
 
     get dataVersionValue() {
         return this.dataVersion;
-    }
-
-    get debugInfo() {
-        return this.debugInfoValue;
     }
 
     updateDebugInfo(info: MarketPerformanceSnapshot, phase?: "initial" | "refresh") {

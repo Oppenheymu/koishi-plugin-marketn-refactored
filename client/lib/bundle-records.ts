@@ -15,7 +15,7 @@ export type BundleRecordView = PluginBundleRecord & {
   fallback?: boolean
 }
 
-export function createBundleRecordFromManifest(packageName: string, version = '', bundle?: PluginBundleManifest, fallback = true): BundleRecordView | undefined {
+function createBundleRecordFromManifest(packageName: string, version = '', bundle?: PluginBundleManifest, fallback = true): BundleRecordView | undefined {
   if (!isBundlePackageName(packageName)) return
   return {
     package: packageName,
@@ -68,7 +68,7 @@ function normalizeGroupPath(path?: string) {
   return path?.replace(/^group:/, '')
 }
 
-export function isBundleGroupPath(path: string | undefined, groupKey: string | undefined) {
+function isBundleGroupPath(path: string | undefined, groupKey: string | undefined) {
   if (!path || !groupKey) return false
   return normalizeGroupPath(path) === normalizeGroupPath(groupKey)
 }

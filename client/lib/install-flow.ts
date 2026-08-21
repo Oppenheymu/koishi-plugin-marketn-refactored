@@ -3,16 +3,11 @@ import { reactive, watch } from 'vue'
 import { translate } from '../i18n'
 import { active, showEnvironmentVersions } from './dialogs'
 import { formatEndpoint } from './registry-status'
+import type { InstallFallbackCandidate } from '../../src/shared/types'
 
 export interface LogLine {
   type: 'stdout' | 'stderr'
   line: string
-}
-
-export interface InstallFallbackCandidate {
-  endpoint: string
-  label: string
-  reason: string
 }
 
 export interface InstallOptions {
@@ -51,7 +46,7 @@ interface InstallMessages {
   allowDisconnectSuccess?: boolean
 }
 
-export function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
+function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
   installProgressState.logs.push({ type, line })
 }
 

@@ -13,7 +13,6 @@ import type {
     InstallOptions,
     LocalBindingResult,
 } from "../core/install/types.js";
-import type { InstallFallbackCandidate } from "../core/registry/client.js";
 import type {
     LocalPackageUploadChunkRequest,
     LocalPackageUploadCommitResult,
@@ -29,6 +28,7 @@ import type {
     BundleInstallRequest,
     BundleInstallResult,
 } from "../shared/bundle.js";
+import type { InstallFallbackCandidate } from "../shared/types.js";
 import {
     AVATAR_CACHE_SWEEP_INTERVAL,
     type AvatarFetchResult,

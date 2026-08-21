@@ -3,7 +3,7 @@ import { basename, resolve } from "node:path";
 import { DAY, HOUR } from "../../utils/time.js";
 import type { InstallLogger } from "../types.js";
 
-export const INSTALL_LOG_DIR = "market-next-install-logs";
+const INSTALL_LOG_DIR = "market-next-install-logs";
 export const INSTALL_LOG_DETAIL_LIMIT = 512 * 1024;
 export const INSTALL_LOG_HEAD_LIMIT = 8 * 1024;
 export const INSTALL_LOG_TAIL_LIMIT = 32 * 1024;

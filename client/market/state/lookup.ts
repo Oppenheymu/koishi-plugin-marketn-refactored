@@ -3,8 +3,8 @@ import { markRaw, shallowRef } from 'vue'
 import type { MarketLookupRequest, MarketLookupResult, MarketPayload } from '../../../src/shared/types'
 import { getCurrentSnapshotData, marketSnapshot, publishSnapshot, type MarketSnapshot } from './snapshot'
 
-export const marketLookupData = shallowRef<MarketSnapshot['data']>({})
-export const marketLookupServices = shallowRef<Record<string, string[]>>({})
+const marketLookupData = shallowRef<MarketSnapshot['data']>({})
+const marketLookupServices = shallowRef<Record<string, string[]>>({})
 
 let lookupDataVersion: number | undefined
 let lookupGeneration = 0

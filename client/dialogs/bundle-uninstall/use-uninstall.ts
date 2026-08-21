@@ -8,7 +8,7 @@ import { getBulkMode, getFrontendMode } from '../../lib/market-config'
 import { getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../lib/data-store'
 import { useMarketNextI18n } from '../../i18n'
 
-export type MemberAction = 'config' | 'dependency' | 'keep'
+type MemberAction = 'config' | 'dependency' | 'keep'
 
 export interface BundleUninstallProps {
   modelValue: boolean

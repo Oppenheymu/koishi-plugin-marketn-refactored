@@ -20,7 +20,7 @@ import type { InstallLogger, InstallOptions } from "../core/install/types.js";
 import type { LocalPackageUploadService } from "../core/install/upload.js";
 import type { RequestScope } from "../core/racing/request-scope.js";
 import type { PackageCache, PackageVersions } from "../core/registry/cache.js";
-import type { InstallFallbackCandidate, RegistryClient } from "../core/registry/client.js";
+import type { RegistryClient } from "../core/registry/client.js";
 import { resolvePluginName } from "../core/registry/manifest.js";
 import type { RegistryStatsStore } from "../core/registry/stats-file.js";
 import type { LocalPackageUploadStore } from "../core/upload/session.js";
@@ -34,7 +34,7 @@ import type {
     LocalPackageUploadStartResult,
 } from "../core/upload/types.js";
 import type { JsonStore } from "../core/utils/json-store.js";
-import type { RegistryStatus } from "../shared/types.js";
+import type { InstallFallbackCandidate, RegistryStatus } from "../shared/types.js";
 import type { InstallerConfig, InstallerGetDepsOptions } from "./installer.config.js";
 import { createInstallerCore, createInstallLogger } from "./installer.wire.js";
 

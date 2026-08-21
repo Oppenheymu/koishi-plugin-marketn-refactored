@@ -114,13 +114,3 @@ export class RouteStatsBook {
         for (const key of Object.keys(this.stats)) delete this.stats[key];
     }
 }
-
-/** 市场索引路由的冷却阶梯（按连续失败次数）。 */
-export function marketRouteCooldown(failures = 0) {
-    if (failures <= 0) return 0;
-    if (failures === 1) return 60_000;
-    if (failures === 2) return 5 * 60_000;
-    if (failures === 3) return 30 * 60_000;
-    if (failures === 4) return 4 * 3_600_000;
-    return 12 * 3_600_000;
-}

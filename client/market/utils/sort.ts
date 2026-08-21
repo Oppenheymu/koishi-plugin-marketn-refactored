@@ -84,18 +84,8 @@ function sortMarket(market: SearchObject[], words: string[], config?: MarketConf
     .map(item => item.data)
 }
 
-export function getSorted(market: SearchObject[], words: string[], config?: MarketConfig) {
-  return sortMarket(getVisible(market, words), words, config)
-}
-
 export function getSortedPrepared(market: SearchObject[], words: string[], config?: MarketConfig) {
   return sortMarket(market, words, config)
-}
-
-export function getSortedFiltered(market: SearchObject[], words: string[], config?: MarketConfig) {
-  const visible = getVisible(market, words)
-  const filtered = getFiltered(visible, words, config)
-  return sortMarket(filtered, words, config)
 }
 
 function clamp(value: number, min = 0, max = 1) {

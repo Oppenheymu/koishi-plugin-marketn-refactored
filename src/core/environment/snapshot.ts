@@ -43,9 +43,7 @@ interface PersistedEnvironmentSnapshotStore {
 const MAX_SNAPSHOTS = 60;
 
 /** 依赖快照归一化：键排序、source 补全、可选字段去空。 */
-export function normalizeEnvironmentDependencies(
-    dependencies: Dict<EnvironmentDependencySnapshot>,
-) {
+function normalizeEnvironmentDependencies(dependencies: Dict<EnvironmentDependencySnapshot>) {
     const result: Dict<EnvironmentDependencySnapshot> = {};
     for (const name of Object.keys(dependencies).sort((a, b) => a.localeCompare(b))) {
         const dependency = dependencies[name];
@@ -78,7 +76,7 @@ function canonicalDependencies(dependencies: Dict<EnvironmentDependencySnapshot>
     );
 }
 
-export function getEnvironmentSnapshotId(dependencies: Dict<EnvironmentDependencySnapshot>) {
+function getEnvironmentSnapshotId(dependencies: Dict<EnvironmentDependencySnapshot>) {
     return `env-${createHash("sha256")
         .update(canonicalDependencies(dependencies))
         .digest("hex")

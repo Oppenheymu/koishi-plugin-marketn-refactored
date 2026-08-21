@@ -10,7 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-export function hasCompleteLocaleMessage(actual: unknown, expected: unknown): boolean {
+function hasCompleteLocaleMessage(actual: unknown, expected: unknown): boolean {
   if (!isRecord(expected)) return actual === expected
   if (!isRecord(actual)) return false
   return Object.entries(expected).every(([key, value]) => {

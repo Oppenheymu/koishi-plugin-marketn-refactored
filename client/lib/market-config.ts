@@ -85,7 +85,7 @@ export type MarketNextConfig = MarketNextConfigPatch & {
   }
 }
 
-export function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
+function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
   return value === 'polished' || value === 'performance' ? value : undefined
 }
 

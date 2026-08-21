@@ -12,7 +12,7 @@ export type MarketStore = typeof store & {
   registryStatus?: Dict<RegistryStatus>
 }
 
-export function sweepRegistryStatus(target: MarketStore = store as MarketStore) {
+function sweepRegistryStatus(target: MarketStore = store as MarketStore) {
   const now = Date.now()
   const next = { ...target.registryStatus }
   let changed = false

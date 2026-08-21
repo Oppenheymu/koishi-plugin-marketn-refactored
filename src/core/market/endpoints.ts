@@ -3,7 +3,7 @@ import type { RouteStatsBook } from "../racing/stats.js";
 import { DAY } from "../utils/time.js";
 
 export const DEFAULT_ENDPOINT = "https://registry.koishi.t4wefan.pub/index.json";
-export const FALLBACK_ENDPOINTS = [
+const FALLBACK_ENDPOINTS = [
     "https://registry.koishi.t4wefan.pub/index.json",
     "https://gitee.com/shangxueink/koishi-registry-aggregator/raw/gh-pages/market.json",
     "https://koi.nyan.zone/registry/index.json",
@@ -56,7 +56,7 @@ export function getEndpointCandidates(config: MarketEndpointConfig) {
     );
 }
 
-export function isRouteCoolingDown(
+function isRouteCoolingDown(
     endpoint: string,
     config: MarketEndpointConfig,
     stats: RouteStatsBook,

@@ -44,14 +44,6 @@ export class DependencyResolver {
         this.deps = deps;
     }
 
-    get dependencies() {
-        return this.manifest?.dependencies ?? {};
-    }
-
-    get cache() {
-        return this.deps.cache;
-    }
-
     /** 重载宿主 package.json（安装后/刷新前调用）。 */
     reloadManifest() {
         this.manifest = loadManifest(this.deps.cwd());

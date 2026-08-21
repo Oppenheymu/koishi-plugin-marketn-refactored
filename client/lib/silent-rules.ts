@@ -89,14 +89,14 @@ function isDateString(value?: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value ?? '')
 }
 
-export function rulesToSilentFilters(rules: MarketSilentRule[]) {
+function rulesToSilentFilters(rules: MarketSilentRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false)
     .map(rule => ruleToSilentFilter(rule))
     .filter(Boolean)
 }
 
-export function ruleToSilentFilter(rule: MarketSilentRule) {
+function ruleToSilentFilter(rule: MarketSilentRule) {
   const value = String(rule.value ?? '').trim()
   const date = String(rule.date ?? value).trim()
   const days = rule.days == null ? value : String(rule.days)

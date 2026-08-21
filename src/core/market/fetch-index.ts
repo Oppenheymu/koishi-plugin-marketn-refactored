@@ -2,12 +2,14 @@ import { raceEndpoints } from "../racing/race.js";
 import type { RequestScope } from "../racing/request-scope.js";
 import type { RouteStatsBook } from "../racing/stats.js";
 import { formatError } from "../utils/format.js";
+import type { MarketDiskCache } from "./cache-store.js";
 import { getRaceEndpoints, getRescueEndpoints, type MarketScoreContext } from "./endpoints.js";
 import {
     type EndpointFetchResult,
     type FetchEndpointDeps,
     fetchMarketEndpoint,
 } from "./fetch-endpoint.js";
+import type { MarketSourceDeps } from "./source-types.js";
 import type { EndpointResult } from "./types.js";
 
 const ROUTE_STAGGER = 80;
@@ -20,6 +22,34 @@ export interface FetchIndexDeps extends FetchEndpointDeps {
     config: { endpoint?: string | undefined; autoRoute?: boolean | undefined };
     onEndpointSelected: (endpoint: string) => void;
     log: { debug(message: string): void; info(message: string): void; warn(message: string): void };
+}
+
+/** buildMarketFetchDeps 所需的源视图（MarketIndexSource 结构性子集）。 */
+interface MarketFetchHostSource {
+    readonly scope: RequestScope;
+    readonly stats: RouteStatsBook;
+    readonly config: { endpoint?: string | undefined; autoRoute?: boolean | undefined };
+    endpoint: string;
+    scoreContext(): MarketScoreContext;
+    readonly cache: Pick<MarketDiskCache, "entries" | "loadEntryResult" | "conditionalHeaders">;
+}
+
+/** 把 MarketIndexSource 的公开状态适配为索引竞速所需的 FetchIndexDeps。 */
+export function buildMarketFetchDeps(source: MarketFetchHostSource, deps: MarketSourceDeps) {
+    return {
+        http: deps.http as never,
+        scope: source.scope,
+        stats: source.stats,
+        scoreContext: () => source.scoreContext(),
+        config: source.config,
+        onEndpointSelected: (endpoint: string) => {
+            source.endpoint = endpoint;
+        },
+        getCachedEntry: (endpoint: string) => source.cache.entries[endpoint],
+        loadCacheEntryResult: (entry: never) => source.cache.loadEntryResult(entry),
+        conditionalHeaders: (endpoint: string) => source.cache.conditionalHeaders(endpoint),
+        log: deps.log,
+    };
 }
 
 /**

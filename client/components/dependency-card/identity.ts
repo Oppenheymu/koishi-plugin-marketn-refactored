@@ -37,7 +37,7 @@ export function pickDescription(value: unknown, locale: string) {
   return typeof fallback === 'string' ? fallback.trim() : ''
 }
 
-export const identityMap = {
+const identityMap = {
   adapter: { label: 'dependencyCard.identity.adapter', icon: 'solid:adapter', color: '#4d8df7' },
   database: { label: 'dependencyCard.identity.database', icon: 'solid:tool', color: '#21a67a' },
   webui: { label: 'dependencyCard.identity.webui', icon: 'solid:webui', color: '#8b6cf6' },

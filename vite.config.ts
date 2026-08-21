@@ -22,6 +22,8 @@ export default defineConfig({
         lib: {
             entry: 'client/index.ts',
             fileName: 'index',
+            // prod console 只探测 style.css；Vite 8 默认按入口名产出 index.css，需显式指定
+            cssFileName: 'style',
             formats: ['es'],
         },
         rollupOptions: {

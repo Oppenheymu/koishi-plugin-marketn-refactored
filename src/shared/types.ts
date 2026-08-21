@@ -12,6 +12,13 @@ export interface RegistryStatus {
     updatedAt?: number | undefined;
 }
 
+/** 安装失败后的备用 npm 源推荐（node 端点选择与 client 进度弹窗共用）。 */
+export interface InstallFallbackCandidate {
+    endpoint: string;
+    label: string;
+    reason: string;
+}
+
 /** 一次索引/元数据请求的性能快照（市场页 debug 卡的数据来源）。 */
 export interface MarketPerformanceSnapshot {
     source?: "network" | "disk-cache" | "http-304" | "hash-cache" | "legacy" | undefined;
