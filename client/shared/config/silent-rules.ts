@@ -96,25 +96,36 @@ function rulesToSilentFilters(rules: MarketSilentRule[]) {
     .filter(Boolean)
 }
 
+const fixedRuleFilters: Record<string, string> = {
+  preview: 'is:preview',
+  insecure: 'is:insecure',
+  bundle: 'is:bundle',
+}
+
+const dateRuleFilters: Record<string, string> = {
+  'created-before': 'created:<',
+  'created-after': 'created:>',
+  'updated-before': 'updated:<',
+  'updated-after': 'updated:>',
+}
+
+const recentRuleFilters: Record<string, string> = {
+  'created-within': 'created:within:',
+  'updated-within': 'updated:within:',
+}
+
 function ruleToSilentFilter(rule: MarketSilentRule) {
   const value = String(rule.value ?? '').trim()
   const date = String(rule.date ?? value).trim()
   const days = rule.days == null ? value : String(rule.days)
   const query = String(rule.query ?? value).trim()
-  switch (rule.type) {
-    case 'preview': return 'is:preview'
-    case 'insecure': return 'is:insecure'
-    case 'bundle': return 'is:bundle'
-    case 'created-before': return isDateString(date) ? `created:<${date}` : ''
-    case 'created-after': return isDateString(date) ? `created:>${date}` : ''
-    case 'updated-before': return isDateString(date) ? `updated:<${date}` : ''
-    case 'updated-after': return isDateString(date) ? `updated:>${date}` : ''
-    case 'created-within': return isPositiveInteger(days) ? `created:within:${Math.floor(Number(days))}` : ''
-    case 'updated-within': return isPositiveInteger(days) ? `updated:within:${Math.floor(Number(days))}` : ''
-    case 'custom':
-    default:
-      return query
-  }
+  const fixed = fixedRuleFilters[rule.type ?? '']
+  if (fixed) return fixed
+  const datePrefix = dateRuleFilters[rule.type ?? '']
+  if (datePrefix) return isDateString(date) ? `${datePrefix}${date}` : ''
+  const recentPrefix = recentRuleFilters[rule.type ?? '']
+  if (recentPrefix) return isPositiveInteger(days) ? `${recentPrefix}${Math.floor(Number(days))}` : ''
+  return query
 }
 
 function isPositiveInteger(value?: string) {
