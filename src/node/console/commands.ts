@@ -6,7 +6,7 @@ import {
 } from "../../shared/update.js";
 import { clearAvatarCacheStorage } from "../avatar/index.js";
 import type { Config } from "../config/index.js";
-import { ensurePluginConfigs } from "../config/manage.js";
+import { ensurePluginConfigs } from "../config/plugin-configs.js";
 import { messageEn, messageZh } from "../locales/generated.js";
 import { type MarketDataStore, readMarketDataStore } from "../market/data-store.js";
 

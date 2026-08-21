@@ -1,5 +1,5 @@
 import type { Context } from "koishi";
-import { ensurePluginConfigs } from "../../config/manage.js";
+import { ensurePluginConfigs } from "../../config/plugin-configs.js";
 import { SELF_PACKAGE } from "../../installer/index.js";
 import { installBundle } from "../../market/bundle.js";
 import type { MarketDataStore } from "../../market/data-store.js";

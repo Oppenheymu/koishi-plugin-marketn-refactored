@@ -6,10 +6,10 @@ import {
 } from "./avatar/index.js";
 import type { Config } from "./config/index.js";
 import {
-    ensureInstalledPluginConfigs,
     ensureMarketNextConfigDefaults,
     removeLegacyCollapsedGroupsConfig,
 } from "./config/manage.js";
+import { ensureInstalledPluginConfigs } from "./config/plugin-configs.js";
 import { MarketDataStore } from "./market/data-store.js";
 import { MarketSnapshotTransport } from "./market/snapshot-transport.js";
 
