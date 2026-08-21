@@ -109,7 +109,10 @@
   （.vue 不进 tsc 编译单元，import 路径只有 vite build 能验证）。
 - 格式化用 `npx biome check --write .`；行数预算 `yarn check:size`（>300 警告、≥400 直接 fail，
   .vue 计 template+script、style 出仓 .scss）。
-- typescript 锁 ~6.0.3（TS7 会让 eslint parser throw）、vue 锁宿主 3.5.41，勿升级。
+- **typescript 已升级为官方 side-by-side 布局**（2026-08-21，见 §9）：包名 typescript = `npm:@typescript/typescript6@6.0.2`
+  （TS6 API 兼容包，供 eslint parser / vue compiler-sfc 解析），TS7 走 `@typescript/native`（npm alias 到 typescript@7.0.2），
+  `yarn check` 的 tsc 双通道用 `yarn ts7`（node 直调，不依赖 .bin 链接——yarn 的 builtin patch 会弄坏 typescript6 的 bin/tsc，
+  @typescript/native 的 bin 会被提升挤掉）。vue 锁宿主 3.5.41（compiler-sfc 依赖 ts.sys，TS6 API 下正常）。
 - `Waiting_refactored/`（旧代码快照）与 `原版参考/` 是 P5 冒烟的移植参照，**P6 才删除**，已在 fallow 忽略。
 - 测试基线：`yarn test` 30 例全绿（filters 21 + shared/update 9），重构后再动这些区域请保持测试通过。
 
@@ -133,3 +136,23 @@
 - **health 复查**：70 B → **88 A**（+18），unit_size 超阈值函数 347 → 336。
 - **收尾文档**：新建 `docs/overview/FALLOW.md`（用法/基线/豁免清单/复扫数据）；`.fallowrc.jsonc` 注释更新为已验证表述。
 - 本批改动已提交（`git log --oneline -3` 可查），工作区干净。
+
+## 9. TypeScript 7 side-by-side 升级（2026-08-21 追加）
+
+- **背景**：P4 因 `@typescript-eslint/parser` 8.67 require 时 throw 将 typescript 降级 ~6.0.3。
+  实测 TS7（tsgo）+ parser 8.67 确实互不兼容（parser peer 上限 <6.1.0，运行时版本门禁直接报错）；
+  vue 3.5.41 的 `@vue/compiler-sfc` 依赖 `ts.sys`（TS7 无此 API）→ vite build 报 "No fs option provided"。
+  模范案例 koishi-plugin-adapter（TS 7.0.2 + parser 8.67）实测 eslint 同样失败——**当时没有任何已发布版本支持 TS7**，
+  官方唯一路径是 side-by-side（微软发布指南 + loke.dev 2026-08 验证）。
+- **方案**：
+  - `"typescript": "npm:@typescript/typescript6@6.0.2"` —— 占住 typescript 包名，API 消费者
+    （@typescript-eslint/parser、@vue/compiler-sfc）解析到 TS6（有 ts.sys、peer <6.1.0 通过）。
+  - `"@typescript/native": "npm:typescript@7.0.2"` —— TS7 原生 Go 编译器（tsgo），提供 tsc CLI。
+  - `yarn check` 的 tsc 双通道改走 `yarn ts7`（脚本：`node ../../node_modules/@typescript/native/bin/tsc`）；
+    保留 `typecheck:legacy`（tsc6）与 `ts7:typecheck` 供对照。
+- **坑**：yarn4 的 builtin compat patch 会给名为 typescript 的包补一个指向 `lib/_tsc.js` 的坏 `bin/tsc`
+  （typescript6 兼容包无此文件）；@typescript/native 的 bin 会被提升到宿主根且被挤掉——
+  **不要依赖 `.bin/tsc` 指向 TS7**，脚本直调 node 执行物理路径最稳。
+- **验证**：`yarn check` ✅ exit 0（TS7 tsc 双通道 + TS6 eslint，仅剩 5 个预存 any 警告）；
+  `yarn build` ✅（tsdown + vite 272 modules 无警告，dist/style.css 正常）；`yarn test` ✅ 30/30。
+- **移除条件**：typescript-eslint 官方声明支持 TS ≥7.1 后可移除 typescript6 兼容层，恢复正常 typescript 依赖。
