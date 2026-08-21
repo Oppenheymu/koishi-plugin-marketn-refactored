@@ -4,8 +4,8 @@ import type { Context } from '@koishijs/client'
 import { translate } from './i18n'
 import { getPendingOverrides } from './shared/config/data-store'
 import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './shared/ui/dialogs'
-import type { MarketStore } from './shared/sync/store-sync'
 import { marketSnapshot } from './market/state'
+import { marketRuntimeStore } from './market/runtime-store'
 
 export function registerActions(ctx: Context) {
   const refreshingMarket = ref(false)
@@ -89,8 +89,7 @@ export function registerActions(ctx: Context) {
   }])
 
   const registryRefreshing = () => {
-    const target = store as MarketStore
-    return Object.values(target.registryStatus ?? {}).some(status => status.loading)
+    return Object.values(marketRuntimeStore.registryStatus.value).some(status => status.loading)
   }
 
   ctx.menu('dependencies', [{

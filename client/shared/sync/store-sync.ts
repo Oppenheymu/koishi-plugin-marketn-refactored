@@ -4,6 +4,7 @@ import type { RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import { translate } from '../../i18n'
 import { getPendingOverrides, patchMarketNextData } from '../config/data-store'
 import { refreshMarketLookups } from '../../market/state'
+import { marketRuntimeStore } from '../../market/runtime-store'
 
 const REGISTRY_STATUS_TIMEOUT = 120000
 const REGISTRY_STATUS_SWEEP_INTERVAL = 15000
@@ -28,6 +29,7 @@ function sweepRegistryStatus(target: MarketStore = store as MarketStore) {
     changed = true
   }
   if (changed) target.registryStatus = next
+  if (changed && target === store) marketRuntimeStore.registryStatus.value = next
   return changed
 }
 
@@ -48,12 +50,14 @@ receive('market/registry-status', (data: Dict<RegistryStatus>) => {
   target.registryStatus = {
     ...next,
   }
+  marketRuntimeStore.registryStatus.value = target.registryStatus
   sweepRegistryStatus(target)
 })
 
 receive('market/registry-status/clear', () => {
   const target = store as MarketStore
   target.registryStatus = {}
+  marketRuntimeStore.registryStatus.value = {}
 })
 
 export function setupStoreSync(ctx: Context) {

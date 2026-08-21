@@ -1,4 +1,6 @@
 import { markRaw, ref, shallowRef } from 'vue'
+import type { Dict } from 'koishi'
+import type { RegistryStatus } from '../../src/shared/types'
 import type { MarketPayload } from '../../src/shared/types'
 
 export type MarketRuntimeSnapshot = MarketPayload & {
@@ -11,6 +13,7 @@ export const marketRuntimeStore = {
   error: ref<unknown>(),
   lookupData: shallowRef<MarketRuntimeSnapshot['data']>({}),
   lookupServices: shallowRef<Record<string, string[]>>({}),
+  registryStatus: ref<Dict<RegistryStatus>>({}),
 }
 
 export function applyRuntimeSnapshot(value: MarketPayload) {
