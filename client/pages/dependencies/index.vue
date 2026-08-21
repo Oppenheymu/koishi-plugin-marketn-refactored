@@ -54,7 +54,7 @@ import { getPendingOverrides, patchMarketNextData } from '../../shared/config/da
 import { getLatestVersion } from '../../shared/config/update-policy'
 import { showConfirm } from '../../shared/ui/dialogs'
 import { addManual } from '../../shared/install/analyze-versions'
-import { loadMarketObjects } from '../../market/state'
+import { loadMarketObjects, marketSnapshot } from '../../market/state'
 import ManualInstall from '../../dialogs/manual/index.vue'
 import Toolbar from './toolbar/index.vue'
 import GroupSection from './group-section/index.vue'
@@ -82,7 +82,7 @@ watch(names, (value) => {
 }, { immediate: true })
 
 let dispose: WatchStopHandle
-watch(() => store.market?.registry, (registry) => {
+watch(() => marketSnapshot.value?.registry, (registry) => {
   dispose?.()
   if (!registry) return
   dispose = watch(() => getPendingOverrides(), (object) => {

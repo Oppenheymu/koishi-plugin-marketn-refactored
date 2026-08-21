@@ -8,7 +8,7 @@
       :data="visibleData"
       visibility-prepared
       :gravatar="marketGravatar"
-      :debug="!!store.market.debug"
+       :debug="!!marketSnapshot"
       @debug="updateClientDebug"
       @update:page="scrollToTop">
       <template #header="{ hasFilter, all, packages }">
@@ -22,7 +22,8 @@
 </template>
 
 <script setup lang="ts">
-import { router, store } from '@koishijs/client'
+import { router } from '@koishijs/client'
+import { marketSnapshot } from '../../../market/state'
 import { inject, onMounted, onUnmounted, ref } from 'vue'
 import { MarketList, MarketSearch } from '../../../market'
 import { marketPageContextKey } from '../composables/use-market-page'

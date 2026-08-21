@@ -78,7 +78,7 @@
 import { computed, inject } from 'vue'
 import type { SearchObject } from '@koishijs/registry'
 import { useI18nText } from '@koishijs/components'
-import { store } from '@koishijs/client'
+import { marketSnapshot } from '../../state'
 import { badges, isBundleSearchObject, resolveCategory, useMarketI18n, validate } from '../../utils'
 import { kConfig } from '../../utils'
 import MarketIcon from '../../icons'
@@ -142,7 +142,7 @@ const DAY = 24 * HOUR
 const ABSOLUTE_DATE_THRESHOLD = 7 * DAY
 
 function getReferenceNow() {
-  const serverNow = Number(store.market?.serverNow)
+  const serverNow = Number(marketSnapshot.value?.serverNow)
   return Number.isFinite(serverNow) && serverNow > 0 ? serverNow : Date.now()
 }
 

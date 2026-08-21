@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-if="store.market?.registry" v-model="showConfirm" :class="['confirm-panel', modeClass]" destroy-on-close>
+  <el-dialog v-if="marketSnapshot?.registry" v-model="showConfirm" :class="['confirm-panel', modeClass]" destroy-on-close>
     <template #header>{{ t('operations.confirm.title') }}</template>
     <div class="confirm-change-list">
       <table>
@@ -51,6 +51,7 @@ import { getPendingOverrides, getWritableBundleRecords, patchMarketNextData } fr
 import { install, MARKET_NEXT_PACKAGE } from '../../shared/install/install-flow'
 import { getFrontendMode, getRemoveConfig } from '../../shared/config/market-config'
 import { useMarketNextI18n } from '../../i18n'
+import { marketSnapshot } from '../../market/state'
 
 const ctx = useContext()
 const { t } = useMarketNextI18n()

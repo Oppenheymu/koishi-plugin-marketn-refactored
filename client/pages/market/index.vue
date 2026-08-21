@@ -18,8 +18,8 @@
 
     <market-error
       v-else
-      :registry="store.market?.registry || loadingEndpoint"
-      :reason="store.market?.error">
+       :registry="marketSnapshot?.registry || loadingEndpoint"
+       :reason="marketSnapshot?.error">
     </market-error>
   </k-layout>
 </template>
@@ -27,8 +27,7 @@
 <script setup lang="ts">
 
 import { computed, ref } from 'vue'
-import { store } from '@koishijs/client'
-import { getMarketSnapshotData } from '../../market/state'
+import { getMarketSnapshotData, marketSnapshot } from '../../market/state'
 import { MarketFilter } from '../../market'
 import { useMarketPage } from './composables/use-market-page'
 import MarketError from './components/market-error.vue'

@@ -1,5 +1,5 @@
 <template>
-  <k-comment v-if="store.market.debug" type="primary" class="market-debug">
+  <k-comment v-if="marketSnapshot?.debug" type="primary" class="market-debug">
     <p>{{ performanceText }}</p>
     <div class="market-debug-grid">
       <span v-for="item in debugItems" :key="item.label" class="market-debug-item">
@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 
-import { store } from '@koishijs/client'
+import { marketSnapshot } from '../../../../market/state'
 import { useDebugPanel, type ClientDebug } from './use-debug-panel'
 
 const props = defineProps<{ clientDebug: ClientDebug }>()
