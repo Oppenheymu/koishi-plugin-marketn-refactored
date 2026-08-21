@@ -1,0 +1,53 @@
+.market-debug.k-comment {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 1.25rem 0 -0.25rem;
+  font-size: 12px;
+
+  p {
+    margin: 0.25rem 0 0.5rem;
+  }
+}
+
+.market-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+.market-debug-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+
+  span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+}
+
+.market-debug-timings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+  color: var(--fg2);
+}
+
+.market-debug-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+  color: var(--fg2);
+}
+
+.market-debug-route {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
