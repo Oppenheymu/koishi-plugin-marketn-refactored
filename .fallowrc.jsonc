@@ -13,6 +13,41 @@
     // @typescript/native 被 yarn ts7 脚本经 node 直调（path 越出项目根，fallow 扫不到入口）
     "ignoreDependencies": [
         "@typescript/native"
+    ],
+    // Koishi Console 通过 DataService 反射调用 get；MarketProvider 还由 idle-probe
+    // 通过多态可选接口调用 probeInBackground，静态调用图无法完整穿透这些入口。
+    "usedClassMembers": [
+        {
+            "extends": "DataService",
+            "members": ["get"]
+        },
+        {
+            "extends": "BaseMarketProvider",
+            "members": ["get", "probeInBackground"]
+        }
+    ],
+    // node 层 provider 有意遮蔽 shared 层同名 provider，作为 Koishi 插件入口注册。
+    "ignoreExports": [
+        {
+            "file": "src/node/market/index.ts",
+            "exports": ["MarketProvider"]
+        },
+        {
+            "file": "src/shared/provider.ts",
+            "exports": ["MarketProvider"]
+        }
+    ],
+    // 这些成员由安装器状态机或 Koishi 生命周期间接调用，调用点不以同名方法引用出现。
+    "overrides": [
+        {
+            "files": [
+                "src/core/deps/resolver.ts",
+                "src/core/install/logs/store.ts"
+            ],
+            "rules": {
+                "unused-class-members": "off"
+            }
+        }
     ]
     // 已验证：client/ 无需 dynamicallyLoaded 豁免——fallow 能识别 koishi 插件入口，
     // 控制台前端仅误报过 1 个死文件（已删）。
