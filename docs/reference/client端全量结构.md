@@ -47,7 +47,7 @@
   - 工具函数 (827-900)：isPluginPackage、formatPackageDisplayName、pickDescription（按 locale 选描述）、formatEndpoint、configure（ensureInstalledConfig）
 - **styles 913-1698**：全局对话框样式（913-1068，含 polished 模式变体）+ scoped 卡片/列表行样式（1070-1698，含 768/420px 响应式）
 
-## dialogs/bundle-install.vue (1386 行) — Bundle 安装面板
+## dialogs/bundle-install/index.vue (1386 行) — Bundle 安装面板
 - **模板 1-328**：el-dialog（由 activeBundle 控制）；hero 头 (11-31)、loading/error (34-40)、统计条 (46-60)、校验错误/警告 (62-67)、批量操作行 (70-81)、必选成员列表 (84-180)、可选成员列表 (183-283)、可视化 diff（install/config/move/skip 四象，285-317)、footer 安装按钮 (321-326)。成员行内含：createConfig/move/usePreset 复选框、冲突告警（package-mismatch/other-config/same-group）、敏感字段编辑器（show-password 输入）、预设 JSON textarea 编辑器
 - **script 330-720**：
   - 本地状态 (360-372)：loading/installing/error/registry/bundle/resolvedBundleVersion/members(reactive)/ctx/config/modeClass
@@ -95,16 +95,16 @@
 - **styles 505-1060**
 
 ## 中小组件
-- **install.vue (733 行)**：单包安装/卸载对话框（由 `active` 控制，global slot）。模板 1-134：头部版本选择 (7-19)、danger/warning 提示 (22-31)、peer 依赖表格（可内联选版本的 frameless el-select，33-84)、footer（bulkMode 复选框、本地包 configure、移除/安装按钮，86-108）、移除配置二次确认小对话框 (111-127)、bundle-uninstall (129-133)。script 136-440：`installDep()` (169-223)——bulkMode 下只写 override；否则处理 remove-config 记忆 + 调 `install(versions, callback)`（安装后 ensureInstalledConfig / 移除配置 / 清 bundleRecords）；`versions` reactive 表 (237) 与 getOverride 分流 (239-255)；peer 版本选择 (257-269)；unchanged/dep/current/local/bundleUninstallRecord/showRemoveButton/workspace/localSelection computed (271-298)；`requestRemove` (300-310，bundle 转 bundle-uninstall)；`getWorkspaceVersion` (312-321)；data=analyzeVersions (323-326)；registryStatus/Text (328-330)；danger（deprecated/insecure）/warning（跨 major）/result computed (332-358)；两个 watch：peers 变化→补拉 `market/registry` + 自动选 peer 版本 (366-392)、active 变化→初始化版本并发 `market/registry` (394-410)；getResultIcon/getResultText (421-438)。styles 442-733。
-- **install-progress.vue (412 行)**：安装进度终端对话框（global slot），纯展示 `installProgressState`。模板 1-74：状态横幅（running/success/error）、伪终端日志滚动区、footer 的 fallback 端点重试按钮。script 76-136：statusText computed（区分 selfUpdate/environmentRestore × 状态）、日志自动滚底 watch、handleBeforeClose（running 时禁止关闭）、retryFallback。styles 138-412。
-- **install-history.vue (772 行)**：安装历史双栏对话框。模板 1-103：左侧记录列表（状态点/标题/包名/时间），右侧详情（元信息、版本变更 before→after 列表、复制日志按钮）。script 105-264：loadHistory→`market/install-history`(20 条)、selectEntry→`market/install-history-detail`（串号防竞态 detailSerial）、copyLog（clipboard + execCommand 降级）、historyTitle（统计安装/更新/卸载数）、格式化函数。styles 266-772。
-- **environment-versions.vue (641 行)**：环境快照管理双栏对话框。模板 1-113：快照列表（current 标记）、diff 预览（orderedChanges 排序 unsupported→removed→downgrade→upgrade→added→changed→unchanged）、恢复确认小对话框。script 116-249：loadSnapshots→`market/environment-snapshots`、selectSnapshot→`market/environment-snapshot-preview`（previewSerial 防竞态）、canApply、applySnapshot→`applyEnvironmentSnapshot(id, selfUpdate)`（检测是否包含本插件自身）、状态文案函数。styles 251-641。
-- **bundle-uninstall.vue (521 行)**：bundle 卸载对话框（被 package.vue / install.vue / version.vue / bundle-group-uninstall.vue 复用，props: modelValue/packageName/record/title/redirectToPlugins）。模板 1-92：成员列表（每成员三选一 radio：清组配置/删依赖/保留）、批量操作条、汇总、fallback 记录警告。script 94-300：protectedDeps 保护集 (112)、memberRows computed（installed/hasGroupConfig/hasExternalConfig/canRemoveDependency，161-178）、三个计数 computed (180-190)、loadRecord（fetchBundleRecord 补拉远端记录，203-216)、getDefaultAction (230-235)、uninstallBundle (248-298)——bulkMode 下写 override + pendingBundleUninstalls 暂存；否则 `install(override)` 后 `market/remove-bundle-configs` + 清 bundleRecords + 可选跳转 /plugins。styles 302-521。
+- **dialogs/install/index.vue (733 行)**：单包安装/卸载对话框（由 `active` 控制，global slot）。模板 1-134：头部版本选择 (7-19)、danger/warning 提示 (22-31)、peer 依赖表格（可内联选版本的 frameless el-select，33-84)、footer（bulkMode 复选框、本地包 configure、移除/安装按钮，86-108）、移除配置二次确认小对话框 (111-127)、bundle-uninstall (129-133)。script 136-440：`installDep()` (169-223)——bulkMode 下只写 override；否则处理 remove-config 记忆 + 调 `install(versions, callback)`（安装后 ensureInstalledConfig / 移除配置 / 清 bundleRecords）；`versions` reactive 表 (237) 与 getOverride 分流 (239-255)；peer 版本选择 (257-269)；unchanged/dep/current/local/bundleUninstallRecord/showRemoveButton/workspace/localSelection computed (271-298)；`requestRemove` (300-310，bundle 转 bundle-uninstall)；`getWorkspaceVersion` (312-321)；data=analyzeVersions (323-326)；registryStatus/Text (328-330)；danger（deprecated/insecure）/warning（跨 major）/result computed (332-358)；两个 watch：peers 变化→补拉 `market/registry` + 自动选 peer 版本 (366-392)、active 变化→初始化版本并发 `market/registry` (394-410)；getResultIcon/getResultText (421-438)。styles 442-733。
+- **dialogs/install-progress/index.vue (412 行)**：安装进度终端对话框（global slot），纯展示 `installProgressState`。模板 1-74：状态横幅（running/success/error）、伪终端日志滚动区、footer 的 fallback 端点重试按钮。script 76-136：statusText computed（区分 selfUpdate/environmentRestore × 状态）、日志自动滚底 watch、handleBeforeClose（running 时禁止关闭）、retryFallback。styles 138-412。
+- **dialogs/install-history/index.vue (772 行)**：安装历史双栏对话框。模板 1-103：左侧记录列表（状态点/标题/包名/时间），右侧详情（元信息、版本变更 before→after 列表、复制日志按钮）。script 105-264：loadHistory→`market/install-history`(20 条)、selectEntry→`market/install-history-detail`（串号防竞态 detailSerial）、copyLog（clipboard + execCommand 降级）、historyTitle（统计安装/更新/卸载数）、格式化函数。styles 266-772。
+- **dialogs/environment-versions/index.vue (641 行)**：环境快照管理双栏对话框。模板 1-113：快照列表（current 标记）、diff 预览（orderedChanges 排序 unsupported→removed→downgrade→upgrade→added→changed→unchanged）、恢复确认小对话框。script 116-249：loadSnapshots→`market/environment-snapshots`、selectSnapshot→`market/environment-snapshot-preview`（previewSerial 防竞态）、canApply、applySnapshot→`applyEnvironmentSnapshot(id, selfUpdate)`（检测是否包含本插件自身）、状态文案函数。styles 251-641。
+- **dialogs/bundle-uninstall/index.vue (521 行)**：bundle 卸载对话框（被 package.vue / install.vue / version.vue / bundle-group-uninstall.vue 复用，props: modelValue/packageName/record/title/redirectToPlugins）。模板 1-92：成员列表（每成员三选一 radio：清组配置/删依赖/保留）、批量操作条、汇总、fallback 记录警告。script 94-300：protectedDeps 保护集 (112)、memberRows computed（installed/hasGroupConfig/hasExternalConfig/canRemoveDependency，161-178）、三个计数 computed (180-190)、loadRecord（fetchBundleRecord 补拉远端记录，203-216)、getDefaultAction (230-235)、uninstallBundle (248-298)——bulkMode 下写 override + pendingBundleUninstalls 暂存；否则 `install(override)` 后 `market/remove-bundle-configs` + 清 bundleRecords + 可选跳转 /plugins。styles 302-521。
 - **manual.vue (364 行)**：手动安装对话框（local 上传 / registry 包名两 tab）。模板 1-101：local tab 委托 local-package-upload 组件、registry tab（debounce 查询 addManual 显示 dist-tags 预览）。script 103-204：useLocalPackageUpload composable 接管上传状态；registryInvalid computed、fetchRemote（useDebounceFn 500ms）、onRegistryEnter（写 override latest + patchMarketNextData）、resetRegistry。styles 206-364。
-- **confirm.vue (358 行)**：批量变更确认对话框（showConfirm）。模板 1-42：变更表（名称/旧版本→新版本）。script 44-123：`confirm()` (72-121)——区分 selfUpdate、removed 列表、bundleRemovals；调 `install(override, callback)`，callback 内 ensureInstalledConfigs + `market/remove-bundle-configs` + 可选 configWriter.remove + 清 bundleRecords/override。styles 125-358。
+- **dialogs/confirm/index.vue (358 行)**：批量变更确认对话框（showConfirm）。模板 1-42：变更表（名称/旧版本→新版本）。script 44-123：`confirm()` (72-121)——区分 selfUpdate、removed 列表、bundleRemovals；调 `install(override, callback)`，callback 内 ensureInstalledConfigs + `market/remove-bundle-configs` + 可选 configWriter.remove + 清 bundleRecords/override。styles 125-358。
 - **market-secret-archive.vue (277 行)**：彩蛋视图（"秘密档案"），展示 koishiVersion / recordedAt / 插件数元信息 + i18n `marketPage.easter.secretSearch` 分段渲染的 k-markdown 文案；动画就绪后分段 reveal。props: koishiVersion/marketCount/recordedAt。script 60-88。
 - **local-package-upload.vue (348 行)**：纯展示组件——拖拽/点击上传 .tgz 的 dropzone、上传进度、预览卡（名称/版本变化/SHA-256/脚本警告）。props 全部由 manual.vue 传入；emit error/select。script 77-120+。
-- **progress.vue (37 行)**：status-right 槽位的进度条，读 `store.market.progress/total`（市场索引加载进度）。
+- **dialogs/progress/index.vue (37 行)**：status-right 槽位的进度条，读 `store.market.progress/total`（市场索引加载进度）。
 - **koishi-eye-splash.vue (229 行)**：见第 6 节。
 
 # 3. client/market/ 模块（已拆分的新结构）
@@ -139,12 +139,12 @@
 
 各扩展：
 - **config-remove.ts (26 行) + config-remove.vue (62 行)**：配置树节点移除确认（`manager/remove` RPC + 跳转父路径）；`isProtectedConfigNode` 保护 console/config/server 三个核心插件
-- **bundle-group-uninstall.ts (9 行) + bundle-group-uninstall.vue (128 行)**：把配置树里的 bundle 分组节点映射成 bundle 包名（resolveBundlePackageFromGroup / fetchBundleRecord 补拉），复用 bundle-uninstall.vue（redirectToPlugins）
+- **bundle-group-uninstall.ts (9 行) + bundle-group-uninstall.vue (128 行)**：把配置树里的 bundle 分组节点映射成 bundle 包名（resolveBundlePackageFromGroup / fetchBundleRecord 补拉），复用 dialogs/bundle-uninstall/index.vue（redirectToPlugins）
 - **dependency.vue (52 行)**（plugin-dependency 槽）：插件详情页 peer 依赖/服务展示；未加载服务列出可用提供者（getMarketServiceProviders，watch→loadMarketServiceProviders）
 - **dep-link.vue (22 行)**：依赖名链接（点击 `active = name` 打开安装面板），显示"点击加载/配置/添加"状态
 - **missing.vue (46 行)**（plugin-missing 槽）：插件缺失提示——猜候选包名（@koishijs/plugin-* / koishi-plugin-*）查 getMarketObject，命中可快速安装，否则跳 `/market?keyword=`
 - **select.vue (44 行)**（plugin-select 槽，覆盖 `plugin-select-base`）：给"添加插件"选择器加分类 tab（all/other + 15 categories），通过 `provide('plugin-select-filter')` 过滤；watch store.packages → loadMarketObjects
-- **version.vue (232 行)**（plugin-details 槽）：插件详情页的链接导航（homepage/npm/repository/issues）+ 卸载按钮 + outdated/deprecated/external 提示；含卸载确认对话框与 bundle 卸载（复用 bundle-uninstall.vue），bulkMode 暂存逻辑与 version.vue 内 requestUninstall/cancelPendingUninstall/uninstallDependency (128-201)
+- **version.vue (232 行)**（plugin-details 槽）：插件详情页的链接导航（homepage/npm/repository/issues）+ 卸载按钮 + outdated/deprecated/external 提示；含卸载确认对话框与 bundle 卸载（复用 dialogs/bundle-uninstall/index.vue），bulkMode 暂存逻辑与 version.vue 内 requestUninstall/cancelPendingUninstall/uninstallDependency (128-201)
 
 # 5. i18n 体系
 
@@ -164,7 +164,7 @@
 # 7. 组件间共享逻辑
 
 **client/shared/plugin-config.ts (429 行) 导出**（几乎全部组件在用）：
-- `active` (18)——当前安装面板目标包名（install.vue、dep-link.vue、missing.vue、market.vue 写入）
+- `active` (18)——当前安装面板目标包名（dialogs/install/index.vue、dep-link.vue、missing.vue、market.vue 写入）
 - 类型：FrontendMode/LayoutMode/MarketNextConfigPatch/MarketSilent*Rule×5/UpdateIgnoreOptions/UpdatePolicy/MarketNextDataStore
 - 数据存取：`getPendingOverrides`(109)、`getCollapsedGroups`(115)、`getBundleRecords`(294)、`getWritableBundleRecords`(298)、`getMarketNextConfig`(251，遍历 config.plugins 递归找本插件节点，兼容禁用 `~` 前缀)、`getMarketNextPolicy`(255)/`getWritableMarketNextPolicy`(269)、`patchMarketNextConfig`(304，send `market/update-config`)、`patchMarketNextData`(315，send `market/update-data`)
 - 模式：`normalizeFrontendMode`(121)、`getFrontendMode`(125)、`getDepsLayout`(131)、`getBulkMode`(278)、`getRemoveConfig`(286)
@@ -184,4 +184,4 @@
 
 使用方：index.ts、全部 pages/{market,dependencies}/*.vue 与 dialogs/*.vue（除 progress/koishi-eye-splash/market-secret-archive/local-package-upload）、pages/dependencies/use-local-package-upload.ts、extensions/{index,version,bundle-group-uninstall}。
 
-**值得注意的耦合点（重构提示）**：`installProgressState` 是跨组件可变单例（utils.ts 定义、bundle-install.vue 直接写、install-progress.vue 读）；`active`/`activeBundle`/`showConfirm` 等 6 个 ref 是"以模块级 ref 充当全局对话框 store"；`store.market` 在 market/state.ts 与官方 Console 间双向同步（publishSnapshot 写入、markRaw 防代理）；i18n guard 依赖 monkey-patch 以兼容新旧 bundle 共存。
+**值得注意的耦合点（重构提示）**：`installProgressState` 是跨组件可变单例（utils.ts 定义、dialogs/bundle-install/index.vue 直接写、dialogs/install-progress/index.vue 读）；`active`/`activeBundle`/`showConfirm` 等 6 个 ref 是"以模块级 ref 充当全局对话框 store"；`store.market` 在 market/state.ts 与官方 Console 间双向同步（publishSnapshot 写入、markRaw 防代理）；i18n guard 依赖 monkey-patch 以兼容新旧 bundle 共存。

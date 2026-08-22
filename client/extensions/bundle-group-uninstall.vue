@@ -13,7 +13,7 @@
  *
  * 监听 bundle-group-uninstall.ts 的 target ref:配置树右键合包分组
  * "卸载合包"时,由分组路径反查合包包名与记录(持久化记录 > 远端拉取 >
- * 本地推导),再复用 dialogs/bundle-uninstall.vue 展示。完成后跳转插件页
+ * 本地推导),再复用 dialogs/bundle-uninstall/index.vue 展示。完成后跳转插件页
  * (redirectToPlugins)。由 extensions/index.ts 注册为 global 插槽。
  */
 
@@ -27,7 +27,7 @@ import {
 } from '../shared/operations'
 import { getBundleRecords } from '../shared/plugin-config'
 import { bundleGroupUninstallTarget } from './bundle-group-uninstall'
-import BundleUninstall from '../dialogs/bundle-uninstall.vue'
+import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../shared/i18n'
 
 const config = useConfig()

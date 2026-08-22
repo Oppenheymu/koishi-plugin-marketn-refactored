@@ -359,11 +359,11 @@ import {
   hasBundleKeyword,
   parseBundleManifest,
   validateBundleManifest,
-} from '../../src/shared/bundle'
+} from '../../../src/shared/bundle'
 import {
   scanSensitiveConfig,
   getBundleGroupIdent,
-} from '../../src/shared/bundle-idents'
+} from '../../../src/shared/bundle-idents'
 import {
   activeBundle,
   getBundleMemberConfigState,
@@ -371,13 +371,13 @@ import {
   prepareInstallFallbackRetry,
   resetInstallFallbackState,
   type InstallOptions,
-} from '../shared/operations'
-import { resolveCategory } from '../market/utils'
-import MarketIcon from '../market/icons'
+} from '../../shared/operations'
+import { resolveCategory } from '../../market/utils'
+import MarketIcon from '../../market/icons'
 import { satisfies } from 'semver'
-import { getFrontendMode } from '../shared/plugin-config'
-import { useMarketNextI18n } from '../shared/i18n'
-import { getMarketObject, loadMarketObjects } from '../market/state'
+import { getFrontendMode } from '../../shared/plugin-config'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { getMarketObject, loadMarketObjects } from '../../market/state'
 
 /** 清单加载中 / 安装执行中 / 加载错误文案。 */
 const loading = ref(false)
@@ -490,10 +490,10 @@ function onJsonInput(member: BundleInstallMember, value: string) {
 
 /** 安装按钮可用条件:有目标与清单、校验通过、至少勾选一个成员、非加载中且无 JSON 编辑错误。 */
 const canInstall = computed(() => {
-  return !!activeBundle.value 
-    && !!bundle.value 
-    && validation.value.valid 
-    && selectedMembers.value.length > 0 
+  return !!activeBundle.value
+    && !!bundle.value
+    && validation.value.valid
+    && selectedMembers.value.length > 0
     && !loading.value
     && Object.keys(memberJsonErrors).length === 0
 })
@@ -547,10 +547,10 @@ watch(activeBundle, async (value) => {
       const state = getBundleMemberConfigState(ctx, member, groupKey)
       const hasConfig = !!(state.group.length || state.external.length)
       const conflictType = state.group.length ? 'same-group' : state.external.length ? 'other-config' : undefined
-      
+
       const dep = store.dependencies?.[member.package]
       const isMismatch = dep?.resolved && !satisfies(dep.resolved, member.version, { includePrerelease: true })
-      
+
       members.push({
         ...member,
         selected: !!member.required || (!!dep && !isMismatch),
@@ -798,4 +798,4 @@ function formatInstallError(error: unknown) {
 
 </script>
 
-<style lang="scss" src="./bundle-install.scss"></style>
+<style lang="scss" src="./index.scss"></style>

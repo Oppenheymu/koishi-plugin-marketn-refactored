@@ -157,14 +157,14 @@
 
 import { computed, ref, watch, reactive } from 'vue'
 import { Dict, global, message, send, store, useContext, useConfig } from '@koishijs/client'
-import { analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, getConfigWriter, getRegistryStatus, getRegistryStatusText, install, PeerInfo, ResultType } from '../shared/operations'
-import { active, getBulkMode, getBundleRecords, getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextConfig, patchMarketNextData } from '../shared/plugin-config'
+import { analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, getConfigWriter, getRegistryStatus, getRegistryStatusText, install, PeerInfo, ResultType } from '../../shared/operations'
+import { active, getBulkMode, getBundleRecords, getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
 import { parse } from 'semver'
-import { isBundlePackageName } from '../../src/shared/bundle'
-import { isLocalDependency } from '../../src/shared/dependency-source'
-import BundleUninstall from './bundle-uninstall.vue'
-import { useMarketNextI18n } from '../shared/i18n'
-import { getMarketObject } from '../market/state'
+import { isBundlePackageName } from '../../../src/shared/bundle'
+import { isLocalDependency } from '../../../src/shared/dependency-source'
+import BundleUninstall from '../bundle-uninstall/index.vue'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { getMarketObject } from '../../market/state'
 
 const ctx = useContext()
 const config = useConfig()
@@ -513,4 +513,4 @@ function getResultText(peer: PeerInfo, name: string) {
 
 </script>
 
-<style lang="scss" src="./install.scss"></style>
+<style lang="scss" src="./index.scss"></style>

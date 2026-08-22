@@ -120,9 +120,9 @@
 import { computed, ref, watch } from 'vue'
 import { message, send, useConfig } from '@koishijs/client'
 import type { InstallHistoryChange, InstallHistoryEntry, InstallLogDetail } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../shared/plugin-config'
-import { showInstallHistory } from '../shared/operations'
-import { useMarketNextI18n } from '../shared/i18n'
+import { getFrontendMode } from '../../shared/plugin-config'
+import { showInstallHistory } from '../../shared/operations'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
@@ -296,4 +296,4 @@ function formatSize(value: number) {
 }
 </script>
 
-<style lang="scss" src="./install-history.scss"></style>
+<style lang="scss" src="./index.scss"></style>

@@ -84,10 +84,10 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useConfig } from '@koishijs/client'
-import { getFrontendMode } from '../shared/plugin-config'
-import { useMarketNextI18n } from '../shared/i18n'
-import { installProgressState } from '../shared/operations'
-import MarketIcon from '../market/icons'
+import { getFrontendMode } from '../../shared/plugin-config'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { installProgressState } from '../../shared/operations'
+import MarketIcon from '../../market/icons'
 
 const config = useConfig()
 const { t } = useMarketNextI18n()
@@ -149,4 +149,4 @@ function retryFallback() {
 }
 </script>
 
-<style lang="scss" src="./install-progress.scss"></style>
+<style lang="scss" src="./index.scss"></style>

@@ -56,9 +56,9 @@
 
 import { computed, ref } from 'vue'
 import { message, send, store, useContext, useConfig } from '@koishijs/client'
-import { ensureInstalledConfigs, getConfigWriter, showConfirm, install, pendingBundleUninstalls, MARKET_NEXT_PACKAGE } from '../shared/operations'
-import { getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextData } from '../shared/plugin-config'
-import { useMarketNextI18n } from '../shared/i18n'
+import { ensureInstalledConfigs, getConfigWriter, showConfirm, install, pendingBundleUninstalls, MARKET_NEXT_PACKAGE } from '../../shared/operations'
+import { getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 const ctx = useContext()
 const config = useConfig()
@@ -148,4 +148,4 @@ function confirm() {
 
 </script>
 
-<style lang="scss" src="./confirm.scss"></style>
+<style lang="scss" src="./index.scss"></style>

@@ -103,15 +103,15 @@
  * shared/operations 的 install(),成功回调再清组配置与合包记录),要么在
  * 批量模式下暂存进 pendingBundleUninstalls 等确认对话框统一执行。
  *
- * 消费方:dialogs/install.vue(依赖卸载入口)、extensions/version.vue
+ * 消费方:dialogs/install/index.vue(依赖卸载入口)、extensions/version.vue
  * (插件详情页)、extensions/bundle-group-uninstall.vue(配置树分组右键)。
  * 记录来源优先 props.record,缺则用 fetchBundleRecord 拉取。
  */
 
 import { computed, reactive, ref, watch } from 'vue'
 import { message, router, send, store, useConfig, useContext } from '@koishijs/client'
-import { getBundleGroupIdent } from '../../src/shared/bundle-idents'
-import type { PluginBundleRecord } from '../../src/shared/bundle'
+import { getBundleGroupIdent } from '../../../src/shared/bundle-idents'
+import type { PluginBundleRecord } from '../../../src/shared/bundle'
 import {
   fetchBundleRecord,
   getBundleMemberConfigState,
@@ -119,9 +119,9 @@ import {
   pendingBundleUninstalls,
   type BundleRecordView,
   type BundleMemberCleanupTarget,
-} from '../shared/operations'
-import { getBulkMode, getFrontendMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../shared/plugin-config'
-import { useMarketNextI18n } from '../shared/i18n'
+} from '../../shared/operations'
+import { getBulkMode, getFrontendMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 /** 成员级卸载策略:config=仅清组内配置,dependency=卸载依赖(含清配置),keep=保留不动。 */
 type MemberAction = 'config' | 'dependency' | 'keep'
@@ -346,4 +346,4 @@ async function uninstallBundle() {
 
 </script>
 
-<style lang="scss" scoped src="./bundle-uninstall.scss"></style>
+<style lang="scss" scoped src="./index.scss"></style>

@@ -13,8 +13,10 @@ client/
 ├── pages/            # 路由页面 + 页面私有组件（每页一个子目录）
 │   ├── market/       #   市场页壳 + 彩蛋链（market-secret-archive → koishi-eye-splash+json）
 │   └── dependencies/ #   依赖管理页 + package/manual/local-package-upload + 上传 composable
-├── dialogs/          # 全局插槽对话框与状态浮层（install、bundle-*、confirm、
-│                     #   install-progress/history、environment-versions、progress）
+├── dialogs/          # 全局插槽对话框与状态浮层（每对话框一个子目录，
+│                     #   index.vue + index.scss）
+│                     #   install/ bundle-install/ bundle-uninstall/ confirm/
+│                     #   install-progress/ install-history/ environment-versions/ progress/
 ├── market/           # 市场引擎模块：state/utils/avatar/users + components（filter/list/
 │                     #   search/package）+ icons（MarketIcon 注册表）+ locales（7 语言）
 ├── extensions/       # 宿主控制台插槽注入（config 树、插件详情/依赖/选择页扩展）

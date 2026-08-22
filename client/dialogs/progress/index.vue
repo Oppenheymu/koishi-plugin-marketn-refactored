@@ -17,7 +17,7 @@
 
 import { store, useContext } from '@koishijs/client'
 import { computed } from 'vue'
-import { useMarketNextI18n } from '../shared/i18n'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 const ctx = useContext()
 const { t } = useMarketNextI18n()
@@ -36,4 +36,4 @@ const percentage = computed(() => {
 
 </script>
 
-<style lang="scss" src="./progress.scss"></style>
+<style lang="scss" src="./index.scss"></style>

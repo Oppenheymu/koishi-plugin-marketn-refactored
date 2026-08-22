@@ -273,7 +273,7 @@ import { createUpdateIgnoreRule, getBundleRecords, getFrontendMode, getIgnoredUp
 import { activeBundle, analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, expandedDependency, getConfigWriter, getRegistryStatus, getRegistryStatusText, pendingBundleUninstalls } from '../../shared/operations'
 import { resolveCategory } from '../../market/utils'
 import MarketIcon from '../../market/icons'
-import BundleUninstall from '../../dialogs/bundle-uninstall.vue'
+import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
 import { getMarketObject } from '../../market/state'
 

@@ -83,7 +83,7 @@ import {
   pendingBundleUninstalls,
   type BundleRecordView,
 } from '../shared/operations'
-import BundleUninstall from '../dialogs/bundle-uninstall.vue'
+import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketObject, loadMarketObjects } from '../market/state'
 
