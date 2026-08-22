@@ -21,8 +21,8 @@
 
 import { computed, ref } from 'vue'
 import { message, router, send } from '@koishijs/client'
-import { configRemoveTarget } from './config-remove'
-import { useMarketNextI18n } from '../shared/i18n'
+import { configRemoveTarget } from './index.ts'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 /** 移除请求执行中标记。 */
 const removing = ref(false)

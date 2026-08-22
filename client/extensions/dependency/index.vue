@@ -37,9 +37,9 @@
 import { Dict, store } from '@koishijs/client'
 import { computed, inject, ComputedRef, watch } from 'vue'
 import { EnvInfo } from '@koishijs/plugin-config/client'
-import KDepLink from './dep-link.vue'
-import { useMarketNextI18n } from '../shared/i18n'
-import { getMarketServiceProviders, loadMarketServiceProviders } from '../market/state'
+import KDepLink from '../dep-link/index.vue'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { getMarketServiceProviders, loadMarketServiceProviders } from '../../market/state'
 
 /** config 插件注入的插件环境信息(peer 依赖 + using 服务)。 */
 const env = inject<ComputedRef<EnvInfo>>('plugin:env')

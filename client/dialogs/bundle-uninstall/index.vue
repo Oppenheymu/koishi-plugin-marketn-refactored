@@ -103,8 +103,8 @@
  * shared/operations 的 install(),成功回调再清组配置与合包记录),要么在
  * 批量模式下暂存进 pendingBundleUninstalls 等确认对话框统一执行。
  *
- * 消费方:dialogs/install/index.vue(依赖卸载入口)、extensions/version.vue
- * (插件详情页)、extensions/bundle-group-uninstall.vue(配置树分组右键)。
+ * 消费方:dialogs/install/index.vue(依赖卸载入口)、extensions/version/index.vue
+ * (插件详情页)、extensions/bundle-group-uninstall/index.vue(配置树分组右键)。
  * 记录来源优先 props.record,缺则用 fetchBundleRecord 拉取。
  */
 

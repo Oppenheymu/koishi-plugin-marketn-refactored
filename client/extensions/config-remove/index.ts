@@ -2,7 +2,7 @@
  * @file 插件配置节点移除请求的轻量状态模块(extensions 域)。
  *
  * 配置树右键"移除配置/移除分组"时,把目标节点暂存到 configRemoveTarget,
- * 由 config-remove.vue watch 该 ref 弹出确认对话框。index.ts 的
+ * 由 config-remove/index.vue watch 该 ref 弹出确认对话框。index.ts 的
  * patchConfigRemoveAction 是 requestConfigRemove 的调用方;
  * isProtectedConfigNode 同时用于禁用宿主核心插件节点的移除入口。
  */

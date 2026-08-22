@@ -19,9 +19,9 @@
 
 import { computed, inject, watch, WritableComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { active } from '../shared/plugin-config'
-import { useMarketNextI18n } from '../shared/i18n'
-import { getMarketObject, loadMarketObjects } from '../market/state'
+import { active } from '../../shared/plugin-config'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { getMarketObject, loadMarketObjects } from '../../market/state'
 
 const router = useRouter()
 const { t } = useMarketNextI18n()

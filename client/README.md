@@ -19,7 +19,8 @@ client/
 │                     #   install-progress/ install-history/ environment-versions/ progress/
 ├── market/           # 市场引擎模块：state/utils/avatar/users + components（filter/list/
 │                     #   search/package）+ icons（MarketIcon 注册表）+ locales（7 语言）
-├── extensions/       # 宿主控制台插槽注入（config 树、插件详情/依赖/选择页扩展）
+├── extensions/       # 宿主控制台插槽注入（config 树、插件详情/依赖/选择页扩展；
+│                     #   每扩展一个子目录：index.vue + 有逻辑加 index.ts + 有样式加 index.scss）
 └── shared/           # 跨模块共享层
     ├── i18n.ts       #   marketNext 命名空间注册（locales/ 8 namespace × 2 语言）
     ├── plugin-config.ts  # 插件配置读写、更新忽略策略、静默过滤规则（原根 utils.ts）

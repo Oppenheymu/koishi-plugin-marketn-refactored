@@ -137,14 +137,14 @@
 - `patchConfigRemoveAction` (56-87)：替换 `ctx.internal.actions['config.tree.remove']`——保护节点禁用；bundle 组走 `requestBundleGroupUninstall`，否则 `requestConfigRemove`
 - slots：`global`×2（ConfigRemove、BundleGroupUninstall 对话框）、`plugin-dependency`→Dependency（插件详情页依赖区，disabled 无 store.packages）、`plugin-details`→Version（order 1000）、`plugin-missing`→Missing、`plugin-select`→Select
 
-各扩展：
-- **config-remove.ts (26 行) + config-remove.vue (62 行)**：配置树节点移除确认（`manager/remove` RPC + 跳转父路径）；`isProtectedConfigNode` 保护 console/config/server 三个核心插件
-- **bundle-group-uninstall.ts (9 行) + bundle-group-uninstall.vue (128 行)**：把配置树里的 bundle 分组节点映射成 bundle 包名（resolveBundlePackageFromGroup / fetchBundleRecord 补拉），复用 dialogs/bundle-uninstall/index.vue（redirectToPlugins）
-- **dependency.vue (52 行)**（plugin-dependency 槽）：插件详情页 peer 依赖/服务展示；未加载服务列出可用提供者（getMarketServiceProviders，watch→loadMarketServiceProviders）
-- **dep-link.vue (22 行)**：依赖名链接（点击 `active = name` 打开安装面板），显示"点击加载/配置/添加"状态
-- **missing.vue (46 行)**（plugin-missing 槽）：插件缺失提示——猜候选包名（@koishijs/plugin-* / koishi-plugin-*）查 getMarketObject，命中可快速安装，否则跳 `/market?keyword=`
-- **select.vue (44 行)**（plugin-select 槽，覆盖 `plugin-select-base`）：给"添加插件"选择器加分类 tab（all/other + 15 categories），通过 `provide('plugin-select-filter')` 过滤；watch store.packages → loadMarketObjects
-- **version.vue (232 行)**（plugin-details 槽）：插件详情页的链接导航（homepage/npm/repository/issues）+ 卸载按钮 + outdated/deprecated/external 提示；含卸载确认对话框与 bundle 卸载（复用 dialogs/bundle-uninstall/index.vue），bulkMode 暂存逻辑与 version.vue 内 requestUninstall/cancelPendingUninstall/uninstallDependency (128-201)
+各扩展（每个一个子目录，index.vue + 有逻辑加 index.ts）：
+- **config-remove/（index.ts 26 行 + index.vue 62 行）**：配置树节点移除确认（`manager/remove` RPC + 跳转父路径）；`isProtectedConfigNode` 保护 console/config/server 三个核心插件
+- **bundle-group-uninstall/（index.ts 9 行 + index.vue 128 行）**：把配置树里的 bundle 分组节点映射成 bundle 包名（resolveBundlePackageFromGroup / fetchBundleRecord 补拉），复用 dialogs/bundle-uninstall/index.vue（redirectToPlugins）
+- **dependency/index.vue (52 行)**（plugin-dependency 槽）：插件详情页 peer 依赖/服务展示；未加载服务列出可用提供者（getMarketServiceProviders，watch→loadMarketServiceProviders）
+- **dep-link/index.vue (22 行)**：依赖名链接（点击 `active = name` 打开安装面板），显示"点击加载/配置/添加"状态
+- **missing/index.vue (46 行)**（plugin-missing 槽）：插件缺失提示——猜候选包名（@koishijs/plugin-* / koishi-plugin-*）查 getMarketObject，命中可快速安装，否则跳 `/market?keyword=`
+- **select/index.vue (44 行)**（plugin-select 槽，覆盖 `plugin-select-base`）：给"添加插件"选择器加分类 tab（all/other + 15 categories），通过 `provide('plugin-select-filter')` 过滤；watch store.packages → loadMarketObjects
+- **version/index.vue (232 行)**（plugin-details 槽）：插件详情页的链接导航（homepage/npm/repository/issues）+ 卸载按钮 + outdated/deprecated/external 提示；含卸载确认对话框与 bundle 卸载（复用 dialogs/bundle-uninstall/index.vue），bulkMode 暂存逻辑与 version/index.vue 内 requestUninstall/cancelPendingUninstall/uninstallDependency (128-201)
 
 # 5. i18n 体系
 

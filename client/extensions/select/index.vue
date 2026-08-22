@@ -27,10 +27,10 @@
  */
 
 import { store } from '@koishijs/client'
-import { categories, MarketIcon, useMarketI18n, resolveCategory } from '../market'
+import { categories, MarketIcon, useMarketI18n, resolveCategory } from '../../market'
 import { PackageProvider } from '@koishijs/plugin-config'
 import { provide, ref, watch } from 'vue'
-import { getMarketObject, loadMarketObjects } from '../market/state'
+import { getMarketObject, loadMarketObjects } from '../../market/state'
 
 /** 分类标签全集:all/other 打头 + 市场定义的分类列表。 */
 const extended = ['all', 'other', ...categories]

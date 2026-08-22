@@ -72,9 +72,9 @@
 
 import { global, message, send, store, useConfig, useContext } from '@koishijs/client'
 import { computed, inject, ComputedRef, ref, watch } from 'vue'
-import { getBulkMode, getBundleRecords, getMarketNextPolicy, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, hasUpdate, patchMarketNextData } from '../shared/plugin-config'
+import { getBulkMode, getBundleRecords, getMarketNextPolicy, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, hasUpdate, patchMarketNextData } from '../../shared/plugin-config'
 import type {} from '@koishijs/plugin-config'
-import type { PluginBundleRecord } from '../../src/shared/bundle'
+import type { PluginBundleRecord } from '../../../src/shared/bundle'
 import {
   createLocalBundleRecord,
   fetchBundleRecord,
@@ -82,10 +82,10 @@ import {
   install,
   pendingBundleUninstalls,
   type BundleRecordView,
-} from '../shared/operations'
-import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
-import { useMarketNextI18n } from '../shared/i18n'
-import { getMarketObject, loadMarketObjects } from '../market/state'
+} from '../../shared/operations'
+import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
+import { useMarketNextI18n } from '../../shared/i18n'
+import { getMarketObject, loadMarketObjects } from '../../market/state'
 
 const ctx = useContext()
 const config = useConfig()
@@ -230,4 +230,4 @@ async function uninstallDependency(removeConfig: boolean) {
 
 </script>
 
-<style lang="scss" scoped src="./version.scss"></style>
+<style lang="scss" scoped src="./index.scss"></style>

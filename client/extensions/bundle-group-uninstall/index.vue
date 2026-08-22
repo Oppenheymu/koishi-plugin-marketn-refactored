@@ -24,11 +24,11 @@ import {
   resolveBundlePackageFromGroup,
   resolveBundleRecordFromGroup,
   type BundleRecordView,
-} from '../shared/operations'
-import { getBundleRecords } from '../shared/plugin-config'
-import { bundleGroupUninstallTarget } from './bundle-group-uninstall'
-import BundleUninstall from '../dialogs/bundle-uninstall/index.vue'
-import { useMarketNextI18n } from '../shared/i18n'
+} from '../../shared/operations'
+import { getBundleRecords } from '../../shared/plugin-config'
+import { bundleGroupUninstallTarget } from './index.ts'
+import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 const config = useConfig()
 const { t } = useMarketNextI18n()
@@ -86,4 +86,4 @@ async function loadRemoteBundleRecord() {
 
 </script>
 
-<style lang="scss" scoped src="./bundle-group-uninstall.scss"></style>
+<style lang="scss" scoped src="./index.scss"></style>
