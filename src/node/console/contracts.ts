@@ -92,16 +92,24 @@ const marketDataPatch = z.object({
     collapsedGroups: z.record(z.string(), z.boolean()).optional(),
 });
 
-/** 事件名 → 入参 tuple schema。listener 用 contracts[name].parse(args) 统一校验。 */
+/**
+ * 顶层 tuple 的"可选"一律用 nullish 而非 optional：
+ * 客户端 send() 走 WebSocket JSON 序列化，数组元素里的 undefined 会被
+ * 转成 null；zod 的 .optional() 只放行 undefined、不放行 null。若用
+ * .optional()，任何"省略可选参数"的调用都会在这里误报契约失败
+ * （zod v4 的 ZodError message 是多行 JSON，coerce 还只会回传最后一行
+ * 堆栈，排障完全无从下手）。对象内部字段不受影响（JSON 会直接丢弃
+ * undefined 属性），维持 .optional() 即可。
+ */
 const contracts = {
-    "market/install": z.tuple([dictString, z.boolean().optional(), installOptions.optional()]),
+    "market/install": z.tuple([dictString, z.boolean().nullish(), installOptions.nullish()]),
     "market/install-bundle": z.tuple([
         bundleInstallRequest,
-        z.boolean().optional(),
-        installOptions.optional(),
+        z.boolean().nullish(),
+        installOptions.nullish(),
     ]),
-    "market/install-fallback-candidate": z.tuple([z.string().optional()]),
-    "market/install-history": z.tuple([z.number().int().optional()]),
+    "market/install-fallback-candidate": z.tuple([z.string().nullish()]),
+    "market/install-history": z.tuple([z.number().int().nullish()]),
     "market/install-history-detail": z.tuple([z.string()]),
     "market/local-package-upload-start": z.tuple([localUploadStart]),
     "market/local-package-upload-chunk": z.tuple([localUploadChunk]),
@@ -111,22 +119,40 @@ const contracts = {
     "market/prepare-local-binding": z.tuple([z.string()]),
     "market/environment-snapshots": z.tuple([]),
     "market/environment-snapshot-preview": z.tuple([z.string()]),
-    "market/environment-snapshot-apply": z.tuple([z.string(), installOptions.optional()]),
+    "market/environment-snapshot-apply": z.tuple([z.string(), installOptions.nullish()]),
     "market/remove-bundle-configs": z.tuple([bundleConfigRemoveRequest]),
     "market/update-config": z.tuple([dictAny]),
     "market/update-data": z.tuple([marketDataPatch]),
     "market/refresh-dependencies": z.tuple([]),
     "market/package": z.tuple([z.string()]),
-    "market/index": z.tuple([marketSnapshotRequest.optional()]),
-    "market/lookup": z.tuple([marketLookupRequest.optional()]),
+    "market/index": z.tuple([marketSnapshotRequest.nullish()]),
+    "market/lookup": z.tuple([marketLookupRequest.nullish()]),
     "market/registry": z.tuple([z.array(z.string())]),
     "market/ensure-config": z.tuple([z.string()]),
-    "market/avatar": z.tuple([z.string(), z.string().optional()]),
+    "market/avatar": z.tuple([z.string(), z.string().nullish()]),
 } as const;
 
 export type ContractName = keyof typeof contracts;
 
-/** listener 边界统一校验：入参不符合 zod schema 即抛 ZodError。 */
+/**
+ * listener 边界统一校验：入参不符合 zod schema 即抛错。
+ *
+ * zod v4 的 ZodError message 是多行 JSON，而 koishi 的 coerce() 用
+ * `line.endsWith(message)` 从堆栈里找 message 起始行——多行 message
+ * 永远匹配不上，只能回传堆栈最后一行（如 "at process.processTicksAnd
+ * Rejections"），前端完全看不到真实原因。这里把 ZodError 重抛为单行
+ * message 的普通 Error，保证校验失败时可排障。
+ */
 export function assertContract(name: ContractName, ...args: unknown[]) {
-    (contracts[name] as z.ZodType).parse(args);
+    try {
+        (contracts[name] as z.ZodType).parse(args);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            const detail = error.issues
+                .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+                .join("; ");
+            throw new Error(`invalid arguments for ${name}: ${detail}`);
+        }
+        throw error;
+    }
 }
