@@ -1,3 +1,11 @@
+/**
+ * @file 端点结果转换与快照宿主适配(core/market/source 域)。
+ *
+ * 职责:performanceFrom 把 EndpointResult 转成对外展示的性能快照;
+ * createSourceSnapshotHost 把 MarketIndexSource 的公开状态适配为
+ * snapshot.ts 需要的 SnapshotHost 接口(原 source.host()),
+ * 让快照组装逻辑不依赖具体源实现。
+ */
 import type { MarketPerformanceSnapshot } from "../../../shared/types.js";
 import { shortHash } from "../../utils/format.js";
 import { assemblePayload, type SnapshotHost } from "../snapshot.js";
@@ -32,6 +40,7 @@ export function performanceFrom(
 export function createSourceSnapshotHost(source: MarketIndexSource): SnapshotHost {
     return {
         hasCurrentData: () => source.hasCurrentData(),
+        // 本源总是现代版本(带 version 的索引);legacy host 由别处提供
         isModern: () => true,
         endpointLabel: () => source.endpoint,
         fallbackEndpointLabel: () => source.endpoint || source.config.endpoint || "",
@@ -48,6 +57,7 @@ export function createSourceSnapshotHost(source: MarketIndexSource): SnapshotHos
         buildPayload: () =>
             assemblePayload(createSourceSnapshotHost(source), {
                 refreshing: !!source.backgroundTask,
+                // 只有缓存元数据已回放(未被网络刷新覆盖)时才随快照带缓存时间
                 cacheMeta:
                     source.cacheMetaPresent && source.cache.meta
                         ? {

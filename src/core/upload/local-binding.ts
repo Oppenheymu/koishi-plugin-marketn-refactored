@@ -1,3 +1,18 @@
+/**
+ * @file 本地插件绑定(core/upload 域):把宿主内已存在的本地插件打成 .tgz
+ * 归档并放入 .yarn/local,生成 file: 协议依赖串,使其可以像普通依赖一样
+ * 被 package.json 引用与重装。
+ *
+ * 关键设计:
+ * - 只允许绑定"来源未绑定(unbound)"的本地插件依赖,防止误绑定 registry 包;
+ * - npm pack 加 --ignore-scripts,打包过程不执行插件的生命周期脚本;
+ * - 产物按内容 sha256 命名,同内容天然幂等(重复绑定直接复用已有归档);
+ * - rename 落位时处理并发竞态:目标已出现且内容一致则复用,不一致才报错。
+ *
+ * 架构位置:core/upload 域入口,被 core/install/sources/upload.ts 包装,
+ * 供 node/installer 对外的 prepareLocalBinding 使用;依赖解析状态来自
+ * deps/resolver,manifest 快照来自 install/sources/manifest-restore。
+ */
 import { createHash } from "node:crypto";
 import { promises as fsp, type Stats } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
@@ -14,12 +29,18 @@ import type { InstallLogger, LocalBindingResult } from "../install/types.js";
 import { resolvePackageManifest, Scanner } from "../registry/manifest.js";
 import { MINUTE } from "../utils/time.js";
 
+/** 归档大小上限 64 MiB(与上传路径共用同一上限,防止打包超大目录)。 */
 export const MAX_LOCAL_BINDING_PACK_SIZE = 64 * 1024 * 1024;
 
+/** npm pack --json 单条产物记录的解析结果。 */
 export interface LocalBindingPackResult {
+    /** 包名(npm pack 输出缺省时为 undefined) */
     name?: string | undefined;
+    /** 版本(npm pack 输出缺省时为 undefined) */
     version?: string | undefined;
+    /** 产物文件名(已通过白名单正则校验) */
     filename: string;
+    /** 产物字节数 */
     size: number;
 }
 
@@ -52,16 +73,22 @@ export function parseNpmPackOutput(output: string): LocalBindingPackResult {
     };
 }
 
+/** 由规范文件名生成 package.json 用的 file: 协议依赖串(相对宿主目录)。 */
 export function createLocalBindingRequest(filename: string) {
     return `file:.yarn/local/${validatePackFilename(filename)}`;
 }
 
+/**
+ * 在文件名尾部嵌入内容 hash:xxx-<hash12>.tgz。同内容必同名,归档天然幂等;
+ * hash 必须是 12-64 位十六进制,防伪造后缀绕过规范命名。
+ */
 export function createHashedLocalBindingFilename(filename: string, hash: string) {
     const safeFilename = validatePackFilename(filename);
     if (!/^[a-f0-9]{12,64}$/i.test(hash)) throw new Error("invalid npm pack hash");
     return `${safeFilename.slice(0, -4)}-${hash.toLowerCase()}.tgz`;
 }
 
+/** 文件名白名单校验:纯 basename、仅限安全字符集且以 .tgz 结尾。 */
 function validatePackFilename(value: unknown) {
     if (
         typeof value !== "string" ||
@@ -75,9 +102,13 @@ function validatePackFilename(value: unknown) {
 
 /** 本地绑定准备所需的宿主依赖面（LocalPackageUploadServiceDeps 的结构性子集）。 */
 export interface LocalBindingPrepareDeps {
+    /** 宿主工作目录 */
     cwd: string;
+    /** 安装日志通道(InstallLogger) */
     log: InstallLogger;
+    /** npm pack 超时(毫秒,缺省至少 1 分钟) */
     timeout?: number | undefined;
+    /** 依赖解析器(读取 depCache 判定依赖是否为 unbound 本地插件) */
     resolver: DependencyResolver;
 }
 
@@ -95,6 +126,7 @@ function assertBindableDependency(
         throw new Error("该插件不是来源未绑定的本地插件。");
     }
     const currentRequest = packageSnapshot.dependencies[name]!.replace(/^[~^]/, "");
+    // 快照与 depCache 的请求串必须一致:不一致说明 package.json 刚被改过,判定基准已失效
     if (dependency.request !== currentRequest) {
         throw new Error("package.json 已发生变化，请刷新依赖后重试。");
     }
@@ -130,6 +162,7 @@ async function packLocalPluginArchive(
 ): Promise<{ pack: LocalBindingPackResult; packedFile: string; stat: Stats }> {
     const { stdout } = await execa(
         "npm",
+        // --ignore-scripts:打包只取文件内容,不执行 prepare/prepack 等生命周期脚本
         ["pack", sourceDir, "--ignore-scripts", "--json", "--pack-destination", temporary],
         { cwd: deps.cwd, timeout: Math.max(MINUTE, deps.timeout ?? 0) },
     );
@@ -238,6 +271,7 @@ export async function prepareLocalBinding(
             size: pack.size,
         };
     } finally {
+        // 无论成败都清掉打包临时目录:产物要么已 rename 走,要么作废,不留垃圾
         await fsp.rm(temporary, { recursive: true, force: true }).catch((error) => {
             deps.log.debug(
                 `failed to remove local binding temp directory ${temporary}: ${error instanceof Error ? error.message : error}`,

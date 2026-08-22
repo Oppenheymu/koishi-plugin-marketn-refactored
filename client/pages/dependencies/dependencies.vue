@@ -1,5 +1,6 @@
 <template>
   <k-layout main="page-deps" :class="[modeClass, layoutClass]" menu="dependencies">
+    <!-- 顶部工具栏:过滤下拉 / 预发布屏蔽 / 布局切换 / 搜索框 / 分类计数摘要 -->
     <div class="deps-toolbar">
       <div class="deps-toolbar-row">
         <el-select v-model="filter" size="small" class="deps-filter-select">
@@ -50,6 +51,7 @@
       </div>
     </div>
 
+    <!-- 依赖分组列表:每组可折叠头 + 卡片网格(列表布局时先渲染表头) -->
     <el-scrollbar class="body-container">
       <div class="deps-content" :class="{ pending: summary.pending }">
         <template v-if="visibleGroups.length">
@@ -104,6 +106,7 @@
     </el-scrollbar>
   </k-layout>
 
+  <!-- 底部批量应用栏:有待应用变更时浮出,确认动作转交 confirm.vue -->
   <div v-if="summary.pending" :class="['deps-apply-bar', modeClass]">
     <div>
       <strong>{{ t('dependencies.apply.count', { count: summary.pending }) }}</strong>
@@ -115,10 +118,25 @@
     </div>
   </div>
 
+  <!-- 手动添加依赖对话框(本地包上传 / registry 查询两个页签) -->
   <manual-install/>
 </template>
 
 <script lang="ts" setup>
+/**
+ * @file 依赖管理页面(/dependencies 路由主体)。
+ *
+ * 汇总展示宿主全部依赖:合并 store.dependencies、待应用 override 与
+ * store.packages 里被发现的本地插件,逐包分类(classify 的状态优先级见
+ * 其注释)后按固定顺序分组成卡片墙;支持过滤下拉、预发布屏蔽开关、
+ * 网格/列表布局切换、Ctrl+K 聚焦搜索与分组折叠记忆。
+ *
+ * 关键设计:
+ * - 存在待应用变更时底部浮出批量应用栏,确认动作交给全局 confirm.vue;
+ * - "全部升级"页级动作把每个可更新包的最新版暂存进 override,同样走
+ *   批量确认流程;
+ * - 手动添加对话框(manual.vue)在模板尾部挂载。
+ */
 
 import { computed, onBeforeUnmount, onMounted, ref, watch, WatchStopHandle } from 'vue'
 import { message, router, store, useConfig, useContext } from '@koishijs/client'
@@ -132,9 +150,12 @@ import { isBundlePackageName } from '../../../src/shared/bundle'
 import { shouldIncludeDiscoveredLocalPlugin } from '../../../src/shared/dependency-source'
 import { loadMarketObjects } from '../../market/state'
 
+/** 过滤下拉的选项 key(与分组 key 基本同集,含 all)。 */
 type FilterKey = 'all' | 'pending' | 'bundle' | 'unconfigured' | 'updatable' | 'ignored' | 'check-disabled' | 'invalid' | 'error' | 'local' | 'manual'
+/** 依赖条目的分类标签(比 FilterKey 多一个 installed 兜底态)。 */
 type ItemKind = 'pending' | 'bundle' | 'unconfigured' | 'updatable' | 'ignored' | 'check-disabled' | 'invalid' | 'error' | 'local' | 'manual' | 'installed'
 
+/** 单个依赖条目:name + 分类 + 是否待应用/手动添加。 */
 interface DependencyItem {
   name: string
   kind: ItemKind
@@ -142,6 +163,7 @@ interface DependencyItem {
   manual: boolean
 }
 
+/** 展示分组:元信息 + 成员列表 + 折叠状态。 */
 interface DependencyGroup {
   key: ItemKind
   label: string
@@ -155,26 +177,35 @@ interface DependencyGroup {
 const config = useConfig()
 const ctx = useContext()
 const { t } = useMarketNextI18n()
+/** 搜索关键字 / 当前过滤项 / 搜索框引用(Ctrl+K 聚焦用)。 */
 const keyword = ref('')
 const filter = ref<FilterKey>('all')
 const searchInput = ref<{ focus?: () => void }>()
 const frontendMode = computed(() => getFrontendMode(config.value))
 const depsLayout = computed(() => getDepsLayout(config.value))
+/** 前端外观模式与布局对应的根 class。 */
 const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 const layoutClass = computed(() => `deps-layout-${depsLayout.value}`)
 
+/** 取批量模式共享的待应用覆盖清单(marketData.override)。 */
 function getOverride() {
   return getPendingOverrides()
 }
 
+/** 取插件自身的更新策略配置(忽略规则/预发布屏蔽等)。 */
 function getUpdatePolicy() {
   return getMarketNextPolicy(config.value)
 }
 
+/** 是否可管理的合包:有持久化安装记录,或可从本地安装状态推导出记录。 */
 function isManageableBundle(name: string) {
   return !!(getBundleRecords(config.value)[name] || createLocalBundleRecord(name))
 }
 
+/**
+ * 页面展示的包名全集:依赖表 + 待应用 override + packages 里符合条件的
+ * 本地包(未配置插件包、可管理合包、通过发现规则筛选的本地插件),排序去重。
+ */
 const names = computed(() => {
   const configWriter = getConfigWriter(ctx)
   const explicit: Record<string, unknown> = {
@@ -200,6 +231,7 @@ const names = computed(() => {
     .sort((a, b) => a.localeCompare(b))
 })
 
+/** 包名集合变化时增量拉取市场元数据(卡片描述/分类等展示用)。 */
 watch(names, (value) => {
   void loadMarketObjects(value).catch(error => {
     console.error('[market-next] failed to load dependency market metadata', error)
@@ -207,6 +239,7 @@ watch(names, (value) => {
 }, { immediate: true })
 
 let dispose: WatchStopHandle
+/** registry 就绪后:监听 override 里新增的待应用包,为其补拉 manual 元数据(不在依赖表时 classify 需要)。 */
 watch(() => store.market?.registry, (registry) => {
   dispose?.()
   if (!registry) return
@@ -219,6 +252,7 @@ watch(() => store.market?.registry, (registry) => {
   }, { immediate: true, deep: true })
 }, { immediate: true })
 
+/** 注册/注销全局 Ctrl+K 搜索快捷键。 */
 onMounted(() => {
   window.addEventListener('keydown', onSearchShortcut)
 })
@@ -228,6 +262,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onSearchShortcut)
 })
 
+/** Ctrl/Cmd+K:仅在依赖页路由上拦截并聚焦搜索框。 */
 function onSearchShortcut(event: KeyboardEvent) {
   if (router.currentRoute.value?.path !== '/dependencies') return
   if (event.key.toLowerCase() !== 'k') return
@@ -236,6 +271,11 @@ function onSearchShortcut(event: KeyboardEvent) {
   searchInput.value?.focus?.()
 }
 
+/**
+ * 单包分类状态机(优先级从高到低):待应用 override > 本地/手动 >
+ * 本地形态依赖 > invalid > 可管理合包 > 未配置 > registry 拉取失败 >
+ * 禁用更新检查 > 忽略更新 > 可更新 > 已安装。
+ */
 function classify(name: string, configWriter?: ClientConfigWriter): ItemKind {
   const dep = store.dependencies?.[name]
   const override = getOverride()
@@ -254,15 +294,18 @@ function classify(name: string, configWriter?: ClientConfigWriter): ItemKind {
   return 'installed'
 }
 
+/** 是否 Koishi 插件包名(官方 @koishijs/plugin-* 或常规 koishi-plugin-*)。 */
 function isPluginPackage(name: string) {
   return /^@koishijs\/plugin-[0-9a-z-]+$/.test(name) || /(^|\/)koishi-plugin-[0-9a-z-]+$/.test(name)
 }
 
+/** 是否"未配置"状态:已加载的插件包但 koishi.yml 无配置节点(合包除外)。 */
 function isUnconfigured(name: string, configWriter = getConfigWriter(ctx)) {
   if (isManageableBundle(name)) return false
   return !!configWriter && !!store.packages?.[name] && isPluginPackage(name) && !configWriter.get(name)?.length
 }
 
+/** 全部条目(name + 分类 + pending/manual 标记)。 */
 const items = computed<DependencyItem[]>(() => {
   const configWriter = getConfigWriter(ctx)
   return names.value.map(name => ({
@@ -273,10 +316,13 @@ const items = computed<DependencyItem[]>(() => {
   }))
 })
 
+/** 可更新的包名列表(驱动"全部升级"动作)。 */
 const updates = computed(() => items.value.filter(item => item.kind === 'updatable').map(item => item.name))
 
+/** 是否已屏蔽预发布版本的更新检查(点击可切换)。 */
 const prereleaseBlocked = computed(() => !!getUpdatePolicy().updateIgnorePrerelease)
 
+/** 各分类计数摘要(工具栏徽标 + 底部应用栏)。 */
 const summary = computed(() => {
   return {
     total: items.value.length,
@@ -293,11 +339,13 @@ const summary = computed(() => {
   }
 })
 
+/** 任一包的 registry 元数据仍在拉取中(工具栏加载提示)。 */
 const refreshing = computed(() => {
   return Object.values((store as typeof store & { registryStatus?: Record<string, { loading?: boolean }> }).registryStatus ?? {})
     .some(status => status.loading)
 })
 
+/** 过滤下拉选项(all + 各分类,带图标与计数)。 */
 const filterOptions = computed(() => [
   { value: 'all' as const, label: t('dependencies.filters.all'), icon: 'solid:all', count: summary.value.total },
   { value: 'pending' as const, label: t('dependencies.filters.pending'), icon: 'tag', count: summary.value.pending },
@@ -312,6 +360,7 @@ const filterOptions = computed(() => [
   { value: 'manual' as const, label: t('dependencies.filters.manual'), icon: 'search', count: summary.value.manual },
 ])
 
+/** 各分组的元信息(标题/图标/描述,i18n)。 */
 const groupMeta = computed<Record<ItemKind, Omit<DependencyGroup, 'items' | 'collapsed' | 'collapsible'>>>(() => ({
   pending: { key: 'pending', label: t('dependencies.groups.pending.label'), icon: 'tag', description: t('dependencies.groups.pending.description') },
   bundle: { key: 'bundle', label: t('dependencies.groups.bundle.label'), icon: 'file-archive', description: t('dependencies.groups.bundle.description') },
@@ -326,19 +375,24 @@ const groupMeta = computed<Record<ItemKind, Omit<DependencyGroup, 'items' | 'col
   installed: { key: 'installed', label: t('dependencies.groups.installed.label'), icon: 'installed', description: t('dependencies.groups.installed.description') },
 }))
 
+/** 分组展示顺序(重要状态在前,普通已安装垫底)。 */
 const groupOrder: ItemKind[] = ['pending', 'bundle', 'unconfigured', 'updatable', 'ignored', 'check-disabled', 'invalid', 'error', 'local', 'manual', 'installed']
 
+/** 仅在"全部 + 无搜索词"时允许折叠(其他过滤视图强制展开)。 */
 const collapseEnabled = computed(() => filter.value === 'all' && !keyword.value.trim())
 
+/** 默认折叠的分组:未配置与忽略(信息密度低)。 */
 function getDefaultCollapsed(key: ItemKind) {
   return key === 'unconfigured' || key === 'ignored'
 }
 
+/** 分组折叠态:用户记忆(collapsedGroups)> 默认值。 */
 function isGroupCollapsed(key: ItemKind) {
   if (!collapseEnabled.value) return false
   return getCollapsedGroups()[key] ?? getDefaultCollapsed(key)
 }
 
+/** 切换分组折叠并持久化到 collapsedGroups。 */
 function toggleGroup(key: ItemKind) {
   const groups = {
     ...getCollapsedGroups(),
@@ -347,6 +401,7 @@ function toggleGroup(key: ItemKind) {
   void patchMarketNextData({ collapsedGroups: groups })
 }
 
+/** 网格/列表布局切换:同时写本地配置对象与插件配置持久化。 */
 function toggleLayout() {
   if (!config.value.market) config.value.market = {}
   const next = depsLayout.value === 'grid' ? 'list' : 'grid'
@@ -356,6 +411,11 @@ function toggleLayout() {
   patchMarketNextConfig({ depsLayout: next })
 }
 
+/**
+ * 过滤 + 搜索后的分组视图:先按过滤项分桶(pending 过滤看 pending 标记,
+ * manual 过滤看 manual 标记,其余按分类),再按关键字过滤,最后依
+ * groupOrder 组装并丢弃空分组。
+ */
 const visibleGroups = computed<DependencyGroup[]>(() => {
   const word = keyword.value.trim().toLowerCase()
   const buckets = Object.fromEntries(groupOrder.map(key => [key, [] as DependencyItem[]])) as Record<ItemKind, DependencyItem[]>
@@ -378,12 +438,14 @@ const visibleGroups = computed<DependencyGroup[]>(() => {
     .filter(group => group.items.length)
 })
 
+/** 丢弃全部待应用变更(底部应用栏"放弃")。 */
 function clearChanges() {
   const override = getPendingOverrides()
   for (const key of Object.keys(override)) delete override[key]
   void patchMarketNextData({ override: { ...override } })
 }
 
+/** 切换"屏蔽预发布版本"策略并持久化;保存失败时回滚本地状态。 */
 async function togglePrereleaseFilter() {
   const policy = getWritableMarketNextPolicy(config.value)
   const previous = !!policy.updateIgnorePrerelease
@@ -395,6 +457,7 @@ async function togglePrereleaseFilter() {
   }
 }
 
+/** 页级"全部升级"动作:把每个可更新包的最新版暂存进 override,待批量确认。 */
 ctx.action('dependencies.upgrade', {
   disabled: () => !updates.value.length,
   async action() {

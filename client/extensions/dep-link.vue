@@ -1,4 +1,5 @@
 <template>
+  <!-- 包名链接:点击打开 install 面板(active ref),后缀按状态提示 已加载/可配置/可添加 -->
   <span class="k-link" @click.stop="active = name">
     {{ name }}
   </span>
@@ -7,6 +8,13 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * @file 依赖包名链接(plugin-dependency 插槽的最小单元)。
+ *
+ * 点击包名把 shared/plugin-config 的 active 置为该包,弹出 install 面板;
+ * 名称后按 packages 里的状态追加"已加载/可配置/可添加"提示。仅被
+ * dependency.vue 使用。
+ */
 
 import { store } from '@koishijs/client'
 import {} from '@koishijs/plugin-config'

@@ -1,3 +1,21 @@
+/**
+ * @file 聊天侧命令:plugin.install / uninstall / upgrade / clear-avatar-cache。
+ *
+ * 模块职责:
+ * - registerCommands:注册四个 authority 4 的机器人命令,把命令行操作
+ *   桥接到 installer(与 console RPC 走同一套 core 编排,保证行为一致);
+ * - 升级命令的完整流程:刷新元数据 -> 按更新忽略策略筛选目标 -> 展示
+ *   清单并等待确认 -> envData.message 定向回执安装结果。
+ *
+ * 关键设计:
+ * - 安装/升级前把 session 信息写进 loader.envData.message:fullReload 后
+ *   新进程能回到原频道回报结果(finally 里务必清空,避免污染后续 reload);
+ * - 升级目标计算与 console 侧共用 shared/update 策略(updateIgnored/
+ *   prerelease/force),命令只是另一个入口;
+ * - 卸载直接传 { name: null } 给 install:core 编排里 null 版本即删除。
+ *
+ * 架构位置:node 适配层 console 模块,由 setup.ts 在插件 apply 时调用。
+ */
 import { type Context, type Dict, pick, type Session } from "koishi";
 import {
     getLatestAllowedUpdate,
@@ -17,6 +35,7 @@ async function findInstalledName(ctx: Context, name: string): Promise<string | u
     return names.find((candidate) => deps[candidate]);
 }
 
+/** 待升级条目:包名、当前已装版本(resolved)与目标版本。 */
 interface UpgradeTarget {
     name: string;
     resolved: string;
@@ -42,9 +61,11 @@ async function collectUpgradeTargets(
         updateIgnored: runtimeData.updateIgnored,
     };
     return Array.from(new Set(requested)).flatMap((name) => {
+        // 本地/workspace/invalid 依赖不参与升级:它们不走 registry 版本语义
         const dep = deps[name];
         if (!dep?.resolved || dep.local || dep.workspace || dep.invalid) return [];
         const versions = Object.keys(ctx.installer.fullCache[name] ?? {});
+        // 缓存还没灌满时至少用 dep.latest 兜底,避免漏掉可升级项
         if (!versions.length && dep.latest) versions.push(dep.latest);
         const target = force
             ? getUpdateCandidates(versions, dep.resolved)[0]
@@ -70,6 +91,7 @@ async function performUpgrade(
     updates: UpgradeTarget[],
 ): Promise<number | undefined> {
     ctx.loader.envData.message = {
+        // 记录来源会话:fullReload 后新进程据此把"安装成功"回到原频道
         ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
         content: session.text(".success"),
     };
@@ -82,9 +104,11 @@ async function performUpgrade(
         const code = await ctx.installer.install(installDeps, undefined, () =>
             ensurePluginConfigs(ctx, installNames),
         );
+        // beforeReload 回调之外再补一次:覆盖安装未触发 reload 的场景
         if (!code) await ensurePluginConfigs(ctx, installNames);
         return code;
     } finally {
+        // 无论成败都清掉定向回执,避免影响后续 fullReload
         ctx.loader.envData.message = null;
     }
 }
@@ -110,6 +134,7 @@ export function registerCommands(
             if (!result) return session.text(".not-found");
 
             ctx.loader.envData.message = {
+                // 同 performUpgrade:reload 后回到本会话回执
                 ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
                 content: session.text(".success"),
             };
@@ -129,6 +154,7 @@ export function registerCommands(
             const installed = await findInstalledName(ctx, name);
             if (!installed) return session.text(".not-installed");
 
+            // 版本传 null = 卸载:core 安排器把 null 视为删除该依赖
             await ctx.installer.install({ [installed]: null as unknown as string });
             return session.text(".success");
         });
@@ -140,6 +166,7 @@ export function registerCommands(
         .action(async ({ session, options }, ...names) => {
             if (!session) return;
             options ||= {};
+            // 先全量刷新元数据:升级目标判定依赖最新的 registry 缓存
             await ctx.installer.refresh(true, true);
             const deps = (await ctx.installer.getDeps({ background: false })) ?? {};
             const requested: string[] = names.length

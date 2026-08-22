@@ -7,12 +7,15 @@
     :title="t('operations.history.title')"
     width="min(1040px, calc(100vw - 24px))"
   >
+    <!-- 顶部工具栏:记录数量/同步状态 + 刷新按钮 -->
     <div class="history-toolbar">
       <span>{{ loading ? t('operations.history.syncing') : t('operations.history.count', { count: entries.length }) }}</span>
       <el-button :loading="loading" @click="loadHistory(true)">{{ t('operations.history.refresh') }}</el-button>
     </div>
 
+    <!-- 主体双栏:左侧记录列表,右侧选中记录明细 -->
     <div class="history-layout">
+      <!-- 记录列表:状态点 + 标题/包名/时间 + 状态标签 -->
       <aside class="history-sidebar">
         <div class="list-heading">
           <span>{{ t('operations.history.records') }}</span>
@@ -44,6 +47,7 @@
         </div>
       </aside>
 
+      <!-- 记录明细:头部(状态/时间/复制日志) + 元信息 + 版本变更清单 -->
       <section class="history-detail">
         <div v-if="detailLoading" class="history-state">{{ t('operations.history.readingLog') }}</div>
         <div v-else-if="detailError" class="history-state error">{{ detailError }}</div>
@@ -103,6 +107,16 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * @file 安装历史对话框(只读回放)。
+ *
+ * 左侧为最近 20 条安装记录列表(状态点 + 标题 + 耗时),右侧展示选中记录的
+ * 明细:元信息、版本变更清单、完整包管理器日志(可复制)。数据全部来自
+ * market/install-history 与 market/install-history-detail 两个 RPC。
+ * 由 app/pages.ts 全局挂载,开关是 shared/operations 导出的 showInstallHistory。
+ *
+ * 关键设计:明细请求用自增 serial 标记,快速切换记录时丢弃过期响应。
+ */
 import { computed, ref, watch } from 'vue'
 import { message, send, useConfig } from '@koishijs/client'
 import type { InstallHistoryChange, InstallHistoryEntry, InstallLogDetail } from 'koishi-plugin-marketn-refactored'
@@ -112,20 +126,28 @@ import { useMarketNextI18n } from '../shared/i18n'
 
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
+/** 前端外观模式对应的根 class,主题适配用。 */
 const modeClass = computed(() => `market-mode-${getFrontendMode(config.value)}`)
+/** 安装记录列表(左侧栏数据源)。 */
 const entries = ref<InstallHistoryEntry[]>([])
+/** 当前选中的记录 id。 */
 const selectedId = ref('')
+/** 选中记录的明细(含完整日志)。 */
 const detail = ref<InstallLogDetail>()
+/** 列表加载中/明细加载中/各自错误文案。 */
 const loading = ref(false)
 const detailLoading = ref(false)
 const loadError = ref('')
 const detailError = ref('')
+/** 明细请求序号:响应携带过期序号时丢弃,防止快速切换记录时旧响应覆盖新状态。 */
 let detailSerial = 0
 
+/** 对话框打开时拉取最近 20 条安装记录。 */
 watch(showInstallHistory, (visible) => {
   if (visible) void loadHistory()
 })
 
+/** 拉取记录列表并默认选中第一条;preserveSelection 供刷新时保住当前选择。 */
 async function loadHistory(preserveSelection = false) {
   if (loading.value) return
   loading.value = true
@@ -150,6 +172,7 @@ async function loadHistory(preserveSelection = false) {
   }
 }
 
+/** 拉取选中记录的明细(含日志全文);force 用于强制重拉。 */
 async function selectEntry(id: string, force = false) {
   if (!force && id === selectedId.value && detail.value) return
   selectedId.value = id
@@ -171,6 +194,7 @@ async function selectEntry(id: string, force = false) {
   }
 }
 
+/** 复制完整日志:优先 Clipboard API,非安全上下文降级为隐藏 textarea + execCommand。 */
 async function copyLog() {
   if (!detail.value?.content) return
   try {
@@ -193,6 +217,7 @@ async function copyLog() {
   }
 }
 
+/** 记录状态文案:进行中/成功/失败/未知。 */
 function statusText(status: InstallHistoryEntry['status']) {
   switch (status) {
     case 'running': return t('operations.history.statusRunning')
@@ -202,6 +227,7 @@ function statusText(status: InstallHistoryEntry['status']) {
   }
 }
 
+/** 列表行标题:按变更统计生成"安装 N/更新 N/卸载 N";单一类别只显示该类别,混合显示"变更 N 项"。 */
 function historyTitle(entry: InstallHistoryEntry) {
   if (!entry.changes.length) return t('operations.history.operation')
   let installed = 0
@@ -221,24 +247,29 @@ function historyTitle(entry: InstallHistoryEntry) {
   return t('operations.history.changed', { count: entry.changes.length })
 }
 
+/** 列表行副标题:参与变更的包名列表(无变更记录时回退原始 deps 字段)。 */
 function historyPackages(entry: InstallHistoryEntry) {
   if (!entry.changes.length) return entry.deps
   return entry.changes.map(change => change.name).join(t('common.format.listSeparator'))
 }
 
+/** 变更行"变更前"版本:优先实际解析版本,其次请求范围,都没有则显示"未安装"。 */
 function beforeVersion(change: InstallHistoryChange) {
   return change.beforeResolved || change.beforeRequest || t('operations.history.notInstalled')
 }
 
+/** 变更行"变更后"版本:同上,空值表示已卸载。 */
 function afterVersion(change: InstallHistoryChange) {
   return change.afterResolved || change.afterRequest || t('operations.history.uninstalled')
 }
 
+/** 时间戳转本地可读时间;非法/缺失值显示"时间未知"。 */
 function formatDate(value: number) {
   if (!Number.isFinite(value) || value <= 0) return t('operations.history.unknownTime')
   return new Date(value).toLocaleString(locale.value)
 }
 
+/** 毫秒耗时人性化:<1s 显示 ms,<1min 显示秒,否则"分+秒"。 */
 function formatDuration(value: number) {
   if (value < 1000) return `${Math.max(0, Math.round(value))} ms`
   if (value < 60000) return t('common.time.seconds', { count: (value / 1000).toFixed(value < 10000 ? 1 : 0) })
@@ -247,6 +278,7 @@ function formatDuration(value: number) {
   return t('common.time.minutesSeconds', { minutes, seconds })
 }
 
+/** 安装端点展示:只取 host;未记录端点显示"默认源"。 */
 function formatEndpoint(endpoint?: string) {
   if (!endpoint) return t('operations.history.defaultSource')
   try {
@@ -256,6 +288,7 @@ function formatEndpoint(endpoint?: string) {
   }
 }
 
+/** 日志体积:B/KB/MB 自适应。 */
 function formatSize(value: number) {
   if (value < 1024) return `${value} B`
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`

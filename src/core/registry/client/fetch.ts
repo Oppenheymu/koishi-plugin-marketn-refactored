@@ -1,3 +1,14 @@
+/**
+ * @file registry 元数据的带重试获取主循环(core/registry/client 域)。
+ *
+ * fetchRegistryWithRetry 是 getRegistry 的流程本体:先确保路由探测完成,
+ * 探测负载与当前请求匹配时直接复用(省一次请求);否则按 retryEndpoints
+ * 的顺序逐轮竞速拉取,失败按 300ms*(轮次+1) 线性退避重试;最终失败时
+ * 汇总各轮失败归因(marketNextReason(s) 挂到异常上)并上报状态后上抛。
+ *
+ * 架构位置:被 RegistryClient.getRegistry 调用,通过 RegistryFetchHost
+ * (RegistryClient 实现)访问路由/状态/日志等宿主能力。
+ */
 import { getRegistryAttemptReasons } from "../../../shared/dependency-source.js";
 import type { RegistryStatus } from "../../../shared/types.js";
 import type { RaceAttempt } from "../../racing/race.js";
@@ -7,6 +18,7 @@ import { mergeFailureDetail } from "../errors.js";
 import type { Registry } from "../manifest.js";
 import type { RouteProbeResult } from "./probe.js";
 
+/** 获取主循环所需的宿主能力面(RegistryClient 的结构性视图)。 */
 export interface RegistryFetchHost {
     scope: { isStale(serial: number): boolean; current: number };
     config: { retry?: number | undefined };
@@ -60,6 +72,7 @@ function tryReuseProbePayload(
     host: RegistryFetchHost,
 ): Registry | undefined {
     const probeResult = host.probeResult;
+    // 复用条件:同一请求轮次(serial)、同一包、且胜出端点仍是当前元数据端点
     if (
         probeResult?.serial !== serial ||
         probeResult.name !== name ||
@@ -85,6 +98,7 @@ function tryReuseProbePayload(
     return probeResult.registry;
 }
 
+/** debug 输出本轮重试的候选端点。 */
 function logRetryCandidates(
     name: string,
     endpoints: string[],
@@ -147,6 +161,7 @@ async function recordRoutedFetchFailure(
     host.log.debug(
         `failed routed registry metadata for ${name}, attempt=${retry + 1}/${maxRetry + 1}, endpoint=${lastEndpoint}, attempts=${attempts}: ${detail.error}`,
     );
+    // 线性退避:第一轮失败等 300ms,第二轮 600ms,依此类推
     if (retry < maxRetry) await sleep(300 * (retry + 1));
 }
 
@@ -167,6 +182,7 @@ export async function fetchRegistryWithRetry(
     const failureReasons: RegistryReason[] = [];
     reportLoadingStatus(name, lastEndpoint, attempts, serial, host);
 
+    // 先用一个探针包探测出最优端点(单飞,多个包共享同一次探测)
     await host.ensureMetadataEndpoint(name, serial);
     if (host.scope.isStale(serial)) return undefined;
 
@@ -202,6 +218,11 @@ export async function fetchRegistryWithRetry(
     throw lastError ?? new Error(`failed to fetch registry metadata for ${name}`);
 }
 
+/**
+ * 最终失败收口:合并全部失败归因上报状态,并把汇总的 reason(s)
+ * 以不可枚举属性挂到异常对象上,供上层(deps/resolver 的 404 归类等)
+ * 读取而不用改异常类型。
+ */
 function reportFetchFailure(
     name: string,
     lastError: unknown,

@@ -1,4 +1,5 @@
 <template>
+  <!-- 本地包上传面板:隐藏 file input + 拖拽区(空闲/上传中/预览三态) + 脚本警告 -->
   <section class="local-package-panel" :aria-busy="busy">
     <input
       ref="fileInput"
@@ -75,6 +76,14 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * @file 本地包上传的展示组件(纯 UI,manual.vue 的 local 页签)。
+ *
+ * 只负责交互与展示:文件选择(点击/键盘/拖拽,仅接受单个 .tgz)、上传
+ * 进度、服务端预检结果(包名/版本变化/哈希/安装脚本警告)。真正的上传
+ * 状态机在 use-local-package-upload.ts,本组件通过 props 接收、把
+ * select/error 事件抛回去。
+ */
 import type { LocalPackageUploadPreview } from 'koishi-plugin-marketn-refactored'
 import { ref } from 'vue'
 import { useMarketNextI18n } from '../../shared/i18n'
@@ -97,15 +106,19 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useMarketNextI18n()
+/** 隐藏 file input 的元素引用。 */
 const fileInput = ref<HTMLInputElement>()
+/** 拖拽高亮状态;dragDepth 计数避免子元素 dragleave 误熄高亮。 */
 const dragging = ref(false)
 let dragDepth = 0
 
+/** 点击/键盘打开系统文件选择器(busy 时禁用)。 */
 function openFilePicker() {
   if (props.busy) return
   fileInput.value?.click()
 }
 
+/** file input 的 change 处理:取首个文件后立即清空 value(允许重复选同一文件)。 */
 function onFileInput(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -113,17 +126,20 @@ function onFileInput(event: Event) {
   if (file) emit('select', file)
 }
 
+/** dragenter 计数 +1 并点亮高亮。 */
 function onDragEnter() {
   if (props.busy) return
   dragDepth++
   dragging.value = true
 }
 
+/** dragleave 计数 -1,归零才熄灭高亮。 */
 function onDragLeave() {
   dragDepth = Math.max(0, dragDepth - 1)
   if (!dragDepth) dragging.value = false
 }
 
+/** drop 处理:只接受单个文件,多选报错,单个抛 select 事件。 */
 function onDrop(event: DragEvent) {
   dragDepth = 0
   dragging.value = false
@@ -136,6 +152,7 @@ function onDrop(event: DragEvent) {
   emit('select', files[0])
 }
 
+/** 字节数人性化:B/KiB/MiB 自适应。 */
 function formatBytes(value: number) {
   if (!value) return '0 B'
   if (value < 1024) return `${value} B`

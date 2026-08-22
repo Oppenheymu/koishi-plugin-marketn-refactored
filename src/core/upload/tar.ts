@@ -1,3 +1,11 @@
+/**
+ * @file 本地归档(.tgz)的安全检视与命名工具(core/upload 域)。
+ *
+ * 职责:在不解压落盘的前提下流式扫描 tar 归档,读出根部 package/package.json
+ * 并校验(条目数/解压总量上限防 zip 炸弹,路径与类型校验防穿越/符号链接),
+ * 生成 .yarn/local 规范文件名,以及哈希读取与路径越界断言。
+ * 被 session.ts(finish 校验)与 session-io.ts(placeUploadArchive)消费。
+ */
 import { createHash } from "node:crypto";
 import { promises as fsp } from "node:fs";
 import { dirname, relative } from "node:path";
@@ -7,8 +15,11 @@ import { list } from "tar";
 import { Scanner } from "../registry/manifest.js";
 import { createHashedLocalBindingFilename } from "./local-binding.js";
 
+/** 条目数上限:防"海量小文件"型归档拖垮扫描。 */
 const MAX_ARCHIVE_ENTRIES = 8192;
+/** 解压后总字节上限:防解压炸弹(tar 层另有 200:1 压缩比限制)。 */
 const MAX_ARCHIVE_EXPANDED_SIZE = 256 * 1024 * 1024;
+/** package.json 本身的大小上限(只关心清单,超 1 MiB 即异常)。 */
 const MAX_PACKAGE_MANIFEST_SIZE = 1024 * 1024;
 
 /** 校验并读取 .tgz 归档根部的 package/package.json（防解压炸弹/路径穿越/符号链接）。 */
@@ -19,6 +30,7 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
     const chunks: Buffer[] = [];
 
     try {
+        // list 只读元数据不打散到磁盘;manifest 内容通过 onReadEntry 的 data 事件收集
         await list({
             file: path,
             strict: true,
@@ -32,6 +44,7 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
                     throw new Error("本地插件归档解压后内容过大或文件数量过多。");
                 }
                 validateArchiveEntry(entry.path, entry.type);
+                // 只认归档根部(npm pack 约定)的 package/package.json,其余条目跳过
                 if (entry.path.replace(/\\/g, "/") !== "package/package.json") return;
                 if (manifestFound) throw new Error("本地插件归档包含重复的 package.json。");
                 if (entry.size <= 0 || entry.size > MAX_PACKAGE_MANIFEST_SIZE) {
@@ -64,6 +77,10 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
     return manifest;
 }
 
+/**
+ * 校验单个归档条目:必须位于 package/ 前缀下、不得包含 .. 或绝对路径
+ * (防路径穿越),且类型只能是普通文件/目录(符号链接与设备节点一律拒绝)。
+ */
 function validateArchiveEntry(value: string, type: string) {
     const path = value.replace(/\\/g, "/");
     const parts = path.split("/").filter(Boolean);
@@ -83,6 +100,7 @@ function validateArchiveEntry(value: string, type: string) {
 
 /** 生成 .yarn/local 下的规范归档文件名（含内容 hash 前缀）。 */
 export function createCanonicalLocalPackageFilename(name: string, version: string, hash: string) {
+    // scope 名(@a/b)压平成 a-b,再剔除文件名不安全字符并截断到 120 字符
     const slug = name
         .replace(/^@/, "")
         .replace(/[\\/]+/g, "-")
@@ -105,6 +123,7 @@ export async function readFileHash(path: string) {
     }
 }
 
+/** 断言 target 就在 root 目录内(同名一层),防止拼接出的落盘路径越界。 */
 export function assertInside(root: string, target: string) {
     if (dirname(target) !== root || relative(root, target).startsWith("..")) {
         throw new Error("本地插件归档目标路径无效。");

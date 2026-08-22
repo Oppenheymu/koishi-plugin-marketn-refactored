@@ -1,3 +1,11 @@
+/**
+ * @file collect 主流程与补片广播(core/market/source 域)。
+ *
+ * 职责:collectMarketIndex 实现"磁盘缓存优先,否则网络"的首拉编排;
+ * 对 legacy 索引(scanner.version 为空)需要逐包 analyze 补全元数据,
+ * 过程中通过 flushMarketPatch 增量广播补片(market/patch 频道),
+ * 让前端在长分析过程中渐进看到数据。
+ */
 import type { SearchObject } from "@koishijs/registry";
 import type { Dict } from "koishi";
 import type { MarketPerformance } from "../../../shared/types.js";
@@ -42,6 +50,7 @@ export async function collectMarketIndex(source: MarketCollectSource): Promise<u
     source.failed = [];
     source.fullCache = {};
     source.tempCache = {};
+    // cache-first:非强制刷新时先试磁盘缓存,成功后网络刷新交给后台
     if (!source.forceRefresh && (await applyDiskCache(source, serial))) {
         source.background.refreshInBackground(serial, "cache-first");
         void source.deps.notifyRefresh();
@@ -50,6 +59,7 @@ export async function collectMarketIndex(source: MarketCollectSource): Promise<u
     const result = await source.fetchAndApply(serial, "initial");
     if (source.scope.isStale(serial) || !result) return undefined;
     source.updateDebugInfo(performanceFrom(result, source.scanner.total), "initial");
+    // legacy 索引(无 version 字段)没有逐包元数据,需要后台 analyze 补全
     if (!source.scanner.version) {
         await analyzeLegacy(source);
     }
@@ -59,6 +69,11 @@ export async function collectMarketIndex(source: MarketCollectSource): Promise<u
     return undefined;
 }
 
+/**
+ * legacy 索引的逐包分析:scanner.analyze 逐包拉取 registry 元数据,
+ * 成功的写入 fullCache/tempCache,失败进 failed;registry 版本数据
+ * 回调给 deps.onRegistryVersions 供依赖解析复用,分析后统一广播补片。
+ */
 async function analyzeLegacy(source: MarketCollectSource) {
     const analyzeStart = Date.now();
     await source.scanner.analyze({
@@ -85,6 +100,7 @@ export function flushMarketPatch(source: MarketCollectSource) {
     if (!Object.keys(source.tempCache).length) return;
     source.deps.broadcastPatch({
         data: source.tempCache,
+        // 每次广播消耗一个修订号,前端据此判断补片新旧
         revision: source.nextRevision(),
         failed: source.failed.length,
         total: source.scanner.total,

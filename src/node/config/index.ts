@@ -1,3 +1,24 @@
+/**
+ * @file 插件配置 Schema 定义与配置补丁白名单(config 域)。
+ *
+ * 模块职责:
+ * - Config 接口 + Koishi Schema:声明 koishi.yml 中本插件节点的全部字段,
+ *   汇聚 installer(registry)与 market(search)两个子配置块;
+ * - configPatchKeys / configReloadKeys:market/update-config RPC 允许写回的
+ *   键白名单,以及写回后需要热 reload 插件的键集合;
+ * - normalizeMarketSilentRules:把 market 静默过滤规则(含旧版 date/days/
+ *   query 字段)归一成统一的 {type, value} 形态。
+ *
+ * 关键设计:
+ * - 大量字段标记 hidden:只允许经由本插件的前端 UI / update-config 白名单
+ *   写入,避免用户在 koishi.yml 里手写出错;
+ * - 旧版分散的静默规则键(status/date/recent/custom)保留为隐藏字段以兼容
+ *   已有配置文件,新数据统一落 marketSilentRules;
+ * - Schema 文案经 i18n(zh-CN/en-US)双语言下发。
+ *
+ * 架构位置:node 适配层 config 模块,被插件入口(apply 时实例化)与
+ * config/manage.ts、console listeners 消费。
+ */
 import { type Dict, Schema, Time } from "koishi";
 import type { PluginBundleRecord } from "../../shared/bundle.js";
 import type {
@@ -20,6 +41,7 @@ export type {
     MarketSilentStatusRule,
 } from "../../shared/types.js";
 
+/** koishi.yml 中本插件节点的运行时形态(Schema 校验后的 Config 类型)。 */
 export interface Config {
     registry?: InstallerConfig;
     search?: MarketProviderConfig;
@@ -46,6 +68,7 @@ export interface Config {
     bundleRecords?: Dict<PluginBundleRecord>;
 }
 
+/** 静默规则类型枚举:状态类(preview/insecure/bundle)、时间类(created/updated)、自定义。 */
 const MarketSilentRuleType = Schema.union([
     Schema.const("preview").description("状态：预览版插件"),
     Schema.const("insecure").description("状态：不安全插件"),
@@ -59,6 +82,7 @@ const MarketSilentRuleType = Schema.union([
     Schema.const("custom").description("自定义高级条件"),
 ]);
 
+/** marketSilentRules 的表格化 Schema:命中规则的插件直接从市场页隐藏。 */
 const MarketSilentRules = Schema.array(
     Schema.object({
         type: MarketSilentRuleType.default("preview").description("规则类型"),
@@ -201,6 +225,10 @@ export function normalizeMarketSilentRules(value: unknown): MarketSilentRule[] {
         });
 }
 
+/**
+ * 从旧版规则形态(date/days/query 独立字段)提取 value:新形态直接用
+ * rule.value,旧形态按字段顺序回退,保证升级后规则不丢。
+ */
 function normalizeMarketSilentRuleValue(rule: MarketSilentRule) {
     const value = String(rule.value ?? "").trim();
     if (value) return value;

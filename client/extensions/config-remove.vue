@@ -11,17 +11,27 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * @file 插件配置节点移除确认对话框(全局插槽)。
+ *
+ * 监听 config-remove.ts 的 configRemoveTarget:确认后调宿主 config 插件的
+ * manager/remove RPC 删除节点(分组或单个配置),成功后跳回父级配置页。
+ * 由 extensions/index.ts 注册为 global 插槽。
+ */
 
 import { computed, ref } from 'vue'
 import { message, router, send } from '@koishijs/client'
 import { configRemoveTarget } from './config-remove'
 import { useMarketNextI18n } from '../shared/i18n'
 
+/** 移除请求执行中标记。 */
 const removing = ref(false)
 const { t } = useMarketNextI18n()
 
+/** 目标节点(模块级 ref 的本地只读代理)。 */
 const target = computed(() => configRemoveTarget.value)
 
+/** 对话框开关代理:target 有值即开,置空 target 即关。 */
 const visible = computed({
   get: () => !!configRemoveTarget.value,
   set: (value) => {
@@ -29,10 +39,12 @@ const visible = computed({
   },
 })
 
+/** 弹窗标题:目标是分组(有 children)还是单个配置。 */
 const title = computed(() => {
   return target.value?.children ? t('extensions.actions.removeGroupTitle') : t('extensions.actions.removeConfigTitle')
 })
 
+/** 确认文案:分组用 label/path,配置用 label/name。 */
 const content = computed(() => {
   const item = target.value
   if (!item) return ''
@@ -42,6 +54,7 @@ const content = computed(() => {
   return t('extensions.messages.removeConfigConfirm', { name: item.label || item.name })
 })
 
+/** 执行移除:以父分组路径 + 节点 id 调 manager/remove,成功后关窗并跳回父级配置页。 */
 async function remove() {
   const item = target.value
   if (!item || removing.value) return

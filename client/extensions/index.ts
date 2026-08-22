@@ -1,3 +1,17 @@
+/**
+ * @file 对宿主 @koishijs/plugin-config 各扩展点的补丁与插槽注册(extensions 域入口)。
+ *
+ * 职责:
+ * - patch 掉配置树"移除"菜单项的 label 与 action:合包分组显示"卸载合包"
+ *   并转交 bundle-group-uninstall 流程,普通分组/配置走 config-remove 流程,
+ *   受保护的核心插件节点禁用;
+ * - 注册 5 个插槽:config-remove / bundle-group-uninstall 两个全局对话框,
+ *   dependency(插件依赖展示)、version(插件详情导航/卸载)、
+ *   missing(未安装插件提示)、select(插件选择器分类过滤)。
+ *
+ * 两个 patch 都用 watch 监听宿主菜单/actions 项,宿主重建菜单后自动重打;
+ * ctx.effect 注册的清理函数会恢复原始 label/action,保证插件停用后不留痕。
+ */
 import { Context, MenuItem, store } from '@koishijs/client'
 // 宿主 @koishijs/plugin-config 提供 packages/services/config 三个 Console 服务；
 // 仅在 .vue 里 import type 对 tsc 不生效，这里加载其类型声明以扩展 store。
@@ -15,11 +29,17 @@ import { resolveBundlePackageFromGroup } from '../shared/operations'
 import { getBundleRecords } from '../shared/plugin-config'
 import { translate } from '../shared/i18n'
 
+/** 判断配置树节点是否合包分组:分组路径能反查到合包包名即算(持久化记录优先)。 */
 function isBundleGroup(tree: any) {
   if (!tree?.children) return false
   return !!resolveBundlePackageFromGroup(tree.path, getBundleRecords())
 }
 
+/**
+ * 补丁 1:改写 config.tree 菜单 ".remove" 项的 label(合包分组/分组/配置
+ * 三种文案)。watch 宿主菜单项变化,宿主重挂菜单后自动重打;patched 记录
+ * 原始 label 供清理时恢复。
+ */
 function patchConfigRemoveLabel(ctx: Context) {
   const patched = new Map<MenuItem, MenuItem['label']>()
   const label: MenuItem['label'] = ({ config }: any) => {
@@ -56,6 +76,11 @@ function patchConfigRemoveLabel(ctx: Context) {
   })
 }
 
+/**
+ * 补丁 2:替换 config.tree.remove action——受保护节点禁用;合包分组转交
+ * 合包卸载流程,其余走配置移除流程。同样以 watch 保证补丁持续生效,
+ * 清理时恢复 previous 或删掉整个 action。
+ */
 function patchConfigRemoveAction(ctx: Context) {
   const action = markRaw({
     disabled: ({ config }: any) => !config.tree?.path || isProtectedConfigNode(config.tree),
@@ -89,26 +114,31 @@ function patchConfigRemoveAction(ctx: Context) {
   })
 }
 
+/** 扩展入口:打两个菜单/动作补丁,再注册各插槽(全局对话框 + 4 个 config 插件扩展位)。 */
 export default (ctx: Context) => {
   patchConfigRemoveLabel(ctx)
   patchConfigRemoveAction(ctx)
 
+  // 配置移除确认对话框(全局挂载,由 configRemoveTarget 触发)
   ctx.slot({
     type: 'global',
     component: ConfigRemove,
   })
 
+  // 合包分组卸载对话框(全局挂载,由 bundleGroupUninstallTarget 触发)
   ctx.slot({
     type: 'global',
     component: BundleGroupUninstall,
   })
 
+  // 插件详情页的 peer 依赖/服务状态区
   ctx.slot({
     type: 'plugin-dependency',
     component: Dependency,
     disabled: () => !store.packages,
   })
 
+  // 插件详情页:外部链接导航 + 卸载入口(version.vue)
   ctx.slot({
     type: 'plugin-details',
     component: Version,
@@ -116,11 +146,13 @@ export default (ctx: Context) => {
     order: 1000,
   })
 
+  // 插件配置指向未安装包时的"快速安装/去市场"提示(missing.vue)
   ctx.slot({
     type: 'plugin-missing',
     component: Missing,
   })
 
+  // 插件选择器的分类标签过滤(select.vue)
   ctx.slot({
     type: 'plugin-select',
     component: Select,

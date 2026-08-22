@@ -1,3 +1,14 @@
+/**
+ * @file console DataService 通道的三个薄包装(console 域)。
+ *
+ * 模块职责:把 installer 侧的三个数据面(依赖快照/registry 全量缓存/
+ * npm 端点状态)声明为 console 服务,前端经各自通道拉取。三个类都是
+ * 只读透传:取数逻辑全部在 ctx.installer,这里只做服务注册与 authority 4
+ * 权限约束,保持适配层"薄"。
+ *
+ * 架构位置:node 适配层 console 模块,由 setup.ts 实例化;服务键在
+ * declarations.ts 中声明为 Console.Services。
+ */
 import { DataService } from "@koishijs/console";
 import type { DependencyMetaKey, RemotePackage } from "@koishijs/registry";
 import type { Context, Dict } from "koishi";

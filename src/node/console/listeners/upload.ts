@@ -1,3 +1,13 @@
+/**
+ * @file 本地 .tgz 上传类 console listener(upload 域)。
+ *
+ * 模块职责:把分块上传会话的五个 RPC(start/chunk/finish/commit/cancel)
+ * 逐一转发给 installer 的 LocalPackageUploadService。全部是无编排的纯
+ * 转发,因此走 registerContractListeners 表驱动注册。
+ *
+ * 架构位置:node 适配层 console/listeners,由 listeners/index.ts 聚合注册;
+ * 会话状态与文件落盘都在 core 的 upload 模块。
+ */
 import type { Context } from "koishi";
 import { registerContractListeners } from "./helpers.js";
 

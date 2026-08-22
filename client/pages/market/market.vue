@@ -1,11 +1,13 @@
 <template>
   <k-layout main="darker" :class="['page-market', modeClass]" menu="market">
+    <!-- 左侧栏:排序/徽章/高级日期/分类筛选 -->
     <template #left>
       <el-scrollbar>
         <market-filter v-model="words" :data="visibleData"></market-filter>
       </el-scrollbar>
     </template>
 
+    <!-- 加载态:市场索引拉取中;超过 8 秒追加慢加载提示与设置入口 -->
     <div v-if="marketLoading">
       <div class="el-loading-spinner">
         <svg class="circular" viewBox="25 25 50 50">
@@ -27,6 +29,7 @@
       </k-comment>
     </div>
 
+    <!-- 主体:搜索行,命中彩蛋关键词时整页切换为秘密档案,否则渲染列表 -->
     <el-scrollbar ref="root" v-else-if="data.length">
       <div class="market-search-row">
         <market-search ref="searchBox" v-model="words"></market-search>
@@ -47,9 +50,11 @@
         @debug="updateClientDebug"
         @update:page="scrollToTop">
         <template #header="{ hasFilter, all, packages }">
+          <!-- 统计行:命中数/总数 -->
           <div class="market-hint text-center">
             {{ hasFilter ? t('marketPage.results.filtered', { filtered: packages.length, total: all.length }) : t('marketPage.results.all', { total: all.length }) }}
           </div>
+          <!-- 缓存提示:索引已过期(stale)或仍在使用缓存 -->
           <k-comment v-if="showMarketCacheHint && store.market.stale" type="warning" class="market-stale">
             <p>{{ t('marketPage.cache.stale') }}</p>
             <p>
@@ -68,6 +73,7 @@
               <template v-if="store.market.validatedAt"> · {{ t('marketPage.cache.validatedAt', { value: formatTime(store.market.validatedAt) }) }}</template>
             </p>
           </k-comment>
+          <!-- 调试面板(开启 debug 时):数据源/体积/压缩比/各阶段耗时/端点评分 -->
           <k-comment v-if="store.market.debug" type="primary" class="market-debug">
             <p>{{ t('marketPage.debug.performance', { source: formatSource(store.market.debug.source), endpoint: store.market.debug.endpoint || store.market.registry || t('marketPage.registry.unknown') }) }}</p>
             <div class="market-debug-grid">
@@ -104,6 +110,7 @@
       </market-list>
     </el-scrollbar>
 
+    <!-- 错误态:市场索引加载失败,引导去设置页检查 registry -->
     <k-comment v-else type="danger" class="market-error">
       <p>{{ t('marketPage.error.title') }}</p>
       <p>
@@ -122,6 +129,22 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * @file 市场主页面(/market)。
+ *
+ * 模块职责:
+ * - 组装页面骨架:左侧筛选栏、顶部搜索框、卡片列表、加载/错误/慢加载
+ *  提示、缓存提示与调试面板;
+ * - 驱动市场快照的加载与刷新(onMounted 拉取、dataVersion 变化重拉);
+ * - 搜索词与 URL ?keyword= 双向同步;Ctrl+K 聚焦搜索框;
+ * - 卡片操作按钮的文案/类型(按安装状态与 pending override 决定)。
+ *
+ * 关键设计:
+ * - 快照数据来自 market/state.ts(shallowRef + store 兜底),本页只做
+ *  静音过滤(getSilentFiltered)与可见性过滤(show:hidden/show:deprecated),
+ *  查询词过滤与排序交给 market-list 组件;
+ * - 彩蛋:搜索词命中"恋恋世界第一"时整页切换为 market-secret-archive。
+ */
 
 import { router, store, global, useConfig } from '@koishijs/client'
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
@@ -140,6 +163,7 @@ import {
 } from '../../market/state'
 import { useMarketNextI18n } from '../../shared/i18n'
 
+/** installed 判定:优先 store.packages,静态站点模式退化为 dependencies。 */
 function installed(data: SearchObject) {
   if (store.packages) {
     return !!store.packages[data.package.name]
@@ -148,35 +172,47 @@ function installed(data: SearchObject) {
   }
 }
 
+/** 主滚动容器(滚动回顶用)。 */
 const root = ref()
+/** 搜索框组件引用(focus 快捷键用)。 */
 const searchBox = ref<{ focus?: () => void }>()
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
+/** 前端渲染模式(驱动根类名 market-mode-*)。 */
 const frontendMode = computed(() => getFrontendMode(config.value))
+/** gravatar 镜像:插件配置优先,退化为服务端下发的 store.market.gravatar。 */
 const marketGravatar = computed(() => config.value.market?.gravatar || store.market?.gravatar)
+/** 静音过滤规则(三代配置形态归一后的结果,见 plugin-config.ts)。 */
 const silentFilters = computed(() => {
   const rules = getMarketSilentRules(config.value)
   if (rules.length) return rules
   return parseSilentFilters(getMarketSilentFilters(config.value))
 })
+/** 模式类名(performance/polished)。 */
 const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
+// 注入市场配置:静态站点下不提供 installed 判定
 provide(kConfig, {
   installed: global.static ? undefined : installed,
 })
 
+/** 查询词表(与搜索框、筛选栏、列表共用)。 */
 const words = ref<string[]>([''])
 
+/** 已提交词表拼接的搜索串(URL 同步用)。 */
 const prompt = computed(() => words.value.filter(w => w).join(' '))
 
+/** 彩蛋判定:归一化(NFKC)后的搜索内容先含"恋恋"、随后含"世界第一"。 */
 const secretSearchMatched = computed(() => {
   const source = words.value.join('').normalize('NFKC')
   const prefixIndex = source.indexOf('恋恋')
   return prefixIndex >= 0 && source.indexOf('世界第一', prefixIndex + 2) >= 0
 })
 
+/** 彩蛋档案的"归档时间"(首次触发彩蛋时记录)。 */
 const secretArchiveRecordedAt = ref('')
 
+/** 当前 Koishi 版本(依赖表/包表多路兜底),供彩蛋档案展示。 */
 const secretArchiveKoishiVersion = computed(() => {
   return store.dependencies?.koishi?.resolved
     || store.packages?.koishi?.package.version
@@ -184,24 +220,30 @@ const secretArchiveKoishiVersion = computed(() => {
     || store.packages?.['@koishijs/core']?.package.version
 })
 
+// 触发彩蛋时记录时间并滚回顶部
 watch(secretSearchMatched, (matched) => {
   if (!matched) return
   secretArchiveRecordedAt.value = new Date().toLocaleString(locale.value)
   requestAnimationFrame(() => root.value?.scrollTo(0, 0))
 })
 
+/** 快照全量数据。 */
 const data = computed(() => Object.values(getMarketSnapshotData()))
 
+/** 市场总条数:优先服务端 total,退化为本地数据量(彩蛋档案展示)。 */
 const secretArchiveMarketCount = computed(() => store.market?.total || data.value.length)
 
+/** 静音过滤后的数据(隐藏用户配置中标记静音的条目)。 */
 const silentData = computed(() => getSilentFiltered(data.value, silentFilters.value, {
   installed: global.static ? undefined : installed,
 }))
 
+/** 可见性开关词状态(show:hidden / show:deprecated)。 */
 const visibilityMode = computed(() => {
   return `${words.value.includes('show:hidden') ? 1 : 0}:${words.value.includes('show:deprecated') ? 1 : 0}`
 })
 
+/** 可见性过滤后的数据:传给筛选栏(计数)与列表(visibility-prepared)。 */
 const visibleData = computed(() => {
   const [hidden, deprecated] = visibilityMode.value.split(':')
   const visibilityWords = [
@@ -211,6 +253,7 @@ const visibleData = computed(() => {
   return getVisible(silentData.value, visibilityWords)
 })
 
+/** 列表组件上报的前端调试统计(过滤/排序/虚拟化耗时)。 */
 const clientDebug = ref<{
   timings?: Record<string, number>
   total?: number
@@ -219,6 +262,11 @@ const clientDebug = ref<{
   rendered?: number
 }>({})
 
+/**
+ * 是否处于加载态:有数据或有错误即结束;真正在拉取(shallowRef 或
+ * store 标记 loading)时为 true;两边都没有数据但 total>0(数据还在
+ * 服务端没下发)也视为加载中。
+ */
 const marketLoading = computed(() => {
   if (data.value.length) return false
   if (marketSnapshotError.value) return false
@@ -228,13 +276,16 @@ const marketLoading = computed(() => {
   const hasResolvedSnapshot = !!marketSnapshot.value || !!store.market?.data
   return !hasResolvedSnapshot && (state.total ?? 0) > 0
 })
+/** 加载超过 8 秒后置 true,显示慢加载警告。 */
 const loadingSlow = ref(false)
 let loadingTimer: ReturnType<typeof setTimeout>
 
+/** 当前使用的 registry 端点(提示文案用)。 */
 const loadingEndpoint = computed(() => {
   return store.market?.registry || config.value.market?.search?.endpoint || 'https://registry.koishi.t4wefan.pub/index.json'
 })
 
+/** 超时配置的可读形态(ms/s)。 */
 const loadingTimeout = computed(() => {
   const timeout = config.value.market?.search?.timeout
   if (!timeout) return ''
@@ -242,10 +293,13 @@ const loadingTimeout = computed(() => {
   return String(timeout)
 })
 
+/** 是否启用端点自动路由(提示文案用,默认开启)。 */
 const loadingAutoRoute = computed(() => config.value.market?.search?.autoRoute !== false)
 
+/** 是否显示缓存提示(logLevel=silent 时隐藏)。 */
 const showMarketCacheHint = computed(() => config.value.market?.search?.logLevel !== 'silent')
 
+/** 调试面板的键值对条目(对象数/体积/编码/压缩比/端点/前后端统计)。 */
 const debugItems = computed(() => {
   const debug = store.market?.debug
   if (!debug) return []
@@ -268,6 +322,7 @@ const debugItems = computed(() => {
   ].map(([label, value]) => ({ label, value }))
 })
 
+/** 调试面板的耗时条目(服务端 timings 与前端 clientDebug 合并)。 */
 const debugTimings = computed(() => {
   return Object
     .entries({
@@ -277,6 +332,7 @@ const debugTimings = computed(() => {
     .filter(([, value]) => typeof value === 'number')
 })
 
+/** 调试面板的阶段概览(首次加载/后台刷新两阶段)。 */
 const debugPhases = computed(() => {
   const debug = store.market?.debug
   if (!debug) return []
@@ -289,8 +345,10 @@ const debugPhases = computed(() => {
   }))
 })
 
+/** 端点评分排行(前 6 个候选端点的分数/延迟/缓存状态)。 */
 const debugRoutes = computed(() => store.market?.debug?.routeScores?.slice(0, 6) ?? [])
 
+// URL ?keyword= → 词表(外部跳转带搜索词进入市场页)
 watch(router.currentRoute, (value) => {
   if (value.path !== '/market') return
   const { keyword } = value.query
@@ -302,6 +360,7 @@ watch(router.currentRoute, (value) => {
 
 let routeSyncTimer: ReturnType<typeof setTimeout>
 
+// 词表 → URL ?keyword=(180ms 去抖,用 replace 不产生历史记录)
 watch(prompt, (value) => {
   clearTimeout(routeSyncTimer)
   routeSyncTimer = setTimeout(() => {
@@ -315,12 +374,14 @@ watch(prompt, (value) => {
   }, 180)
 }, { deep: true })
 
+// 加载态变化时重启慢加载计时(8 秒后告警)
 watch(marketLoading, (loading) => {
   loadingSlow.value = false
   clearTimeout(loadingTimer)
   if (loading) scheduleLoadingWarning()
 }, { immediate: true })
 
+// 服务端刷新了市场索引(dataVersion 前进)→ 重拉快照拿新数据
 watch(() => store.market?.dataVersion, (version, previous) => {
   if (version == null || version === previous) return
   void loadMarketSnapshot().catch(error => console.error('[market-next] failed to refresh market index', error))
@@ -338,6 +399,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onSearchShortcut)
 })
 
+/** 全局键盘快捷键:Ctrl/Cmd+K 聚焦搜索框;彩蛋页 Esc 清词并聚焦。 */
 function onSearchShortcut(event: KeyboardEvent) {
   if (router.currentRoute.value?.path !== '/market') return
   if (event.key === 'Escape' && secretSearchMatched.value) {
@@ -352,6 +414,7 @@ function onSearchShortcut(event: KeyboardEvent) {
   searchBox.value?.focus?.()
 }
 
+/** 慢加载计时:加载持续超过 8 秒置 loadingSlow。 */
 function scheduleLoadingWarning() {
   clearTimeout(loadingTimer)
   if (!marketLoading.value) return
@@ -360,6 +423,7 @@ function scheduleLoadingWarning() {
   }, 8000)
 }
 
+/** 卡片操作按钮颜色:已装绿/待操作黄/待卸载红,未装蓝。 */
 function getType(data: SearchObject) {
   if (global.static) return 'primary'
   const version = getPendingOverrides()[data.package.name]
@@ -372,6 +436,7 @@ function getType(data: SearchObject) {
   return 'primary'
 }
 
+/** 卡片操作按钮文案:与 getType 的状态机一一对应。 */
 function getText(data: SearchObject) {
   if (global.static) return t('marketPage.actions.config')
   const version = getPendingOverrides()[data.package.name]
@@ -384,6 +449,7 @@ function getText(data: SearchObject) {
   return t('marketPage.actions.addPlugin')
 }
 
+/** 打开条目详情:可安装的合包打开合包弹层,普通包设置 active 弹层。 */
 function openPackage(data: SearchObject) {
   if (!global.static && canInstallBundleSearchObject(data)) {
     activeBundle.value = data
@@ -392,18 +458,22 @@ function openPackage(data: SearchObject) {
   active.value = data.package.name
 }
 
+/** 滚回列表顶部(翻页时由列表触发)。 */
 function scrollToTop() {
   root.value?.scrollTo(0, 0)
 }
 
+/** 时间戳 → 本地化时间串。 */
 function formatTime(value: number) {
   return new Date(value).toLocaleString(locale.value)
 }
 
+/** 接收列表组件上报的前端调试统计。 */
 function updateClientDebug(value: typeof clientDebug.value) {
   clientDebug.value = value
 }
 
+/** 数据来源的网络/磁盘缓存/304/哈希缓存/legacy 枚举翻译。 */
 function formatSource(source?: string) {
   const labels: Record<string, string> = {
     'network': t('marketPage.debug.sourceNetwork'),
@@ -415,6 +485,7 @@ function formatSource(source?: string) {
   return source ? labels[source] || source : t('marketPage.debug.unknown')
 }
 
+/** 耗时项 key → 本地化名称(请求/版本探测/解析/前后端各阶段)。 */
 function formatTimingName(name: string) {
   const labels: Record<string, string> = {
     request: t('marketPage.debug.request'),
@@ -434,10 +505,12 @@ function formatTimingName(name: string) {
   return labels[name] || name
 }
 
+/** 毫秒数 → "Nms"。 */
 function formatDuration(value: number) {
   return `${Math.round(value)}ms`
 }
 
+/** 阶段概览:来源/端点/回退原因/总耗时/编码/体积拼接成一行。 */
 function formatDebugPhase(value: {
   source?: string
   endpoint?: string
@@ -457,6 +530,7 @@ function formatDebugPhase(value: {
   return parts.filter(Boolean).join(' / ')
 }
 
+/** 端点回退原因枚举翻译。 */
 function formatFallbackReason(value?: string) {
   switch (value) {
     case 'primary-failed': return t('marketPage.debug.primaryFailed')
@@ -467,6 +541,7 @@ function formatFallbackReason(value?: string) {
   }
 }
 
+/** 字节数 → B/KB/MB 文案。 */
 function formatSize(value?: number) {
   if (value == null) return '-'
   if (value > 1024 * 1024) return `${(value / 1024 / 1024).toFixed(2)}MB`
@@ -474,16 +549,19 @@ function formatSize(value?: number) {
   return `${value}B`
 }
 
+/** 内容编码展示,缺省 identity(未压缩)。 */
 function formatEncoding(value?: string) {
   return value || 'identity'
 }
 
+/** 压缩比:解码体积/传输体积;未压缩时显示占位文案。 */
 function formatCompressionRatio(decoded?: number, encoded?: number) {
   if (!decoded || !encoded) return '-'
   if (encoded >= decoded) return t('marketPage.debug.uncompressed')
   return `${(decoded / encoded).toFixed(1)}x`
 }
 
+/** 端点 URL → 只显示主机名(解析失败原样返回)。 */
 function shortEndpoint(value?: string) {
   if (!value) return '-'
   try {
@@ -494,10 +572,12 @@ function shortEndpoint(value?: string) {
   }
 }
 
+/** 端点评分 → 一位小数文本。 */
 function formatScore(value?: number) {
   return value == null ? '-' : value.toFixed(1)
 }
 
+/** 数字 → 千分位文本(空值显示 -)。 */
 function formatNumber(value?: number) {
   return value == null ? '-' : value.toLocaleString()
 }

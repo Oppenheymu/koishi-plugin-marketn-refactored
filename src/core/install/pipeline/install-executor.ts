@@ -1,3 +1,20 @@
+/**
+ * @file 安装执行器(core/install/pipeline 域):installLocked 的流程本体。
+ *
+ * 完整流程:依赖缓存取数 → 快照 package.json → 本地依赖解析 → 是否需要
+ * 包管理器判定 → 本地来源补齐 → 覆盖 package.json → 运行包管理器
+ * (失败则回滚清单)→ 依赖状态重置 → 整帧重载判定 → 收尾(环境快照/日志)。
+ *
+ * 关键设计:
+ * - 包管理器非零退出不抛异常而是返回退出码,同时回滚 package.json 到快照;
+ * - 失败路径统一在 runInstallLocked 的 catch/finally 收口:
+ *   异常上抛但安装日志(logs.finish)必定定稿;
+ * - 环境快照经由编排器注入的 recordEnvironmentSnapshot 记录,
+ *   "external"(操作前)与"operation"(操作后)各一次。
+ *
+ * 架构位置:自旧 InstallOrchestrator 拆出,由编排器在串行锁内调用;
+ * 成块移植自旧 Installer 的 _installLocked,流程未改。
+ */
 import { resolve } from "node:path";
 import type { PackageJson } from "@koishijs/registry";
 import type { Dict } from "koishi";
@@ -43,6 +60,7 @@ export class InstallExecutor {
     ): Promise<number> {
         options ||= {};
         const start = Date.now();
+        // 先取一份不加后台刷新的依赖缓存:后面 requiresPackageManager 判定以它为基准
         const depCache = this.deps.resolver.getDeps({ background: false }) as Dict<Dependency>;
         return this.runInstallLocked(deps, forced, beforeReload, options, start, depCache);
     }
@@ -55,7 +73,9 @@ export class InstallExecutor {
     ): Promise<number | undefined> {
         this.deps.logs.emit("stdout", "running package manager install…");
         const code = await this.installWithRegistry(options);
+        // code 为 0(falsy)时走到 undefined 返回值,表示"包管理器阶段成功"
         if (!code) return;
+        // 非零退出:把 package.json 回滚到安装前快照,并重建依赖状态,原样返回退出码
         await restorePackageManifest(
             this.deps.cwd,
             snapshot,
@@ -79,6 +99,7 @@ export class InstallExecutor {
         try {
             snapshot = await snapshotPackageManifest(this.deps.cwd);
         } catch (error) {
+            // 快照失败不在此时抛:先让 beginInstallLog 记录请求日志,再由它统一抛出
             snapshotError = error;
         }
         const localDeps = resolveLocalDeps(deps, this.deps.cwd);
@@ -109,6 +130,7 @@ export class InstallExecutor {
         start: number,
     ) {
         await this.refreshDependencyState();
+        // 重置后取新鲜依赖缓存,用于判定本地依赖版本是否真的发生了变化
         const newDeps = this.deps.resolver.getDeps({
             background: false,
         }) as Dict<Dependency>;
@@ -147,6 +169,7 @@ export class InstallExecutor {
             forced,
         );
         if (needsPackageManager) {
+            // 本地来源(file:/workspace)需要先补齐/校验,才能交给包管理器解析
             await resolveLocalSources(this.deps, depCache, deps);
         }
         await this.applyOverride(snapshot.manifest, deps);
@@ -157,6 +180,10 @@ export class InstallExecutor {
         return { snapshot, localDeps, needsPackageManager };
     }
 
+    /**
+     * 锁内安装的顶层流程:准备并覆盖清单 → (按需)跑包管理器 → 成功收尾;
+     * 包管理器非零退出码直接返回,异常上抛;finally 里无论如何都定稿安装日志。
+     */
     private async runInstallLocked(
         deps: Dict<string>,
         forced: boolean | undefined,
@@ -178,6 +205,7 @@ export class InstallExecutor {
             if (needsPackageManager) {
                 const code = await this.runPackageManagerPhase(deps, snapshot, options);
                 if (code !== undefined) {
+                    // 非零退出:清单已回滚,直接把退出码交还调用方,不进成功收尾
                     resultCode = code;
                     logResult = { code };
                     return code;
@@ -201,6 +229,7 @@ export class InstallExecutor {
             this.deps.logs.emit("stderr", `dependency operation failed: ${reason}`);
             throw error;
         } finally {
+            // 日志定稿失败只告警:不能让收尾失败掩盖安装本身的结果
             await this.deps.logs.finish(logResult).catch((error) => {
                 this.deps.log.warn(
                     `failed to finish dependency install log: ${error instanceof Error ? error.message : error}`,
@@ -209,6 +238,7 @@ export class InstallExecutor {
         }
     }
 
+    /** 把目标依赖覆盖写进 package.json(空串请求 = 删除该依赖)。 */
     private async applyOverride(manifest: PackageJson, deps: Dict<string>) {
         const filename = resolve(this.deps.cwd, "package.json");
         this.deps.log.debug(
@@ -221,6 +251,7 @@ export class InstallExecutor {
         );
     }
 
+    /** 计算并运行包管理器:优先本次安装的临时 endpoint,其次配置指定的 registry。 */
     private installWithRegistry(options: InstallOptions) {
         options ||= {};
         const args: string[] = [];
@@ -238,6 +269,7 @@ export class InstallExecutor {
 
     /** 安装前的依赖状态全量重置（旧 refresh() 主流程）。 */
     async refreshDependencyState() {
+        // 先推进竞速失效域:让此前发出的旧 registry 请求全部作废
         this.deps.scope.advance("dependency refresh superseded");
         await this.deps.registry.resetEndpoint();
         this.deps.clearRegistryStatus();

@@ -74,6 +74,14 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * @file 安装进度面板(终端风格日志窗口)。
+ *
+ * 纯展示组件:所有状态来自 shared/operations 的 installProgressState
+ * (唯一状态源),install()/applyEnvironmentSnapshot()/bundle-install 都往
+ * 里写。本组件负责状态横幅、日志终端(自动滚底)、fallback 镜像重试按钮
+ * 与关闭控制(running 中禁止关闭)。由 app/pages.ts 全局挂载。
+ */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useConfig } from '@koishijs/client'
 import { getFrontendMode } from '../shared/plugin-config'
@@ -84,10 +92,13 @@ import MarketIcon from '../market/icons'
 const config = useConfig()
 const { t } = useMarketNextI18n()
 const frontendMode = computed(() => getFrontendMode(config.value))
+/** 前端外观模式对应的根 class,主题适配用。 */
 const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
+/** 日志视口元素引用,用于自动滚底。 */
 const viewport = ref<HTMLElement>()
 
+/** 状态横幅文案:按 环境回滚/自更新/普通安装 × running/success/error 组合取 i18n。 */
 const statusText = computed(() => {
   if (installProgressState.environmentRestore) {
     switch (installProgressState.status) {
@@ -120,16 +131,19 @@ watch(() => installProgressState.logs.length, () => {
   })
 })
 
+/** 关闭前拦截:running 状态下不允许关闭(点 X / 遮罩都走这里)。 */
 function handleBeforeClose(done: () => void) {
   if (installProgressState.status !== 'running') {
     done()
   }
 }
 
+/** 底部"关闭/执行中"按钮:仅在非 running 状态可点。 */
 function close() {
   installProgressState.visible = false
 }
 
+/** fallback 镜像重试按钮:执行 shared 挂上来的 retryFallback 回调。 */
 function retryFallback() {
   void installProgressState.retryFallback?.()
 }

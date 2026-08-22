@@ -1,3 +1,21 @@
+/**
+ * @file market-next 插件配置与前端持久化数据的读写层(shared 域)。
+ *
+ * 模块职责:
+ * - 从 store.config.plugins 里定位本插件的配置节点(findMarketNextConfig),
+ *  并在其上提供一组类型化的读取器(前端模式/依赖布局/静音过滤规则/更新策略等);
+ * - 维护 store.marketData(本插件私有的前端数据:待应用 override、更新忽略
+ *  记录、合包记录、折叠分组),提供 patchMarketNextConfig/Data 双写
+ *  (本地立即生效 + RPC 同步服务端持久化);
+ * - 更新忽略(update ignore)族函数:基于 src/shared/update 的共享逻辑,
+ *  判断某包的新版本是否被用户显式忽略。
+ *
+ * 关键设计:
+ * - 静音过滤有三代配置形态(marketSilentFilters 字符串 → 四组结构化规则 →
+ *  marketSilentRules 扁平规则),读取时按"最新形态优先"逐级回退;
+ * - store.marketData 缺失时落到本地 reactive 兜底对象,保证任何读取都有返回。
+ */
+
 import { reactive, ref } from 'vue'
 import { send, store } from '@koishijs/client'
 import { gt } from 'semver'
@@ -15,11 +33,15 @@ import { isLocalDependency } from '../../src/shared/dependency-source'
 
 export type { IgnoredUpdates, UpdateIgnoreRule } from '../../src/shared/update'
 
+/** 市场条目弹层当前打开的包名(空串表示关闭);安装开始前会被清空。 */
 export const active = ref('')
 
+/** 前端渲染模式:performance(默认,精简) / polished(动效增强)。 */
 export type FrontendMode = 'performance' | 'polished'
+/** 依赖页布局:grid(卡片网格,默认) / list(列表)。 */
 export type LayoutMode = 'grid' | 'list'
 
+/** 可通过 patchMarketNextConfig 下发的插件配置补丁形态。 */
 export interface MarketNextConfigPatch extends UpdatePolicy {
   frontendMode?: FrontendMode
   depsLayout?: LayoutMode
@@ -50,12 +72,14 @@ export type MarketNextConfig = MarketNextConfigPatch & {
   }
 }
 
+/** 静音过滤规则之一:按状态标记(preview/insecure/bundle)整体隐藏。 */
 export interface MarketSilentStatusRule {
   target?: 'preview' | 'insecure' | 'bundle'
   note?: string
   enabled?: boolean
 }
 
+/** 静音过滤规则之一:按创建/更新日期的先后关系隐藏。 */
 export interface MarketSilentDateRule {
   field?: 'created' | 'updated'
   relation?: 'before' | 'after'
@@ -64,6 +88,7 @@ export interface MarketSilentDateRule {
   enabled?: boolean
 }
 
+/** 静音过滤规则之一:按创建/更新时间在 N 天内隐藏。 */
 export interface MarketSilentRecentRule {
   field?: 'created' | 'updated'
   days?: number
@@ -71,12 +96,14 @@ export interface MarketSilentRecentRule {
   enabled?: boolean
 }
 
+/** 静音过滤规则之一:任意自定义查询词。 */
 export interface MarketSilentCustomRule {
   query?: string
   note?: string
   enabled?: boolean
 }
 
+/** 扁平化的静音过滤规则(设置面板"高级"形态,可无损转成查询词)。 */
 export interface MarketSilentRule {
   type?: 'custom' | 'preview' | 'insecure' | 'bundle' | 'created-before' | 'created-after' | 'updated-before' | 'updated-after' | 'created-within' | 'updated-within'
   value?: string
@@ -87,11 +114,13 @@ export interface MarketSilentRule {
   enabled?: boolean
 }
 
+/** 创建忽略规则时的附加选项(覆盖策略里的默认时长/次数)。 */
 export interface UpdateIgnoreOptions {
   duration?: number
   count?: number
 }
 
+/** 更新策略:忽略记录 + 三个全局开关(哪些包禁检/忽略时长/忽略版本数/预发布)。 */
 export interface UpdatePolicy {
   updateIgnored?: IgnoredUpdates
   updateIgnoredPackages?: string
@@ -100,13 +129,19 @@ export interface UpdatePolicy {
   updateIgnorePrerelease?: boolean
 }
 
+/** 本插件在前端的数据仓(store.marketData)形态,由服务端持久化回发。 */
 export interface MarketNextDataStore {
+  /** 待应用的依赖变更:包名 → 版本请求(空串表示待卸载)。 */
   override?: Record<string, string>
+  /** 各包的更新忽略规则。 */
   updateIgnored?: IgnoredUpdates
+  /** 合包安装记录。 */
   bundleRecords?: Record<string, any>
+  /** 依赖页各分组的折叠状态。 */
   collapsedGroups?: Record<string, boolean>
 }
 
+/** store.marketData 缺失时的本地兜底仓(非持久化,仅保证读取不空)。 */
 const fallbackMarketData = reactive<MarketNextDataStore>({
   override: {},
   updateIgnored: {},
@@ -114,32 +149,41 @@ const fallbackMarketData = reactive<MarketNextDataStore>({
   collapsedGroups: {},
 })
 
+/** 取本插件的数据仓:优先 store.marketData(服务端已推送),否则就地初始化。 */
 function getMarketDataStore(): MarketNextDataStore {
   return ((store as any).marketData ||= fallbackMarketData)
 }
 
+/** 待应用的依赖 override 表:包名 → 版本请求('' 表示待卸载)。 */
 export function getPendingOverrides() {
   const data = getMarketDataStore()
   data.override ||= {}
   return data.override
 }
 
+/** 依赖页分组的折叠状态表:分组 key → 是否折叠。 */
 export function getCollapsedGroups() {
   const data = getMarketDataStore()
   data.collapsedGroups ||= {}
   return data.collapsedGroups
 }
 
+/** 校验前端模式取值,非法输入返回 undefined(由调用方回退默认值)。 */
 export function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
   return value === 'polished' || value === 'performance' ? value : undefined
 }
 
+/**
+ * 当前前端渲染模式。数据源是 store 里的插件配置(参数 config 仅为兼容
+ * 既有调用签名,不参与判定),未配置或插件未安装时默认 performance。
+ */
 export function getFrontendMode(config?: { market?: { frontendMode?: FrontendMode } }): FrontendMode {
   const pluginConfig = getMarketNextConfig()
   if (pluginConfig) return normalizeFrontendMode(pluginConfig.frontendMode) ?? 'performance'
   return 'performance'
 }
 
+/** 依赖页布局:读取插件配置,默认 grid。 */
 export function getDepsLayout(config?: { market?: { depsLayout?: LayoutMode } }): LayoutMode {
   const pluginConfig = getMarketNextConfig()
   if (pluginConfig) return pluginConfig.depsLayout === 'list' ? 'list' : 'grid'
@@ -157,6 +201,11 @@ interface SilentConfig {
   }
 }
 
+/**
+ * 把静音过滤配置转成多行查询词字符串(每行一条,供搜索框回显)。
+ * 优先级:扁平规则 marketSilentRules > 四组结构化规则 > 原始字符串
+ * marketSilentFilters;三者都没配置时返回空串。
+ */
 export function getMarketSilentFilters(config?: SilentConfig) {
   const pluginConfig = getMarketNextConfig()
   if (hasOwn(pluginConfig, 'marketSilentRules')) {
@@ -171,6 +220,10 @@ export function getMarketSilentFilters(config?: SilentConfig) {
   return ''
 }
 
+/**
+ * 把静音过滤配置转成查询词数组(市场页据此做 getSilentFiltered 预过滤)。
+ * 优先级同 getMarketSilentFilters。
+ */
 export function getMarketSilentRules(config?: SilentConfig) {
   const pluginConfig = getMarketNextConfig()
   if (hasOwn(pluginConfig, 'marketSilentRules')) return rulesToSilentFilters(Array.isArray(pluginConfig.marketSilentRules) ? pluginConfig.marketSilentRules : [])
@@ -178,6 +231,7 @@ export function getMarketSilentRules(config?: SilentConfig) {
   return []
 }
 
+/** 四组结构化静音规则里任意一组有内容即视为"新形态配置已启用"。 */
 function hasNewSilentRuleConfig(config?: Record<string, any>) {
   return hasConfiguredSilentRules(config?.marketSilentStatusRules)
     || hasConfiguredSilentRules(config?.marketSilentDateRules)
@@ -185,10 +239,12 @@ function hasNewSilentRuleConfig(config?: Record<string, any>) {
     || hasConfiguredSilentRules(config?.marketSilentCustomRules)
 }
 
+/** 非空数组才算"已配置"(undefined/空数组都视为未配置)。 */
 function hasConfiguredSilentRules(value: unknown) {
   return Array.isArray(value) && value.length > 0
 }
 
+/** 四组结构化规则全部转平并合并成查询词数组。 */
 function structuredSilentRulesToFilters(config?: SilentConfig['market']) {
   return [
     ...statusRulesToFilters(config?.marketSilentStatusRules ?? []),
@@ -198,24 +254,28 @@ function structuredSilentRulesToFilters(config?: SilentConfig['market']) {
   ]
 }
 
+/** 状态规则 → `is:xxx` 查询词(enabled=false 或缺 target 的丢弃)。 */
 function statusRulesToFilters(rules: MarketSilentStatusRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false && rule.target)
     .map(rule => `is:${rule.target}`)
 }
 
+/** 日期规则 → `created:<2020-01-01` 形态(日期格式不合法的丢弃)。 */
 function dateRulesToFilters(rules: MarketSilentDateRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false && rule.field && rule.relation && isDateString(rule.date))
     .map((rule) => `${rule.field}:${rule.relation === 'before' ? '<' : '>'}${rule.date}`)
 }
 
+/** 近期规则 → `created:within:30` 形态(days 必须为正数)。 */
 function recentRulesToFilters(rules: MarketSilentRecentRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false && rule.field && Number.isFinite(rule.days) && rule.days! > 0)
     .map(rule => `${rule.field}:within:${Math.floor(rule.days!)}`)
 }
 
+/** 自定义规则 → 原样输出查询词(去空白)。 */
 function customRulesToFilters(rules: MarketSilentCustomRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false)
@@ -223,10 +283,12 @@ function customRulesToFilters(rules: MarketSilentCustomRule[]) {
     .filter(Boolean)
 }
 
+/** 严格校验 YYYY-MM-DD 字符串。 */
 function isDateString(value?: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value ?? '')
 }
 
+/** 扁平规则数组 → 有效查询词数组(enabled=false 与转换失败的丢弃)。 */
 export function rulesToSilentFilters(rules: MarketSilentRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false)
@@ -234,6 +296,10 @@ export function rulesToSilentFilters(rules: MarketSilentRule[]) {
     .filter(Boolean)
 }
 
+/**
+ * 单条扁平规则 → 查询词。value 字段按规则类型被复用为 date/days/query
+ * 的兜底来源;无法转换(日期非法、天数非正整数等)返回空串由上层过滤。
+ */
 export function ruleToSilentFilter(rule: MarketSilentRule) {
   const value = String(rule.value ?? '').trim()
   const date = String(rule.date ?? value).trim()
@@ -255,15 +321,21 @@ export function ruleToSilentFilter(rule: MarketSilentRule) {
   }
 }
 
+/** 字符串形式的无符号正整数判定(within:N 类规则的入参校验)。 */
 function isPositiveInteger(value?: string) {
   const number = Number(value)
   return Number.isFinite(number) && number > 0 && Math.floor(number) === number
 }
 
+/** 从 store.config.plugins 里定位本插件的配置节点;插件未配置时为 undefined。 */
 export function getMarketNextConfig(): MarketNextConfig | undefined {
   return findMarketNextConfig((store as any).config?.plugins)
 }
 
+/**
+ * 当前生效的更新策略:全局开关取自插件配置(只挑已显式配置的键),
+ * 逐包忽略记录(updateIgnored)始终以数据仓为准。
+ */
 export function getMarketNextPolicy(fallback?: { market?: UpdatePolicy }): UpdatePolicy {
   const pluginConfig = getMarketNextConfig()
   const data = getMarketDataStore()
@@ -278,6 +350,10 @@ export function getMarketNextPolicy(fallback?: { market?: UpdatePolicy }): Updat
   }
 }
 
+/**
+ * 可写形态的更新策略:把数据仓的 updateIgnored 同步进插件配置节点再返回,
+ * 调用方对返回值的修改会直接反映到配置面板与后续 getMarketNextConfig 读取。
+ */
 export function getWritableMarketNextPolicy(fallback?: { market?: UpdatePolicy }): UpdatePolicy {
   const pluginConfig = getMarketNextConfig()
   const data = getMarketDataStore()
@@ -287,6 +363,7 @@ export function getWritableMarketNextPolicy(fallback?: { market?: UpdatePolicy }
   return pluginConfig
 }
 
+/** 批量模式开关(依赖页批量选择);未配置默认关闭。 */
 export function getBulkMode(fallback?: { market?: { bulkMode?: boolean } }) {
   const pluginConfig = getMarketNextConfig()
   if (hasOwn(pluginConfig, 'bulkMode')) {
@@ -295,6 +372,7 @@ export function getBulkMode(fallback?: { market?: { bulkMode?: boolean } }) {
   return false
 }
 
+/** 卸载依赖时是否顺带删除插件配置;未配置返回 undefined(由调用方决定)。 */
 export function getRemoveConfig(fallback?: { market?: { removeConfig?: boolean } }) {
   const pluginConfig = getMarketNextConfig()
   if (hasOwn(pluginConfig, 'removeConfig')) {
@@ -303,16 +381,22 @@ export function getRemoveConfig(fallback?: { market?: { removeConfig?: boolean }
   return undefined
 }
 
+/** 合包安装记录(只读视图;数据仓缺失时返回空对象)。 */
 export function getBundleRecords(fallback?: { market?: { bundleRecords?: Record<string, any> } }) {
   return getMarketDataStore().bundleRecords ?? {}
 }
 
+/** 合包安装记录的可写引用(直接改它再 patchMarketNextData 持久化)。 */
 export function getWritableBundleRecords(fallback?: { market?: { bundleRecords?: Record<string, any> } }) {
   const data = getMarketDataStore()
   data.bundleRecords ||= {}
   return data.bundleRecords
 }
 
+/**
+ * 更新插件配置:本地配置节点立即合并(配置面板即时生效),再异步发
+ * market/update-config RPC 让服务端持久化;请求失败只告警并返回 false。
+ */
 export function patchMarketNextConfig(patch: Partial<MarketNextConfigPatch>) {
   const pluginConfig = getMarketNextConfig()
   if (pluginConfig) Object.assign(pluginConfig, patch)
@@ -324,6 +408,10 @@ export function patchMarketNextConfig(patch: Partial<MarketNextConfigPatch>) {
   })
 }
 
+/**
+ * 更新前端数据仓:本地立即合并,再发 market/update-data RPC;服务端会
+ * 返回规整后的完整数据(含其他标签页的写入),回填本地保证多端一致。
+ */
 export function patchMarketNextData(patch: Partial<MarketNextDataStore>) {
   const data = getMarketDataStore()
   Object.assign(data, patch)
@@ -338,6 +426,10 @@ export function patchMarketNextData(patch: Partial<MarketNextDataStore>) {
   })
 }
 
+/**
+ * 为某包创建"忽略此更新"规则:目标是当前最新的未忽略版本,时长/次数
+ * 先取本次 options,缺省回落到策略里的全局配置。取不到版本返回 undefined。
+ */
 export function createUpdateIgnoreRule(name: string, policy?: UpdatePolicy, options: UpdateIgnoreOptions = {}): UpdateIgnoreRule | undefined {
   const version = getLatestVersion(name, policy)
   if (!version) return
@@ -352,11 +444,13 @@ export function createUpdateIgnoreRule(name: string, policy?: UpdatePolicy, opti
   }
 }
 
+/** 某包当前应升级到的版本:更新候选里第一个未被忽略的(候选已按版本降序)。 */
 export function getLatestVersion(name: string, policy?: UpdatePolicy) {
   const candidates = getUpdateCandidates(name, policy)
   return candidates.find(version => !isUpdateVersionIgnored(name, version, candidates, policy))
 }
 
+/** 最新版本恰好被忽略时返回该版本(用于"已忽略"标记),否则 undefined。 */
 export function getIgnoredUpdateVersion(name: string, policy?: UpdatePolicy) {
   if (isUpdateCheckDisabled(name, policy)) return
   const latest = getUpdateCandidates(name, policy)[0]
@@ -364,6 +458,7 @@ export function getIgnoredUpdateVersion(name: string, policy?: UpdatePolicy) {
   return latest
 }
 
+/** 把忽略规则格式成用户可读文案(忽略的版本 + 剩余次数 + 截止时间)。 */
 export function getUpdateIgnoreText(name: string, policy?: UpdatePolicy) {
   const rule = normalizeUpdateIgnoreRule(policy?.updateIgnored?.[name])
   if (!rule?.version) return ''
@@ -373,10 +468,12 @@ export function getUpdateIgnoreText(name: string, policy?: UpdatePolicy) {
   return parts.join(translate('common.ignore.separator'))
 }
 
+/** 某包的最新版本是否处于被忽略状态。 */
 export function isUpdateIgnored(name: string, policy?: UpdatePolicy) {
   return !!getIgnoredUpdateVersion(name, policy)
 }
 
+/** 某包是否有可升级的新版本(最新版比已装的高,且不在忽略之列;本地依赖不算)。 */
 export function hasUpdate(name: string, policy?: UpdatePolicy) {
   const latest = getLatestVersion(name, policy)
   const local = store.dependencies?.[name]
@@ -386,21 +483,34 @@ export function hasUpdate(name: string, policy?: UpdatePolicy) {
   } catch {}
 }
 
+/** 某包是否被用户显式禁用更新检查(updateIgnoredPackages 名单)。 */
 export function isUpdateCheckDisabled(name: string, policy?: UpdatePolicy) {
   return isSharedUpdateCheckDisabled(name, policy)
 }
 
+/**
+ * 某包的升级候选版本列表:本地依赖(file/link 装的)无候选,其余从
+ * registry 元数据的版本号里筛出比已装版本新的,交由共享逻辑排序过滤。
+ */
 function getUpdateCandidates(name: string, policy?: UpdatePolicy) {
   const local = store.dependencies?.[name]
   if (isLocalDependency(local)) return []
   return getSharedUpdateCandidates(Object.keys(store.registry?.[name] ?? {}), local?.resolved, policy)
 }
 
+/** 指定版本是否被该包的忽略规则覆盖(次数/时长/精确版本匹配)。 */
 function isVersionIgnored(name: string, version: string, policy?: UpdatePolicy) {
   const candidates = getUpdateCandidates(name, policy)
   return isUpdateVersionIgnored(name, version, candidates, policy)
 }
 
+/**
+ * 在插件配置树里递归查找本插件的节点:
+ * - 键以 $ 开头的是注释/元信息,跳过;
+ * - 键以 ~ 开头表示插件被禁用,记作 fallback 备选;
+ * - 支持嵌套在 group 分组里的配置;
+ * 优先返回启用节点的配置,全部被禁用时返回最后一个禁用节点(保证还能读写)。
+ */
 function findMarketNextConfig(plugins: any): any {
   let fallback: any
 
@@ -426,6 +536,7 @@ function findMarketNextConfig(plugins: any): any {
   return visit(plugins) ?? fallback
 }
 
+/** 从对象里挑出"显式存在"的键组成子对象(undefined 但存在的键会保留)。 */
 function pickExisting<T extends object, K extends keyof T>(source: T, keys: K[]): Partial<Pick<T, K>> {
   const result: Partial<Pick<T, K>> = {}
   for (const key of keys) {
@@ -436,6 +547,7 @@ function pickExisting<T extends object, K extends keyof T>(source: T, keys: K[])
   return result
 }
 
+/** Object.prototype.hasOwnProperty 的类型安全包装,并收窄 undefined 源。 */
 function hasOwn<T extends object, K extends PropertyKey>(source: T | undefined, key: K): source is T & Record<K, unknown> {
   return !!source && Object.prototype.hasOwnProperty.call(source, key)
 }

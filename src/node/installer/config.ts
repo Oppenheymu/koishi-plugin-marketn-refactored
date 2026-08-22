@@ -1,10 +1,18 @@
+/**
+ * @file installer(registry/安装)子配置的 Schema 与选项类型(installer 域)。
+ *
+ * 作为 config/index.ts 中 registry 字段的类型来源,同时被 wire.ts 读取以
+ * 配置 RegistryClient/并发/超时等。字段说明见各 Schema description。
+ */
 import { Schema, Time } from "koishi";
 
+/** getDeps 的选项透传类型:metadata = 等 latest 元数据,background = 是否后台刷新。 */
 export interface InstallerGetDepsOptions {
     metadata?: boolean;
     background?: boolean;
 }
 
+/** registry/安装相关配置(koishi.yml 中本插件节点的 registry 子对象)。 */
 export interface InstallerConfig {
     endpoint?: string;
     timeout?: number;
@@ -16,6 +24,7 @@ export interface InstallerConfig {
     installLogRetention?: number;
 }
 
+/** InstallerConfig 的 Koishi Schema:registry 端点/超时/重试/并发/日志保留。 */
 export const InstallerConfig: Schema<InstallerConfig> = Schema.object({
     endpoint: Schema.string().role("link"),
     timeout: Schema.number()

@@ -1,3 +1,10 @@
+/**
+ * @file 环境快照的构建与回滚规划(core/environment 域)。
+ *
+ * buildEnvironmentDependencies 把 manifest 请求表与本地解析结果(localDeps)
+ * 合成为快照依赖表;planEnvironmentApply 是应用(回滚到)某快照前的纯规划:
+ * diff + 不可恢复项 + 安装请求变化,实际执行在 install/environment.ts。
+ */
 import type { Dict } from "koishi";
 import { valid } from "semver";
 import type { Dependency } from "../deps/types.js";
@@ -19,6 +26,7 @@ export function buildEnvironmentDependencies(
             source: localDeps[name]?.source,
             local: localDeps[name]?.local,
             bound: localDeps[name]?.bound,
+            // 与 deps/resolver 同一判定口径:非本地且非合法 semver 视为 invalid
             invalid: !localDeps[name]?.local && !valid(normalizedRequest),
         };
     }

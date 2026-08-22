@@ -8,6 +8,7 @@
     destroy-on-close
     @update:model-value="close"
   >
+    <!-- 头部 hero:图标 + 合包标题(带 bundle 徽标) + 包名/版本 -->
     <template #header>
       <div class="bundle-hero">
         <div class="bundle-hero-icon">
@@ -31,6 +32,7 @@
     </template>
 
     <template v-if="activeBundle">
+      <!-- 加载/错误态:清单拉取中转圈,失败展示红色错误 -->
       <div v-if="loading" class="bundle-loading">
         <span class="bundle-loading-spinner"></span>
         {{ t('bundle.loading') }}
@@ -318,6 +320,7 @@
       </template>
     </template>
 
+    <!-- 底部操作栏:取消 / 安装(带勾选数,不可用时禁用) -->
     <template #footer>
       <el-button @click="close">{{ t('bundle.actions.cancel') }}</el-button>
       <el-button type="primary" :loading="installing" :disabled="!canInstall" @click="confirmInstall">
@@ -328,6 +331,23 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * @file 合包(bundle)安装对话框。
+ *
+ * 打开条件是 shared/operations 的 activeBundle ref 有值(市场页点开合包条目)。
+ * 拉取 registry 元数据解析目标版本的 koishi.bundle 清单,把成员分成
+ * 必装/可选两组逐个勾选;每个成员可决定 是否创建配置/使用预置配置/把组外
+ * 配置移入分组,并展示与本地现状的三类冲突(same-group/other-config/
+ * package-mismatch)。底部以 diff 网格汇总安装/配置/移动/跳过清单。
+ *
+ * 关键设计:
+ * - 不走 shared 的 install(),单独调 market/bundle-install RPC,但复用
+ *   installProgressState 进度面板,并自带同样的 socket 断连竞态处理
+ *   (watch(socket) 构造 disconnected Promise 与任务 race)与 fallback
+ *   镜像重试(prepareInstallFallbackRetry);
+ * - 清单校验复用 src/shared/bundle 的 validateBundleManifest,错误阻断
+ *   安装、警告仅提示;敏感字段用 scanSensitiveConfig 识别后单独成行编辑。
+ */
 
 import { computed, reactive, ref, watch } from 'vue'
 import { message, send, socket, store, useConfig, useContext } from '@koishijs/client'
@@ -359,22 +379,31 @@ import { getFrontendMode } from '../shared/plugin-config'
 import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketObject, loadMarketObjects } from '../market/state'
 
+/** 清单加载中 / 安装执行中 / 加载错误文案。 */
 const loading = ref(false)
 const installing = ref(false)
 const error = ref('')
+/** 合包的 registry 元数据(market/package 拉取)。 */
 const registry = ref<Registry>()
+/** 解析出的合包清单。 */
 const bundle = ref<PluginBundleManifest>()
+/** 实际解析到清单的合包版本(registry 里可能没有条目自带版本,取首个)。 */
 const resolvedBundleVersion = ref('')
+/** 成员勾选状态列表(直接被模板双向绑定修改)。 */
 const members = reactive<BundleInstallMember[]>([])
 const ctx = useContext()
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
 
 const frontendMode = computed(() => getFrontendMode(config.value))
+/** 前端外观模式对应的根 class,主题适配用。 */
 const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
+/** 对话框标题:市场条目短名 > 包名 > 兜底文案。 */
 const title = computed(() => activeBundle.value?.shortname || activeBundle.value?.package.name || t('bundle.label'))
+/** 展示的合包版本:已解析的 registry 版本优先。 */
 const bundleVersion = computed(() => resolvedBundleVersion.value || activeBundle.value?.package.version || '')
+/** 清单校验结果(errors 阻断安装,warning 仅提示)。 */
 const validation = computed(() => {
   if (!activeBundle.value || !bundle.value) return { valid: false, errors: [], warnings: [] }
   return validateBundleManifest(activeBundle.value.package.name, bundle.value, {
@@ -383,22 +412,28 @@ const validation = computed(() => {
 })
 const validationErrors = computed(() => validation.value.errors)
 const validationWarnings = computed(() => validation.value.warnings)
+/** 勾选的成员 / 必装成员 / 可选成员。 */
 const selectedMembers = computed(() => members.filter(member => member.selected))
 const requiredMembers = computed(() => members.filter(m => m.required))
 const optionalMembers = computed(() => members.filter(m => !m.required))
+/** 勾选进度百分比(头部统计条)。 */
 const progressPercent = computed(() => members.length ? Math.round(selectedMembers.value.length / members.length * 100) : 0)
+/** 可选成员是否已全选(驱动"全选/全不选"按钮文案)。 */
 const allOptionalSelected = computed(() => optionalMembers.value.length > 0 && optionalMembers.value.every(m => m.selected))
 
+/** 一键切换全部可选成员的勾选状态。 */
 function toggleAllOptional() {
   const target = !allOptionalSelected.value
   for (const m of optionalMembers.value) m.selected = target
 }
 
+/** 成员分类图标:取市场元数据的 category,无数据由 resolveCategory 兜底。 */
 function memberCategory(name: string) {
   const data = getMarketObject(name)
   return resolveCategory(data?.category)
 }
 
+/** 包名缩短展示:市场短名 > 去官方/常规前缀 > 保留 scoped 相对形态 > 原名。 */
 function formatShortname(name: string) {
   const shortname = getMarketObject(name)?.shortname
   if (shortname && shortname !== name) return shortname
@@ -408,6 +443,7 @@ function formatShortname(name: string) {
   if (scoped) return `@${scoped[1]}/${scoped[2]}`
   return name
 }
+/** diff"将安装"清单:合包自身@版本 + 各勾选成员@版本范围。 */
 const installList = computed(() => {
   if (!activeBundle.value) return []
   return [
@@ -415,25 +451,32 @@ const installList = computed(() => {
     ...selectedMembers.value.map(member => `${member.package}@${member.version}`),
   ]
 })
+/** diff"将配置"清单:勾选建配置且不涉及移动的成员插件键。 */
 const configList = computed(() => selectedMembers.value
   .filter(member => member.createConfig && !member.move)
   .map(member => member.plugin))
+/** diff"将移动"清单:勾选把组外已有配置移入分组的成员插件键。 */
 const moveList = computed(() => selectedMembers.value
   .filter(member => member.move)
   .map(member => member.plugin))
+/** diff"预置配置"清单:建配置且启用预置的成员插件键。 */
 const presetList = computed(() => selectedMembers.value
   .filter(member => member.createConfig && member.usePreset && !member.move)
   .map(member => member.plugin))
+/** diff"跳过配置"清单:既不建配置也不移动的成员插件键。 */
 const skippedConfigList = computed(() => selectedMembers.value
   .filter(member => !member.createConfig && !member.move)
   .map(member => member.plugin))
 
+/** 各成员预置配置 JSON 编辑报错,key 为 getMemberKey。 */
 const memberJsonErrors = reactive<Record<string, string>>({})
 
+/** 成员的稳定 key:包名:插件键。 */
 function getMemberKey(member: BundleInstallMember) {
   return `${member.package}:${member.plugin}`
 }
 
+/** 预置配置 JSON 就地编辑:解析成功写回 member.config 并清错,失败记录错误文案(阻断安装)。 */
 function onJsonInput(member: BundleInstallMember, value: string) {
   const key = getMemberKey(member)
   try {
@@ -445,6 +488,7 @@ function onJsonInput(member: BundleInstallMember, value: string) {
   }
 }
 
+/** 安装按钮可用条件:有目标与清单、校验通过、至少勾选一个成员、非加载中且无 JSON 编辑错误。 */
 const canInstall = computed(() => {
   return !!activeBundle.value 
     && !!bundle.value 
@@ -454,6 +498,16 @@ const canInstall = computed(() => {
     && Object.keys(memberJsonErrors).length === 0
 })
 
+/**
+ * 打开/切换合包时的加载流程:清空旧状态 → 拉取 registry → 取条目版本对应
+ * (缺则首个)的 koishi.bundle 清单 → 并行拉成员的市场元数据 → 逐成员计算
+ * 与本地现状的冲突并生成初始勾选:
+ * - conflict:组内已有配置为 same-group,组外有配置为 other-config,
+ *   已装版本不满足成员范围为 package-mismatch;
+ * - selected:必装恒真;可选成员默认已装且版本满足才勾;
+ * - createConfig/usePreset:无任何已有配置时默认开;
+ * 最后补拉缺失成员的 registry 元数据供版本徽标等使用。
+ */
 watch(activeBundle, async (value) => {
   error.value = ''
   registry.value = undefined
@@ -519,10 +573,12 @@ watch(activeBundle, async (value) => {
   }
 }, { immediate: true })
 
+/** 取成员的市场元数据对象(loadMarketObjects 缓存)。 */
 function memberInfo(name: string) {
   return getMarketObject(name)
 }
 
+/** 成员描述:优先 manifest/package 的描述字段,多语言对象按当前 locale 挑选。 */
 function getPackageDescription(name: string) {
   const data = memberInfo(name)
   const description = data?.manifest?.description || data?.package?.description
@@ -539,12 +595,14 @@ function getPackageDescription(name: string) {
   }
 }
 
+/** npm author/maintainer 字段的宽容格式化(字符串或对象均可)。 */
 function formatUser(user: any) {
   if (!user) return ''
   if (typeof user === 'string') return user
   return user.name || user.username || user.email || ''
 }
 
+/** 成员作者(getAuthor/getMaintainer 目前模板未直接使用,保留作展示辅助)。 */
 function getAuthor(name: string) {
   return formatUser(memberInfo(name)?.package?.author)
 }
@@ -553,6 +611,7 @@ function getMaintainer(name: string) {
   return formatUser(memberInfo(name)?.package?.maintainers?.[0])
 }
 
+/** 成员安装状态文案:依赖表已解析为"已安装",仅 packages 有为"已加载",否则"未安装"。 */
 function getInstalledText(name: string) {
   const dep = store.dependencies?.[name]
   if (dep?.resolved) return t('bundle.members.installed', { version: dep.resolved })
@@ -560,10 +619,12 @@ function getInstalledText(name: string) {
   return t('bundle.members.notInstalled')
 }
 
+/** 成员对应版本的 registry 元数据(弃用标记等)。 */
 function versionMeta(member: BundleInstallMember) {
   return store.registry?.[member.package]?.[member.version]
 }
 
+/** 成员风险标签集合:市场缺失/官方认证/不安全/弃用/预览版/便携/含预置配置。 */
 function riskTags(member: BundleInstallMember) {
   const data = memberInfo(member.package)
   const tags: Array<{ label: string, type: string }> = []
@@ -577,27 +638,33 @@ function riskTags(member: BundleInstallMember) {
   return tags
 }
 
+/** 成员是否携带非空预置配置。 */
 function hasPreset(member: BundleInstallMember) {
   return !!member.config && Object.keys(member.config).length > 0
 }
 
+/** 成员预置配置里的敏感字段名列表(token/secret 等,scanSensitiveConfig 判定)。 */
 function sensitiveFields(member: BundleInstallMember) {
   return scanSensitiveConfig(member.config)
 }
 
+/** 预置配置查看器的 JSON 展示文本(空对象兜底)。 */
 function formatConfig(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2)
 }
 
+/** 切换成员勾选(可选成员整行/复选框共用入口)。 */
 function toggleMember(member: BundleInstallMember) {
   member.selected = !member.selected
 }
 
+/** 关闭对话框:安装进行中禁止关闭,清空 activeBundle。 */
 function close() {
   if (installing.value) return
   activeBundle.value = undefined
 }
 
+/** 批量设置"创建配置":same-group 冲突的成员不可建;关闭时连带关掉预置配置。 */
 function batchSetCreateConfig(value: boolean) {
   for (const m of selectedMembers.value) {
     if (m.conflict !== 'same-group') {
@@ -609,6 +676,7 @@ function batchSetCreateConfig(value: boolean) {
   }
 }
 
+/** 批量设置"使用预置配置":仅对有预置、建配置且不涉及移动的成员生效。 */
 function batchSetUsePreset(value: boolean) {
   for (const m of selectedMembers.value) {
     if (hasPreset(m) && m.createConfig && !m.move) {
@@ -617,6 +685,13 @@ function batchSetUsePreset(value: boolean) {
   }
 }
 
+/**
+ * 确认安装:先点亮进度面板,组装 BundleInstallRequest(move 的成员视同
+ * createConfig),再调 market/bundle-install。断连竞态处理与 shared 的
+ * install() 同构(watch(socket) race + 8 秒等待提示),但合包安装导致
+ * 重启的情况较少,断连一律按失败处理;非零退出码时准备 fallback 镜像
+ * 重试。成功后弹出 moved/skipped 统计并关闭对话框。
+ */
 async function confirmInstall() {
   if (!activeBundle.value || !bundle.value || installing.value) return
   installing.value = true
@@ -699,6 +774,7 @@ async function confirmInstall() {
   }
 }
 
+/** 安装失败统一上报:stderr 日志行 + toast。 */
 function reportInstallError(detail: string) {
   const text = detail || t('bundle.messages.unknownError')
   installProgressState.logs.push({
@@ -708,6 +784,7 @@ function reportInstallError(detail: string) {
   message.error(t('bundle.messages.installFailed', { detail: text }))
 }
 
+/** 把抛出的错误归一成可展示字符串(Error/字符串/{message} 逐级尝试)。 */
 function formatInstallError(error: unknown) {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
