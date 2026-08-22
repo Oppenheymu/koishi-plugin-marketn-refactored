@@ -27,11 +27,4 @@ const percentage = computed(() => {
 
 </script>
 
-<style lang="scss">
-
-.k-status .el-progress-bar {
-  width: 120px;
-  margin-right: 2px;
-}
-
-</style>
+<style lang="scss" src="./progress.scss"></style>
