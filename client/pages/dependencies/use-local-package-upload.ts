@@ -5,7 +5,7 @@ import type {
   LocalPackageUploadStartResult,
 } from 'koishi-plugin-marketn-refactored'
 import { computed, onScopeDispose, ref } from 'vue'
-import { install } from '../components/utils'
+import { install } from '../../shared/operations'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 

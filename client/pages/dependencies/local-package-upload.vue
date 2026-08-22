@@ -77,8 +77,8 @@
 <script lang="ts" setup>
 import type { LocalPackageUploadPreview } from 'koishi-plugin-marketn-refactored'
 import { ref } from 'vue'
-import { useMarketNextI18n } from '../i18n'
-import MarketIcon from '../market/icons'
+import { useMarketNextI18n } from '../../shared/i18n'
+import MarketIcon from '../../market/icons'
 
 const props = defineProps<{
   busy: boolean

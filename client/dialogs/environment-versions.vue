@@ -123,9 +123,9 @@ import type {
   EnvironmentSnapshotSource,
   EnvironmentSnapshotSummary,
 } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../utils'
-import { applyEnvironmentSnapshot, showEnvironmentVersions } from './utils'
-import { useMarketNextI18n } from '../i18n'
+import { getFrontendMode } from '../shared/plugin-config'
+import { applyEnvironmentSnapshot, showEnvironmentVersions } from '../shared/operations'
+import { useMarketNextI18n } from '../shared/i18n'
 import MarketIcon from '../market/icons'
 
 const config = useConfig()

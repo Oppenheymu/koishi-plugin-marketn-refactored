@@ -1,5 +1,5 @@
 import { Component, defineComponent, h, onErrorCaptured, ref, resolveComponent, shallowRef } from 'vue'
-import { translate } from '../i18n'
+import { translate } from './i18n'
 
 export function createPageBoundary(page: string, component: Component) {
   return defineComponent({

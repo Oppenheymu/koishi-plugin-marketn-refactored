@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../../shared/i18n'
 import KoishiEyeSplash from './koishi-eye-splash.vue'
 
 const props = defineProps<{

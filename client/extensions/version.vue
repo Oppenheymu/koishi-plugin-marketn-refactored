@@ -62,7 +62,7 @@
 
 import { global, message, send, store, useConfig, useContext } from '@koishijs/client'
 import { computed, inject, ComputedRef, ref, watch } from 'vue'
-import { getBulkMode, getBundleRecords, getMarketNextPolicy, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, hasUpdate, patchMarketNextData } from '../utils'
+import { getBulkMode, getBundleRecords, getMarketNextPolicy, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, hasUpdate, patchMarketNextData } from '../shared/plugin-config'
 import type {} from '@koishijs/plugin-config'
 import type { PluginBundleRecord } from '../../src/shared/bundle'
 import {
@@ -72,9 +72,9 @@ import {
   install,
   pendingBundleUninstalls,
   type BundleRecordView,
-} from '../components/utils'
-import BundleUninstall from '../components/bundle-uninstall.vue'
-import { useMarketNextI18n } from '../i18n'
+} from '../shared/operations'
+import BundleUninstall from '../dialogs/bundle-uninstall.vue'
+import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketObject, loadMarketObjects } from '../market/state'
 
 const ctx = useContext()

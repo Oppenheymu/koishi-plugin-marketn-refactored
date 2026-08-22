@@ -62,8 +62,8 @@ async function checkLocalePair(relativePath: string, otherPath: string): Promise
     }
 }
 
-// 旧 client 底册的 locale 布局：client/locales/{zh-CN,en-US}/*.yml（8 个 namespace）
-// + client/market/locales/{zh-CN,en-US}.yml（market namespace），注册于 client/i18n.ts。
+// 旧 client 底册的 locale 布局：client/shared/locales/{zh-CN,en-US}/*.yml（8 个 namespace）
+// + client/market/locales/{zh-CN,en-US}.yml（market namespace），注册于 client/shared/i18n.ts。
 const namespaceByFile: Record<string, string> = {
     "common.yml": "common",
     "dependencies.yml": "dependencies",
@@ -76,19 +76,19 @@ const namespaceByFile: Record<string, string> = {
 };
 
 async function checkClientLocales(): Promise<void> {
-    const zhDir = resolve(root, "client/locales/zh-CN");
-    const enDir = resolve(root, "client/locales/en-US");
+    const zhDir = resolve(root, "client/shared/locales/zh-CN");
+    const enDir = resolve(root, "client/shared/locales/en-US");
     const [zhFiles, enFiles] = await Promise.all([readdir(zhDir), readdir(enDir)]);
     const files = [...new Set([...zhFiles, ...enFiles])].filter((file) => file.endsWith(".yml")).sort();
-    const index = await readFile(resolve(root, "client/i18n.ts"), "utf8");
+    const index = await readFile(resolve(root, "client/shared/i18n.ts"), "utf8");
     for (const file of files) {
         const namespace = namespaceByFile[file];
         if (!namespace) {
-            report(`client/locales/${file}: missing namespace mapping`);
+            report(`client/shared/locales/${file}: missing namespace mapping`);
             continue;
         }
-        const zhPath = `client/locales/zh-CN/${file}`;
-        const enPath = `client/locales/en-US/${file}`;
+        const zhPath = `client/shared/locales/zh-CN/${file}`;
+        const enPath = `client/shared/locales/en-US/${file}`;
         if (!zhFiles.includes(file)) report(`${zhPath} is missing`);
         if (!enFiles.includes(file)) report(`${enPath} is missing`);
         if (!index.includes(`./locales/zh-CN/${file}`) || !index.includes(`./locales/en-US/${file}`)) {
@@ -103,7 +103,7 @@ async function checkClientLocales(): Promise<void> {
     // market namespace 单独放在 client/market/locales/{zh-CN,en-US}.yml
     const marketZh = "client/market/locales/zh-CN.yml";
     const marketEn = "client/market/locales/en-US.yml";
-    if (!index.includes("./market/locales/zh-CN.yml") || !index.includes("./market/locales/en-US.yml")) {
+    if (!index.includes("../market/locales/zh-CN.yml") || !index.includes("../market/locales/en-US.yml")) {
         report("market: both locale imports must be registered in client/i18n.ts");
     }
     if (!index.includes("    market:")) {

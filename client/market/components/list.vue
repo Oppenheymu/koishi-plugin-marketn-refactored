@@ -43,7 +43,7 @@ import { computed, inject, nextTick, onMounted, onUnmounted, ref, shallowRef, wa
 import { SearchObject } from '@koishijs/registry'
 import { getFiltered, getSortedPrepared, getVisible, hasFilter, kConfig } from '../utils'
 import MarketPackage from './package.vue'
-import { useMarketNextI18n } from '../../i18n'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 const props = defineProps<{
   modelValue: string[],

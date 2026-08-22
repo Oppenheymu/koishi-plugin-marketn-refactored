@@ -16,11 +16,11 @@ import {
   resolveBundlePackageFromGroup,
   resolveBundleRecordFromGroup,
   type BundleRecordView,
-} from '../components/utils'
-import { getBundleRecords } from '../utils'
+} from '../shared/operations'
+import { getBundleRecords } from '../shared/plugin-config'
 import { bundleGroupUninstallTarget } from './bundle-group-uninstall'
-import BundleUninstall from '../components/bundle-uninstall.vue'
-import { useMarketNextI18n } from '../i18n'
+import BundleUninstall from '../dialogs/bundle-uninstall.vue'
+import { useMarketNextI18n } from '../shared/i18n'
 
 const config = useConfig()
 const { t } = useMarketNextI18n()

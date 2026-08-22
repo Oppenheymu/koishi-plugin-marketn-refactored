@@ -2,7 +2,7 @@ import { SearchObject, User } from '@koishijs/registry'
 import { InjectionKey } from 'vue'
 import { Dict } from 'cosmokit'
 import { hasBundleKeyword, isBundlePackageName } from '../../src/shared/bundle'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../shared/i18n'
 import { getUsers } from './users'
 
 export * from './avatar'

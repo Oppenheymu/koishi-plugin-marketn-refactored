@@ -15,7 +15,7 @@
 import { computed, ref } from 'vue'
 import { message, router, send } from '@koishijs/client'
 import { configRemoveTarget } from './config-remove'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../shared/i18n'
 
 const removing = ref(false)
 const { t } = useMarketNextI18n()

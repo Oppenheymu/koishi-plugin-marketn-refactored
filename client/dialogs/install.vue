@@ -137,13 +137,13 @@
 
 import { computed, ref, watch, reactive } from 'vue'
 import { Dict, global, message, send, store, useContext, useConfig } from '@koishijs/client'
-import { analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, getConfigWriter, getRegistryStatus, getRegistryStatusText, install, PeerInfo, ResultType } from './utils'
-import { active, getBulkMode, getBundleRecords, getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextConfig, patchMarketNextData } from '../utils'
+import { analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, getConfigWriter, getRegistryStatus, getRegistryStatusText, install, PeerInfo, ResultType } from '../shared/operations'
+import { active, getBulkMode, getBundleRecords, getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextConfig, patchMarketNextData } from '../shared/plugin-config'
 import { parse } from 'semver'
 import { isBundlePackageName } from '../../src/shared/bundle'
 import { isLocalDependency } from '../../src/shared/dependency-source'
 import BundleUninstall from './bundle-uninstall.vue'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketObject } from '../market/state'
 
 const ctx = useContext()

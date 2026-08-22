@@ -125,20 +125,20 @@
 
 import { router, store, global, useConfig } from '@koishijs/client'
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
-import { active, getFrontendMode, getMarketSilentFilters, getMarketSilentRules, getPendingOverrides } from '../utils'
-import { getSilentFiltered, getVisible, kConfig, MarketFilter, MarketList, MarketSearch, parseSilentFilters } from '../market'
+import { active, getFrontendMode, getMarketSilentFilters, getMarketSilentRules, getPendingOverrides } from '../../shared/plugin-config'
+import { getSilentFiltered, getVisible, kConfig, MarketFilter, MarketList, MarketSearch, parseSilentFilters } from '../../market'
 import { SearchObject } from '@koishijs/registry'
-import { activeBundle } from './utils'
+import { activeBundle } from '../../shared/operations'
 import MarketSecretArchive from './market-secret-archive.vue'
-import { canInstallBundleSearchObject } from '../market/utils'
+import { canInstallBundleSearchObject } from '../../market/utils'
 import {
   getMarketSnapshotData,
   loadMarketSnapshot,
   marketSnapshot,
   marketSnapshotError,
   marketSnapshotLoading,
-} from '../market/state'
-import { useMarketNextI18n } from '../i18n'
+} from '../../market/state'
+import { useMarketNextI18n } from '../../shared/i18n'
 
 function installed(data: SearchObject) {
   if (store.packages) {

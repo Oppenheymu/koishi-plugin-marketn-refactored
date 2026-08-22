@@ -1,6 +1,7 @@
 # client 端全量结构（旧 client 底册）
 
 > 状态：考据文档。对象是旧 `Waiting_refactored/client/`（P4 移植底册），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照，不随重构更新。基准目录：`Waiting_refactored/client`（下文用 `client/` 缩写）。
+> 2026-08-22 目录重组：`client/` 已按 app（接线）/ pages（页面）/ dialogs（全局对话框）/ market / extensions / shared（共享层）重组，本文路径已同步为新布局（`components/utils.ts`→`shared/operations.ts`、根 `utils.ts`→`shared/plugin-config.ts`、`components/X.vue`→`pages/*/X.vue` 或 `dialogs/X.vue`、`composables/`→`pages/dependencies/`）。
 
 # 1. 入口与路由 — `client/index.ts` (420 行)
 
@@ -27,11 +28,11 @@
 - 397-412 watch `store.dependencies`：清除已落地的 override 并 `patchMarketNextData({override})`
 - 414-419 watch `store.market?.refreshing` 完成时给出刷新成功/失败 toast
 
-**页面边界 `client/components/page-boundary.ts` (36 行)**：`createPageBoundary(page, component)` 返回包装组件，`onErrorCaptured` 捕获渲染错误后显示 k-empty + 重试按钮（revision++ 重新挂载）。
+**页面边界 `client/shared/page-boundary.ts` (36 行)**：`createPageBoundary(page, component)` 返回包装组件，`onErrorCaptured` 捕获渲染错误后显示 k-empty + 重试按钮（revision++ 重新挂载）。
 
 # 2. 大组件内部职责分解
 
-## components/package.vue (1698 行) — 依赖卡片/列表行（单个包）
+## pages/dependencies/package.vue (1698 行) — 依赖卡片/列表行（单个包）
 - **模板 1-263**：三种形态：list row 模式 (3-48)、card 模式 (51-193)；内嵌三个对话框：忽略更新对话框 (195-238)、本地绑定确认对话框 (240-256)、bundle-uninstall 复用 (258-262)
 - **script 265-910**：
   - props：name / kind / listMode (282-286)
@@ -46,7 +47,7 @@
   - 工具函数 (827-900)：isPluginPackage、formatPackageDisplayName、pickDescription（按 locale 选描述）、formatEndpoint、configure（ensureInstalledConfig）
 - **styles 913-1698**：全局对话框样式（913-1068，含 polished 模式变体）+ scoped 卡片/列表行样式（1070-1698，含 768/420px 响应式）
 
-## components/bundle-install.vue (1386 行) — Bundle 安装面板
+## dialogs/bundle-install.vue (1386 行) — Bundle 安装面板
 - **模板 1-328**：el-dialog（由 activeBundle 控制）；hero 头 (11-31)、loading/error (34-40)、统计条 (46-60)、校验错误/警告 (62-67)、批量操作行 (70-81)、必选成员列表 (84-180)、可选成员列表 (183-283)、可视化 diff（install/config/move/skip 四象，285-317)、footer 安装按钮 (321-326)。成员行内含：createConfig/move/usePreset 复选框、冲突告警（package-mismatch/other-config/same-group）、敏感字段编辑器（show-password 输入）、预设 JSON textarea 编辑器
 - **script 330-720**：
   - 本地状态 (360-372)：loading/installing/error/registry/bundle/resolvedBundleVersion/members(reactive)/ctx/config/modeClass
@@ -58,7 +59,7 @@
   - 错误格式化 (700-718)：reportInstallError、formatInstallError
 - **styles 722-1386**：面板全套样式（bundle 紫色主题、滚动条、成员卡、diff 网格等）
 
-## components/dependencies.vue (1193 行) — /dependencies 页面
+## pages/dependencies/dependencies.vue (1193 行) — /dependencies 页面
 - **模板 1-119**：工具栏（filter 下拉、blockPreview 切换、grid/list 布局切换、搜索框、摘要 chips，3-51）、分组列表（可折叠 group header + deps-grid/package-view，53-104）、底部 pending 应用栏 (107-116)、manual-install (118)
 - **script 121-409**：
   - 类型 (134-152)：FilterKey / ItemKind / DependencyItem / DependencyGroup
@@ -76,7 +77,7 @@
   - `ctx.action('dependencies.upgrade')` (397-407)：一键把所有 updatable 写入 override
 - **styles 411-1193**：工具栏/分组/卡片网格/列表布局/apply-bar + polished 模式大段视觉样式
 
-## components/market.vue (1060 行) — /market 页面
+## pages/market/market.vue (1060 行) — /market 页面
 - **模板 1-122**：k-layout（左侧 #left 挂 market-filter）；三种主体：加载中 spinner+慢加载警告（可跳设置，9-28）、正常（market-search + 彩蛋 market-secret-archive 或 market-list，30-105）、错误态 k-comment（107-120）。market-list 的 header slot 里含：结果统计、缓存 stale/cached 提示、debug 信息卡（对象数/解码大小/压缩比/候选端点/timings/阶段/路由评分，49-95）；action slot 是安装/编辑按钮 (96-103)
 - **script 124-503**：
   - `installed()` 判定 (143-149)；provide(kConfig) (164-166)
@@ -127,7 +128,7 @@
 - **market/components/package.vue (686 行)**：市场卡片。script 76-343：homepage/badge（bundle 优先，107-120）、bundlePackage；**头像子系统**（94-341 的大头）：avatarViews computed（候选链+缓存查找）、失败降级游标 avatarCursor、render error→cacheAvatarFailure+换下一候选、render load→fetchAndCacheAvatar 后端缓存、requestIdleCallback 空闲水合 hydrateCachedAvatars；时间显示（timeAgo/updatedAgo，服务端时钟 `store.market.serverNow` 校准 274-300）、更新新鲜度心形颜色样式 updatedMetaStyle (302-325)、formatSize。emit `query` 供徽章/头像邮箱点击回填搜索。
 - **market/components/search.vue (264 行)**：token 化搜索框（已提交词 chips + 草稿 input，120ms debounce/500ms maxWait；backspace 删词、escape 清草稿、点击词删除、clear 按钮、invalid 词划线）。defineExpose({focus}) 供 Ctrl+K。
 
-**消费关系**：components/market.vue 从 `../market` 导入 MarketFilter/MarketList/MarketSearch + getSilentFiltered/getVisible/kConfig/parseSilentFilters；list.vue 再内嵌 market/components/package.vue；state.ts 被 index.ts（restoreMarketLookups）、market.vue（loadMarketSnapshot/snapshot refs）、package.vue（getMarketObject）、dependencies.vue（loadMarketObjects）、extensions（loadMarketObjects/loadMarketServiceProviders）消费。
+**消费关系**：pages/market/market.vue 从 `../market` 导入 MarketFilter/MarketList/MarketSearch + getSilentFiltered/getVisible/kConfig/parseSilentFilters；list.vue 再内嵌 market/components/package.vue；state.ts 被 index.ts（restoreMarketLookups）、market.vue（loadMarketSnapshot/snapshot refs）、package.vue（getMarketObject）、dependencies.vue（loadMarketObjects）、extensions（loadMarketObjects/loadMarketServiceProviders）消费。
 
 # 4. extensions/ — Console 其他页面的扩展注入
 
@@ -154,15 +155,15 @@
 
 # 6. 其他
 
-- **composables/use-local-package-upload.ts (168 行)**：本地 .tgz 分块上传状态机。`uploadFile`（`market/local-package-upload-start` → 循环 `...-chunk`（Binary.toBase64）→ `...-finish` 得 preview）、`installPackage`（`...-commit` 后调共享 `install()` 并带自定义文案）、`reset`（含 cancel）、generation 计数防竞态、onScopeDispose 自动 cancel。被 manual.vue 使用。
-- **icons/（client/icons，Koishi 全局图标注册）**：index.ts (17 行) 把 `activity:deps`、`activity:market`（活动栏图标）和 `refresh/rocket/bomb/market-next:upload` 注册进 `@koishijs/client` 的 icons 系统——供 ctx.page icon、菜单 icon（April fools 的 bomb）、k-icon name 使用
+- **pages/dependencies/use-local-package-upload.ts (168 行)**：本地 .tgz 分块上传状态机。`uploadFile`（`market/local-package-upload-start` → 循环 `...-chunk`（Binary.toBase64）→ `...-finish` 得 preview）、`installPackage`（`...-commit` 后调共享 `install()` 并带自定义文案）、`reset`（含 cancel）、generation 计数防竞态、onScopeDispose 自动 cancel。被 manual.vue 使用。
+- **icons/（client/shared/icons，Koishi 全局图标注册）**：index.ts (17 行) 把 `activity:deps`、`activity:market`（活动栏图标）和 `refresh/rocket/bomb/market-next:upload` 注册进 `@koishijs/client` 的 icons 系统——供 ctx.page icon、菜单 icon（April fools 的 bomb）、k-icon name 使用
 - **market/icons/（market 模块内部图标，MarketIcon 组件）**：index.ts (33 行) 合并 misc(16 个)/outline(17 个)/solid(17 个) 三张映射表，导出一个 `name` prop 的函数组件，匹配不到返回 null。misc 是杂项（asc/download/tag/verified…），outline/solid 是 15 分类 × 两种线宽 + all。
 - **styles/**：scrollbars.scss (73 行，全局细滚动条) 和 version-select.scss (105 行，`.market-version-select` / `.market-version-popper` 的 el-select 主题覆盖)——两者由 index.ts 顶层 import，全局生效。
 - **koishi-eye-splash.vue (229 行) + koishi-eye-splash.json**：彩蛋动画组件。动态 import `lottie-web`（light 版）+ JSON 数据；播放 segments [25,880] 循环、速度 1.12；`enterFrame` 里在特定帧点亮 SVG 覆盖节点（nodePoints 6 个坐标）、帧 287 emit `ready`、帧 543 emit `complete`；`document.hidden` 时暂停；加载失败时直接 emit ready+complete 保证文案可用。**用途/触发**：仅被 market-secret-archive.vue 使用——在 /market 搜索 "恋恋…世界第一" 触发秘密档案彩蛋时作为视觉动画，`ready`/`complete` 事件驱动档案文案的逐段 reveal。
 
 # 7. 组件间共享逻辑
 
-**client/utils.ts (429 行) 导出**（几乎全部组件在用）：
+**client/shared/plugin-config.ts (429 行) 导出**（几乎全部组件在用）：
 - `active` (18)——当前安装面板目标包名（install.vue、dep-link.vue、missing.vue、market.vue 写入）
 - 类型：FrontendMode/LayoutMode/MarketNextConfigPatch/MarketSilent*Rule×5/UpdateIgnoreOptions/UpdatePolicy/MarketNextDataStore
 - 数据存取：`getPendingOverrides`(109)、`getCollapsedGroups`(115)、`getBundleRecords`(294)、`getWritableBundleRecords`(298)、`getMarketNextConfig`(251，遍历 config.plugins 递归找本插件节点，兼容禁用 `~` 前缀)、`getMarketNextPolicy`(255)/`getWritableMarketNextPolicy`(269)、`patchMarketNextConfig`(304，send `market/update-config`)、`patchMarketNextData`(315，send `market/update-data`)
@@ -172,7 +173,7 @@
 
 使用方：index.ts、components/{package,bundle-install,bundle-uninstall,confirm,dependencies,environment-versions,install-history,install-progress,install,manual,market}.vue、extensions/{index,dep-link,missing,version,bundle-group-uninstall}、market/components/*（经 market/index.ts re-export）。
 
-**client/components/utils.ts (531 行) 导出**（安装域共享层）：
+**client/shared/operations.ts (531 行) 导出**（安装域共享层）：
 - `getConfigWriter`(25)、`analyzeVersions`(40，peer 依赖兼容性分析)、`manualDeps`(68，手动查询的 registry 缓存)、`addManual`(111，send `market/package`)
 - registry 状态：`getRegistryStatus`(74)、`getRegistryStatusText`(78)
 - 对话框开关 refs：`showManual/showConfirm/showInstallHistory/showEnvironmentVersions`(118-121)、`expandedDependency`(122)、`activeBundle`(123，bundle-install 面板开关)、`pendingBundleUninstalls`(128)
@@ -181,6 +182,6 @@
 - 安装执行：`pushInstallLog`(281)、`resetInstallFallbackState`(285)、`prepareInstallFallbackRetry`(292，send `market/install-fallback-candidate`)、`install()`(347-432，核心：send `market/install` + socket 断连竞速 + 8s 等待文案 + fallback 重试 + callback)、`applyEnvironmentSnapshot`(434-498，send `market/environment-snapshot-apply`)
 - 配置保障：`ensureInstalledConfig`(519，send `market/ensure-config` + 轮询等待 + configWriter.ensure 兜底)、`ensureInstalledConfigs`(529)
 
-使用方：index.ts、全部 components/*.vue（除 progress/koishi-eye-splash/market-secret-archive/local-package-upload）、composables/use-local-package-upload.ts、extensions/{index,version,bundle-group-uninstall}。
+使用方：index.ts、全部 pages/{market,dependencies}/*.vue 与 dialogs/*.vue（除 progress/koishi-eye-splash/market-secret-archive/local-package-upload）、pages/dependencies/use-local-package-upload.ts、extensions/{index,version,bundle-group-uninstall}。
 
 **值得注意的耦合点（重构提示）**：`installProgressState` 是跨组件可变单例（utils.ts 定义、bundle-install.vue 直接写、install-progress.vue 读）；`active`/`activeBundle`/`showConfirm` 等 6 个 ref 是"以模块级 ref 充当全局对话框 store"；`store.market` 在 market/state.ts 与官方 Console 间双向同步（publishSnapshot 写入、markRaw 防代理）；i18n guard 依赖 monkey-patch 以兼容新旧 bundle 共存。

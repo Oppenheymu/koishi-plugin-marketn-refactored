@@ -10,8 +10,8 @@
 
 import { store } from '@koishijs/client'
 import {} from '@koishijs/plugin-config'
-import { active } from '../utils'
-import { useMarketNextI18n } from '../i18n'
+import { active } from '../shared/plugin-config'
+import { useMarketNextI18n } from '../shared/i18n'
 
 defineProps<{
   name: string

@@ -1,8 +1,8 @@
 import { Dict, receive, store } from '@koishijs/client'
 import type { PluginBundleRecord, RegistryStatus } from 'koishi-plugin-marketn-refactored'
-import type { DependencySource } from '../src/shared/dependency-source'
-import type { IgnoredUpdates } from './utils'
-import { translate } from './i18n'
+import type { DependencySource } from '../../src/shared/dependency-source'
+import type { IgnoredUpdates } from '../shared/plugin-config'
+import { translate } from '../shared/i18n'
 
 declare module '@koishijs/client' {
   interface Config {

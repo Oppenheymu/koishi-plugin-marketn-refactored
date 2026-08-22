@@ -1,12 +1,12 @@
 import { isReactive, markRaw, toRaw, watch } from 'vue'
 import { Context, global, store } from '@koishijs/client'
-import { registerMarketNextI18n } from './i18n'
+import { registerMarketNextI18n } from './shared/i18n'
 import { refreshMarketLookups, restoreMarketSnapshot } from './market/state'
-import { setupPages } from './pages'
-import { setupActions } from './actions'
-import './icons'
-import './styles/scrollbars.scss'
-import './styles/version-select.scss'
+import { setupPages } from './app/pages'
+import { setupActions } from './app/actions'
+import './shared/icons'
+import './shared/styles/scrollbars.scss'
+import './shared/styles/version-select.scss'
 
 import 'virtual:uno.css'
 

@@ -3,8 +3,8 @@ import type { Registry, SearchObject } from '@koishijs/registry'
 import type { RegistryStatus } from 'koishi-plugin-marketn-refactored'
 import { compare, satisfies } from 'semver'
 import { reactive, ref, watch } from 'vue'
-import { active } from '../utils'
-import { translate } from '../i18n'
+import { active } from './plugin-config'
+import { translate } from './i18n'
 import {
   getBundleGroupIdent,
   getPluginShortname,

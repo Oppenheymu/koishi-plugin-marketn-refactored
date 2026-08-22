@@ -104,9 +104,9 @@ import {
   pendingBundleUninstalls,
   type BundleRecordView,
   type BundleMemberCleanupTarget,
-} from './utils'
-import { getBulkMode, getFrontendMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../utils'
-import { useMarketNextI18n } from '../i18n'
+} from '../shared/operations'
+import { getBulkMode, getFrontendMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../shared/plugin-config'
+import { useMarketNextI18n } from '../shared/i18n'
 
 type MemberAction = 'config' | 'dependency' | 'keep'
 

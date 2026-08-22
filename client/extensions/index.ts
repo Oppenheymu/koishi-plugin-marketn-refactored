@@ -11,9 +11,9 @@ import Dependency from './dependency.vue'
 import Missing from './missing.vue'
 import Select from './select.vue'
 import Version from './version.vue'
-import { resolveBundlePackageFromGroup } from '../components/utils'
-import { getBundleRecords } from '../utils'
-import { translate } from '../i18n'
+import { resolveBundlePackageFromGroup } from '../shared/operations'
+import { getBundleRecords } from '../shared/plugin-config'
+import { translate } from '../shared/i18n'
 
 function isBundleGroup(tree: any) {
   if (!tree?.children) return false

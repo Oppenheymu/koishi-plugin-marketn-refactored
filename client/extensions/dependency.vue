@@ -29,7 +29,7 @@ import { Dict, store } from '@koishijs/client'
 import { computed, inject, ComputedRef, watch } from 'vue'
 import { EnvInfo } from '@koishijs/plugin-config/client'
 import KDepLink from './dep-link.vue'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketServiceProviders, loadMarketServiceProviders } from '../market/state'
 
 const env = inject<ComputedRef<EnvInfo>>('plugin:env')

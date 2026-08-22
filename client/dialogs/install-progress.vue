@@ -76,9 +76,9 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { useConfig } from '@koishijs/client'
-import { getFrontendMode } from '../utils'
-import { useMarketNextI18n } from '../i18n'
-import { installProgressState } from './utils'
+import { getFrontendMode } from '../shared/plugin-config'
+import { useMarketNextI18n } from '../shared/i18n'
+import { installProgressState } from '../shared/operations'
 import MarketIcon from '../market/icons'
 
 const config = useConfig()

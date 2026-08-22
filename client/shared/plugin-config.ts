@@ -10,10 +10,10 @@ import {
   normalizeUpdateIgnoreRule,
   type IgnoredUpdates,
   type UpdateIgnoreRule,
-} from '../src/shared/update'
-import { isLocalDependency } from '../src/shared/dependency-source'
+} from '../../src/shared/update'
+import { isLocalDependency } from '../../src/shared/dependency-source'
 
-export type { IgnoredUpdates, UpdateIgnoreRule } from '../src/shared/update'
+export type { IgnoredUpdates, UpdateIgnoreRule } from '../../src/shared/update'
 
 export const active = ref('')
 

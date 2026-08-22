@@ -1,8 +1,8 @@
 import { ref, watch } from 'vue'
 import { Context, message, router, send, store } from '@koishijs/client'
-import { getPendingOverrides, patchMarketNextData } from './utils'
-import { translate } from './i18n'
-import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './components/utils'
+import { getPendingOverrides, patchMarketNextData } from '../shared/plugin-config'
+import { translate } from '../shared/i18n'
+import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from '../shared/operations'
 import {
   REGISTRY_STATUS_SWEEP_INTERVAL,
   sweepRegistryStatus,

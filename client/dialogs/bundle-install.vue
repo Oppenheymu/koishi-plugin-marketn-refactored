@@ -351,12 +351,12 @@ import {
   prepareInstallFallbackRetry,
   resetInstallFallbackState,
   type InstallOptions,
-} from './utils'
+} from '../shared/operations'
 import { resolveCategory } from '../market/utils'
 import MarketIcon from '../market/icons'
 import { satisfies } from 'semver'
-import { getFrontendMode } from '../utils'
-import { useMarketNextI18n } from '../i18n'
+import { getFrontendMode } from '../shared/plugin-config'
+import { useMarketNextI18n } from '../shared/i18n'
 import { getMarketObject, loadMarketObjects } from '../market/state'
 
 const loading = ref(false)

@@ -10,7 +10,7 @@
 
 import { store, useContext } from '@koishijs/client'
 import { computed } from 'vue'
-import { useMarketNextI18n } from '../i18n'
+import { useMarketNextI18n } from '../shared/i18n'
 
 const ctx = useContext()
 const { t } = useMarketNextI18n()
