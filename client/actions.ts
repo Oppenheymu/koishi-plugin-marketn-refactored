@@ -1,13 +1,69 @@
 import { ref, watch } from 'vue'
-import { message, router, send, store } from '@koishijs/client'
-import type { Context } from '@koishijs/client'
+import { Context, message, router, send, store } from '@koishijs/client'
+import { getPendingOverrides, patchMarketNextData } from './utils'
 import { translate } from './i18n'
-import { getPendingOverrides } from './shared/config/data-store'
-import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './shared/ui/dialogs'
-import { marketSnapshot } from './market/state'
-import { marketRuntimeStore } from './market/runtime-store'
+import { showConfirm, showEnvironmentVersions, showInstallHistory, showManual } from './components/utils'
+import {
+  REGISTRY_STATUS_SWEEP_INTERVAL,
+  sweepRegistryStatus,
+  type MarketStore,
+} from './registry-state'
 
-export function registerActions(ctx: Context) {
+const APRIL_FOOLS_SHORTCUT_TIMEOUT = 1_500
+
+function isAprilFoolsDay(date = new Date()) {
+  return date.getMonth() === 3 && date.getDate() === 1
+}
+
+function isKoishiDay(date = new Date()) {
+  return date.getMonth() === 4 && date.getDate() === 14
+}
+
+export function setupActions(ctx: Context) {
+  const aprilFoolsIcon = ref(isAprilFoolsDay())
+  const koishiDayIcon = ref(isKoishiDay())
+  const forcedAprilFoolsIcon = ref(false)
+  let aprilFoolsShortcutAt = 0
+
+  ctx.effect(() => {
+    const updateSeasonalIcon = () => {
+      aprilFoolsIcon.value = isAprilFoolsDay()
+      koishiDayIcon.value = isKoishiDay()
+    }
+    const onAprilFoolsShortcut = (event: KeyboardEvent) => {
+      if (router.currentRoute.value?.path !== '/dependencies') return
+      if (event.repeat || event.isComposing) return
+      const key = event.key.toLowerCase()
+      if (!event.altKey || event.ctrlKey || event.metaKey) {
+        if (key !== 'alt') aprilFoolsShortcutAt = 0
+        return
+      }
+      if (key === 'g') {
+        aprilFoolsShortcutAt = Date.now()
+        event.preventDefault()
+        return
+      }
+      if (key === 'b' && aprilFoolsShortcutAt && Date.now() - aprilFoolsShortcutAt <= APRIL_FOOLS_SHORTCUT_TIMEOUT) {
+        forcedAprilFoolsIcon.value = true
+        aprilFoolsShortcutAt = 0
+        event.preventDefault()
+        return
+      }
+      aprilFoolsShortcutAt = 0
+    }
+    const timer = window.setInterval(updateSeasonalIcon, 60_000)
+    window.addEventListener('keydown', onAprilFoolsShortcut)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('keydown', onAprilFoolsShortcut)
+    }
+  })
+
+  ctx.effect(() => {
+    const timer = window.setInterval(() => sweepRegistryStatus(), REGISTRY_STATUS_SWEEP_INTERVAL)
+    return () => window.clearInterval(timer)
+  })
+
   const refreshingMarket = ref(false)
   const refreshingDependencies = ref(false)
   const pendingMarketRefreshFeedback = ref(false)
@@ -15,7 +71,7 @@ export function registerActions(ctx: Context) {
   function finishMarketRefreshFeedback() {
     if (!pendingMarketRefreshFeedback.value) return
     pendingMarketRefreshFeedback.value = false
-    if (marketSnapshot.value?.stale || marketSnapshot.value?.error) {
+    if (store.market?.stale || store.market?.error) {
       message.error(translate('common.messages.refreshMarketFailed'))
     } else {
       message.success(translate('common.messages.refreshMarketSuccess'))
@@ -39,7 +95,7 @@ export function registerActions(ctx: Context) {
         } else {
           message.success(translate('common.messages.refreshMarketSubmitted'))
           setTimeout(() => {
-            if (!marketSnapshot.value?.refreshing) finishMarketRefreshFeedback()
+            if (!store.market?.refreshing) finishMarketRefreshFeedback()
           }, 300)
         }
       } catch (error) {
@@ -85,16 +141,21 @@ export function registerActions(ctx: Context) {
     id: '.refresh',
     icon: 'refresh',
     label: () => translate('common.actions.refresh'),
-    type: () => refreshingMarket.value || !marketSnapshot.value || marketSnapshot.value.refreshing || marketSnapshot.value.progress < marketSnapshot.value.total ? 'spin disabled' : '',
+    type: () => refreshingMarket.value || !store.market || store.market.refreshing || store.market.progress < store.market.total ? 'spin disabled' : '',
   }])
 
   const registryRefreshing = () => {
-    return Object.values(marketRuntimeStore.registryStatus.value).some(status => status.loading)
+    const target = store as MarketStore
+    return Object.values(target.registryStatus ?? {}).some(status => status.loading)
   }
 
   ctx.menu('dependencies', [{
     id: '.upgrade',
-    icon: 'rocket',
+    icon: () => {
+      if (aprilFoolsIcon.value || forcedAprilFoolsIcon.value) return 'bomb'
+      if (koishiDayIcon.value) return 'koishi'
+      return 'rocket'
+    },
     label: () => translate('common.actions.upgradeAll'),
   }, {
     id: 'market.install',
@@ -120,7 +181,24 @@ export function registerActions(ctx: Context) {
   }])
 
   ctx.effect(() => {
-    return watch(() => marketSnapshot.value?.refreshing, (refreshing, previous) => {
+    return watch(() => store.dependencies, (value) => {
+      if (!value) return
+      const overrides = getPendingOverrides()
+      for (const key in overrides) {
+        if (!overrides[key] && !value[key]) {
+          // package to be removed has been removed
+          delete overrides[key]
+        } else if (value[key]?.request === overrides[key]) {
+          // package has been installed to the right version
+          delete overrides[key]
+        }
+      }
+      void patchMarketNextData({ override: { ...overrides } })
+    }, { immediate: true })
+  })
+
+  ctx.effect(() => {
+    return watch(() => store.market?.refreshing, (refreshing, previous) => {
       if (!pendingMarketRefreshFeedback.value || refreshing || previous !== true) return
       finishMarketRefreshFeedback()
     })

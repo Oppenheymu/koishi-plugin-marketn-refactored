@@ -1,19 +1,18 @@
-import { store } from '@koishijs/client'
-import type { Context, MenuItem } from '@koishijs/client'
+import { Context, MenuItem, store } from '@koishijs/client'
 // 宿主 @koishijs/plugin-config 提供 packages/services/config 三个 Console 服务；
 // 仅在 .vue 里 import type 对 tsc 不生效，这里加载其类型声明以扩展 store。
 import type {} from '@koishijs/plugin-config'
 import { markRaw, watch } from 'vue'
-import ConfigRemove from './config-remove/index.vue'
-import { isProtectedConfigNode, requestConfigRemove } from './config-remove/index'
-import BundleGroupUninstall from './bundle-group-uninstall/index.vue'
-import { requestBundleGroupUninstall } from './bundle-group-uninstall/index'
-import Dependency from './dependency/index.vue'
-import Missing from './missing/index.vue'
-import Select from './select/index.vue'
-import Version from './version/index.vue'
-import { resolveBundlePackageFromGroup } from '../shared/install/bundle-records'
-import { getBundleRecords } from '../shared/config/data-store'
+import ConfigRemove from './config-remove.vue'
+import { isProtectedConfigNode, requestConfigRemove } from './config-remove'
+import BundleGroupUninstall from './bundle-group-uninstall.vue'
+import { requestBundleGroupUninstall } from './bundle-group-uninstall'
+import Dependency from './dependency.vue'
+import Missing from './missing.vue'
+import Select from './select.vue'
+import Version from './version.vue'
+import { resolveBundlePackageFromGroup } from '../components/utils'
+import { getBundleRecords } from '../utils'
 import { translate } from '../i18n'
 
 function isBundleGroup(tree: any) {
@@ -30,8 +29,8 @@ function patchConfigRemoveLabel(ctx: Context) {
   const apply = () => {
     const list = ctx.internal.menus['config.tree']
     const index = list?.findIndex(item => item.id === '.remove') ?? -1
-    if (index < 0 || !list) return
-    const item = list[index]!
+    if (index < 0) return
+    const item = list[index]
     if (!patched.has(item)) patched.set(item, item.label)
     if (item.label === label) return
     item.label = label
@@ -50,7 +49,7 @@ function patchConfigRemoveLabel(ctx: Context) {
         const list = ctx.internal.menus['config.tree']
         const index = list?.indexOf(item) ?? -1
         if (item.label === label) item.label = previous
-        if (index >= 0 && list) list.splice(index, 1, item)
+        if (index >= 0) list.splice(index, 1, item)
       }
       patched.clear()
     }

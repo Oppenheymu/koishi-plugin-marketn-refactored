@@ -1,5 +1,8 @@
 // 行数预算与依赖方向守卫（重构质量门禁的一部分，挂在 `check` 脚本里）。
 //
+// 注：client 已于前端恢复为旧版参考实现（单文件大组件是参考底册的本来形态），
+// 不再参与本门禁的行数预算；门禁只对重构后的 src/ 生效。
+//
 // 预算口径：
 // - .ts/.mjs：总行数
 // - .vue：<template> + <script> 合并行数（<style> 出仓到 .scss，不计入）
@@ -46,7 +49,7 @@ function checkCoreImports(file: string, content: string, problems: string[]): vo
     }
 }
 
-const dirs = [join(ROOT, "src"), join(ROOT, "client")].filter((d) => existsSync(d));
+const dirs = [join(ROOT, "src")].filter((d) => existsSync(d));
 const files = dirs.flatMap((d) => walk(d));
 const warnings: string[] = [];
 const errors: string[] = [];

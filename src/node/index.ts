@@ -19,7 +19,9 @@
  * ctx.console.addEntry 接入。文件前半的 type/export 转发是包的公共类型面
  * （core/shared 类型随 ./shared 与本入口对宿主可见）。
  */
-import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "koishi";
 import "./declarations.js";
@@ -41,6 +43,33 @@ import {
     setupReadyTasks,
     setupSnapshotRoute,
 } from "./setup.js";
+
+/**
+ * 解析前端产物在宿主 node_modules 下的可达路径（console 静态服务安全检查用）。
+ *
+ * console 的 serveAssets 对 /@plugin-* 请求做 403 防护：解析后的文件路径必须
+ * 落在 console 自身 dist 内或包含 "node_modules"。workspace junction 场景下
+ * __filename/import.meta.url 会被 realpath 成 external/... 真实路径，直接
+ * resolve(here, "../../dist") 得到的路径不含 node_modules 而被 403 拦截；
+ * 这里从当前目录向上找宿主 node_modules 里的 <包名> 链接（junction 或 npm
+ * 安装点），npm 安装场景第一轮即可命中。
+ */
+function resolveConsoleClientRoot(here: string, packageName: string): string {
+    let dir = here;
+    for (;;) {
+        const candidate = join(dir, "node_modules", packageName);
+        if (existsSync(candidate)) {
+            // console 的 resolveEntry 会向 prod 路径追加 /index.js，因此这里
+            // 必须返回 dist 目录本身（而非包根）。
+            const dist = join(candidate, "dist");
+            if (existsSync(dist)) return dist;
+        }
+        const parent = dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+    return resolve(here, "../../dist");
+}
 
 export type {
     EnvironmentChangeStatus,
@@ -120,11 +149,18 @@ export function apply(ctx: Context, config: Config = {}) {
         setupIdleProbe(ctx, config);
 
         // 注册前端入口：dev 指向 client 源码（宿主内置 vite 代为编译），
-        // prod 指向本包构建产物 dist/
+        // prod 指向本包构建产物 dist/。prod 不能直接用 resolve(here, "../../dist")：
+        // console 的 /@plugin-* 静态服务在生产模式只放行 node_modules 内或 console
+        // dist 内的文件（serveAssets 的 403 安全检查），而 workspace（external/）
+        // junction 场景下 __filename 会被 realpath 成真实路径，external/.../dist
+        // 不含 node_modules 会被 403 拦截，导致插件前端页面无法加载。这里向上找到
+        // 宿主 node_modules 里的本包链接作为 prod 根（npm 安装场景同样命中）。
         const here = dirname(fileURLToPath(import.meta.url));
+        const require = createRequire(fileURLToPath(import.meta.url));
+        const packageName = require("../../package.json").name as string;
         ctx.console.addEntry({
             dev: resolve(here, "../../client/index.ts"),
-            prod: resolve(here, "../../dist"),
+            prod: resolveConsoleClientRoot(here, packageName),
         });
 
         const marketSnapshotTransport = setupSnapshotRoute(ctx);

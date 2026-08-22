@@ -12,10 +12,20 @@ import { compare, satisfies } from "semver";
 
 // tsgo(TS7) 对 CJS 默认导出的 interface+class 合并声明解析不完整，
 // 静态方法在类型上不可见（运行时存在）；这里集中收敛静态访问。
-export const Scanner = ScannerModule as unknown as {
+//
+// 互操作坑：tsdown/rolldown 的 CJS 产物里，`import X from "cjs"` 会被
+// __toESM(_, 1) 包装成 "default = 整个模块对象"，X.default 才是 Scanner 类；
+// 而 vitest/ESM 直读源码时 default 导入就是 Scanner 类本身（无 .default）。
+// 因此这里做防御性解包，保证两条路径都拿到真正的 Scanner 类。
+type ScannerStatic = {
     isPlugin(name: string): boolean;
     isCompatible(range: string, remote: Pick<RemotePackage, "peerDependencies">): boolean;
 };
+
+const RegistryExports = ScannerModule as unknown as { default?: ScannerStatic };
+
+export const Scanner: ScannerStatic =
+    RegistryExports.default ?? (ScannerModule as unknown as ScannerStatic);
 
 export interface ScannerLike {
     objects: import("@koishijs/registry").SearchObject[];
@@ -38,7 +48,7 @@ export interface ScannerLike {
 export function createScanner(
     request: (url: string, config?: { timeout?: number }) => Promise<unknown>,
 ): ScannerLike {
-    const ctor = ScannerModule as unknown as new (
+    const ctor = (RegistryExports.default ?? ScannerModule) as unknown as new (
         request: (url: string, config?: { timeout?: number }) => Promise<unknown>,
     ) => ScannerLike;
     return new ctor(request);

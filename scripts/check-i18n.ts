@@ -1,5 +1,5 @@
 // i18n 一致性检查：zh-CN / en-US 文案文件的 key 集合与 {placeholder} 必须对齐，
-// client 侧还要求 namespace 在 client/i18n/index.ts 注册。挂在 check 脚本里。
+// client 侧还要求 namespace 在 client/i18n.ts 注册。挂在 check 脚本里。
 import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { load } from "js-yaml";
@@ -62,41 +62,54 @@ async function checkLocalePair(relativePath: string, otherPath: string): Promise
     }
 }
 
+// 旧 client 底册的 locale 布局：client/locales/{zh-CN,en-US}/*.yml（8 个 namespace）
+// + client/market/locales/{zh-CN,en-US}.yml（market namespace），注册于 client/i18n.ts。
+const namespaceByFile: Record<string, string> = {
+    "common.yml": "common",
+    "dependencies.yml": "dependencies",
+    "market-page.yml": "marketPage",
+    "operations.yml": "operations",
+    "dependency-card.yml": "dependencyCard",
+    "extensions.yml": "extensions",
+    "bundle.yml": "bundle",
+    "environment.yml": "environment",
+};
+
 async function checkClientLocales(): Promise<void> {
-    const namespaceByFile: Record<string, string> = {
-        "common.yml": "common",
-        "dependencies.yml": "dependencies",
-        "market-page.yml": "marketPage",
-        "operations.yml": "operations",
-        "dependency-card.yml": "dependencyCard",
-        "extensions.yml": "extensions",
-        "bundle.yml": "bundle",
-        "environment.yml": "environment",
-        "market.yml": "market",
-    };
-    const zhDir = resolve(root, "client/i18n/zh-CN");
-    const enDir = resolve(root, "client/i18n/en-US");
+    const zhDir = resolve(root, "client/locales/zh-CN");
+    const enDir = resolve(root, "client/locales/en-US");
     const [zhFiles, enFiles] = await Promise.all([readdir(zhDir), readdir(enDir)]);
     const files = [...new Set([...zhFiles, ...enFiles])].filter((file) => file.endsWith(".yml")).sort();
-    const index = await readFile(resolve(root, "client/i18n/index.ts"), "utf8");
+    const index = await readFile(resolve(root, "client/i18n.ts"), "utf8");
     for (const file of files) {
         const namespace = namespaceByFile[file];
         if (!namespace) {
-            report(`client/i18n/${file}: missing namespace mapping`);
+            report(`client/locales/${file}: missing namespace mapping`);
             continue;
         }
-        const zhPath = `client/i18n/zh-CN/${file}`;
-        const enPath = `client/i18n/en-US/${file}`;
+        const zhPath = `client/locales/zh-CN/${file}`;
+        const enPath = `client/locales/en-US/${file}`;
         if (!zhFiles.includes(file)) report(`${zhPath} is missing`);
         if (!enFiles.includes(file)) report(`${enPath} is missing`);
-        if (!index.includes(`./zh-CN/${file}`) || !index.includes(`./en-US/${file}`)) {
-            report(`${file}: both locale imports must be registered in client/i18n/index.ts`);
+        if (!index.includes(`./locales/zh-CN/${file}`) || !index.includes(`./locales/en-US/${file}`)) {
+            report(`${file}: both locale imports must be registered in client/i18n.ts`);
         }
         if (!index.includes(`    ${namespace}:`)) {
-            report(`${file}: namespace ${namespace} must be registered in client/i18n/index.ts`);
+            report(`${file}: namespace ${namespace} must be registered in client/i18n.ts`);
         }
         if (zhFiles.includes(file) && enFiles.includes(file)) await checkLocalePair(zhPath, enPath);
     }
+
+    // market namespace 单独放在 client/market/locales/{zh-CN,en-US}.yml
+    const marketZh = "client/market/locales/zh-CN.yml";
+    const marketEn = "client/market/locales/en-US.yml";
+    if (!index.includes("./market/locales/zh-CN.yml") || !index.includes("./market/locales/en-US.yml")) {
+        report("market: both locale imports must be registered in client/i18n.ts");
+    }
+    if (!index.includes("    market:")) {
+        report("market: namespace market must be registered in client/i18n.ts");
+    }
+    await checkLocalePair(marketZh, marketEn);
 }
 
 async function checkNodeLocales(): Promise<void> {

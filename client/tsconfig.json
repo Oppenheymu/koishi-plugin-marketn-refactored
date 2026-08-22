@@ -5,9 +5,15 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "preserve",
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "resolveJsonModule": true,
     "strict": false,
     "noUncheckedIndexedAccess": false,
@@ -20,5 +26,7 @@
     "verbatimModuleSyntax": false,
     "erasableSyntaxOnly": false
   },
-  "include": ["."]
+  "include": [
+    "."
+  ]
 }
