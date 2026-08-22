@@ -52,6 +52,8 @@
 ### P4 client 移植拆分 🚧 收尾
 
 > **状态更新**：全部源文件已落盘，`yarn check`（biome + tsc×2 + eslint + check-size）**全量通过**；use-card / use-bundle-install 两个超限文件已拆分。仅剩 `yarn build:client` 复验（已修 3 处仅 vite 可检的 `.vue` import 错误）与 `yarn test`，详见 [handover/P4交接P5.md](../handover/P4交接P5.md)。
+>
+> **前端重构专项 01 · 样式出仓 ✅（2026-08-22）**：client 21 文件 / 22 块 / 6,157 行内联样式全部出仓为同目录 `.scss`（批次 1–4，commit d8a5807…3e91e0c）。验收采用产物等价门禁（plugin-vue 6 生产模式 scopeId 含 SFC 源码哈希，裸字节比对不可满足；详见 [前端重构计划/01-样式出仓.md](../前端重构计划/01-样式出仓.md) §5/§7）：令牌归一化逐字节一致 + scopeId 轮换双射 + uno 死规则自动核销，tsc/eslint/biome 全绿；顺带完成了上段所述 `build:client` 复验（四批次均构建成功）。视觉冒烟并入 P5 清单。
 
 **目标**：client feature-first 重组（~38 文件），全部维持 `<script setup>`，样式出仓、逻辑下沉。设计：[design/P4-client移植设计.md](../design/P4-client移植设计.md)；移植底册：[client端全量结构.md](../reference/client端全量结构.md)。
 
