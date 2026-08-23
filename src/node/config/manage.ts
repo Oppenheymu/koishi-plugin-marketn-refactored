@@ -55,8 +55,6 @@ interface MarketNextConfigNode {
     parent: PluginConfigMap;
     key: string;
     value: {
-        frontendMode?: unknown;
-        depsLayout?: unknown;
         marketLayout?: unknown;
         collapsedGroups?: unknown;
         [key: string]: unknown;
@@ -113,29 +111,17 @@ function getMarketConfigCandidate(
 }
 
 /**
- * 补齐配置默认值并清理废弃键:frontendMode/depsLayout 缺失或非法时回填
- * 默认值,顺带删除已废弃的 marketLayout 键。只改内存中的配置对象,
- * 是否写盘由调用方(setup.ts)决定。
+ * 清理废弃键:删除已下线的 marketLayout 键(旧版市场布局配置)。只改内存
+ * 中的配置对象,是否写盘由调用方(setup.ts)决定。
  *
  * @returns 是否有改动(有改动时调用方需要 writeConfig)
  */
 export function ensureMarketNextConfigDefaults(ctx: Context, currentConfig: Config) {
     const target = findMarketNextConfigNode(ctx.loader.config?.plugins, currentConfig);
     if (!target) return false;
-    let changed = false;
-    if (target.value.frontendMode !== "performance" && target.value.frontendMode !== "polished") {
-        target.value.frontendMode = "performance";
-        changed = true;
-    }
-    if (target.value.depsLayout !== "grid" && target.value.depsLayout !== "list") {
-        target.value.depsLayout = "grid";
-        changed = true;
-    }
-    if (Object.hasOwn(target.value, "marketLayout")) {
-        delete target.value.marketLayout;
-        changed = true;
-    }
-    return changed;
+    if (!Object.hasOwn(target.value, "marketLayout")) return false;
+    delete target.value.marketLayout;
+    return true;
 }
 
 /**

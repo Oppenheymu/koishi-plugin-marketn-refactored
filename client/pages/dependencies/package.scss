@@ -76,7 +76,7 @@
     gap: 0.38rem;
     min-width: 0;
 
-    > span {
+    >span {
       color: var(--fg2, var(--el-text-color-regular));
       font-size: 0.86rem;
     }
@@ -110,35 +110,15 @@
     box-shadow: none !important;
   }
 
-  .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  .el-radio-button__original-radio:checked+.el-radio-button__inner {
     border-color: color-mix(in srgb, var(--k-color-primary, var(--el-color-primary)) 58%, var(--k-color-border, #dcdfe6)) !important;
     background: color-mix(in srgb, var(--k-color-primary, var(--el-color-primary)) 15%, var(--k-card-bg, var(--el-bg-color)));
     color: var(--k-color-primary, var(--el-color-primary));
   }
-
-  &.market-mode-polished {
-    border-color: color-mix(in srgb, var(--k-color-primary) 14%, var(--k-color-border, #dcdfe6));
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--k-color-primary) 5%, transparent), transparent 46%),
-      color-mix(in srgb, var(--k-card-bg, var(--el-bg-color)) 88%, var(--k-side-bg, var(--el-bg-color)));
-    box-shadow:
-      0 24px 68px rgb(0 0 0 / 32%),
-      0 0 0 1px color-mix(in srgb, var(--fg1, currentColor) 7%, transparent) inset;
-
-    .el-dialog__header {
-      border-bottom-color: color-mix(in srgb, var(--k-color-primary) 10%, var(--k-color-border, #dcdfe6));
-      background:
-        linear-gradient(135deg, color-mix(in srgb, var(--k-color-primary) 8%, transparent), transparent 70%),
-        color-mix(in srgb, var(--k-side-bg, var(--el-bg-color)) 70%, var(--k-card-bg, var(--el-bg-color)));
-    }
-
-    .dep-ignore-note {
-      background: color-mix(in srgb, var(--k-color-primary, var(--el-color-primary)) 5%, var(--k-side-bg, var(--el-bg-color)));
-    }
-  }
 }
 
 @media (max-width: 560px) {
+
   .dep-ignore-dialog,
   .dep-local-binding-dialog {
     .el-dialog__body {

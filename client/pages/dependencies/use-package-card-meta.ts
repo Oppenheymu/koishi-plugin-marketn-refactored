@@ -20,7 +20,6 @@ export function usePackageCardMeta(
   editing: ComputedRef<boolean>,
   ctx: ClientContext,
   statusClass: ComputedRef<string>,
-  listMode?: boolean,
 ) {
   const configText = computed(() => {
     if (state.bundlePackage.value) return t('dependencyCard.config.notNeeded')
@@ -74,7 +73,7 @@ export function usePackageCardMeta(
   const editToggleText = computed(() => {
     if (state.bundlePackage.value) return t('dependencyCard.actions.manage')
     if (editing.value) return t('dependencyCard.actions.collapse')
-    return state.data.value ? (listMode ? t('dependencyCard.actions.versions') : t('dependencyCard.actions.edit')) : t('dependencyCard.actions.operate')
+    return state.data.value ? t('dependencyCard.actions.edit') : t('dependencyCard.actions.operate')
   })
 
   return {

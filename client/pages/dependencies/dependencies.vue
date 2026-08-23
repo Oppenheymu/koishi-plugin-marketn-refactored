@@ -1,6 +1,6 @@
 <template>
-  <k-layout main="page-deps" :class="[modeClass, layoutClass]" menu="dependencies">
-    <!-- 顶部工具栏:过滤下拉 / 预发布屏蔽 / 布局切换 / 搜索框 / 分类计数摘要 -->
+  <k-layout main="page-deps" menu="dependencies">
+    <!-- 顶部工具栏:过滤下拉 / 预发布屏蔽 / 搜索框 / 分类计数摘要 -->
     <div class="deps-toolbar">
       <div class="deps-toolbar-row">
         <el-select v-model="filter" size="small" class="deps-filter-select">
@@ -24,19 +24,6 @@
           <market-icon name="tag"></market-icon>
           <span>{{ t('dependencies.toolbar.blockPreview') }}</span>
         </button>
-        <button
-          class="deps-filter deps-layout-toggle"
-          @click="toggleLayout"
-          :title="depsLayout === 'grid' ? t('dependencies.toolbar.listView') : t('dependencies.toolbar.gridView')"
-        >
-          <svg v-if="depsLayout === 'grid'" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="currentColor">
-            <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="currentColor">
-            <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
-          </svg>
-          <span>{{ depsLayout === 'grid' ? t('dependencies.toolbar.listView') : t('dependencies.toolbar.gridView') }}</span>
-        </button>
         <div class="deps-search">
           <el-input ref="searchInput" v-model="keyword" clearable :placeholder="t('dependencies.toolbar.searchPlaceholder')"></el-input>
         </div>
@@ -51,7 +38,7 @@
       </div>
     </div>
 
-    <!-- 依赖分组列表:每组可折叠头 + 卡片网格(列表布局时先渲染表头) -->
+    <!-- 依赖分组列表:每组可折叠头 + 卡片网格 -->
     <el-scrollbar class="body-container">
       <div class="deps-content" :class="{ pending: summary.pending }">
         <template v-if="visibleGroups.length">
@@ -82,21 +69,11 @@
               </div>
             </header>
             <div v-if="!group.collapsed" class="deps-grid">
-              <template v-if="depsLayout === 'list'">
-                <div class="deps-list-header">
-                  <span class="col-icon"></span>
-                  <span class="col-name">{{ t('common.labels.name') }}</span>
-                  <span class="col-version">{{ t('common.labels.installed') }}</span>
-                  <span class="col-latest">{{ t('common.labels.latest') }}</span>
-                  <span class="col-actions">{{ t('common.labels.operation') }}</span>
-                </div>
-              </template>
               <package-view
                 v-for="item in group.items"
                 :key="item.name"
                 :name="item.name"
                 :kind="item.kind"
-                :list-mode="depsLayout === 'list'"
               ></package-view>
             </div>
           </section>
@@ -107,7 +84,7 @@
   </k-layout>
 
   <!-- 底部批量应用栏:有待应用变更时浮出,确认动作转交 confirm.vue -->
-  <div v-if="summary.pending" :class="['deps-apply-bar', modeClass]">
+  <div v-if="summary.pending" :class="'deps-apply-bar'">
     <div>
       <strong>{{ t('dependencies.apply.count', { count: summary.pending }) }}</strong>
       <span>{{ t('dependencies.apply.description') }}</span>
@@ -127,7 +104,7 @@
  * @file 依赖管理页面(/dependencies 路由主体)。
  *
  * 汇总展示宿主全部依赖,逐包分类后按固定顺序分组成卡片墙;支持过滤下拉、
- * 预发布屏蔽开关、网格/列表布局切换、Ctrl+K 聚焦搜索与分组折叠记忆。
+ * 预发布屏蔽开关、Ctrl+K 聚焦搜索与分组折叠记忆。
  * 存在待应用变更时底部浮出批量应用栏(确认动作交给全局 confirm.vue)。
  *
  * 拆分:包名全集与元数据预取在 use-dependency-names,分类与计数在
@@ -138,7 +115,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { message, router, useConfig, useContext } from '@koishijs/client'
 import { useMarketNextI18n } from '../../shared/i18n'
-import { getDepsLayout, getFrontendMode, getLatestVersion, getMarketNextConfig, getPendingOverrides, getWritableMarketNextPolicy, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
+import { getLatestVersion, getMarketNextConfig, getPendingOverrides, getWritableMarketNextPolicy, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
 import { showConfirm } from '../../shared/operations'
 import ManualInstall from './manual.vue'
 import PackageView from './package.vue'
@@ -155,11 +132,6 @@ const { t } = useMarketNextI18n()
 const keyword = ref('')
 const filter = ref<FilterKey>('all')
 const searchInput = ref<{ focus?: () => void }>()
-const frontendMode = computed(() => getFrontendMode(config.value))
-const depsLayout = computed(() => getDepsLayout(config.value))
-/** 前端外观模式与布局对应的根 class。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
-const layoutClass = computed(() => `deps-layout-${depsLayout.value}`)
 
 const { names, disposeNamesWatcher } = useDependencyNames(ctx, config)
 const { items, updates, prereleaseBlocked, summary, refreshing } = useDependencyClassify(ctx, config, names)
@@ -182,16 +154,6 @@ function onSearchShortcut(event: KeyboardEvent) {
   if (!event.ctrlKey && !event.metaKey) return
   event.preventDefault()
   searchInput.value?.focus?.()
-}
-
-/** 网格/列表布局切换:同时写本地配置对象与插件配置持久化。 */
-function toggleLayout() {
-  if (!config.value.market) config.value.market = {}
-  const next = depsLayout.value === 'grid' ? 'list' : 'grid'
-  config.value.market.depsLayout = next
-  const pluginConfig = getMarketNextConfig()
-  if (pluginConfig) pluginConfig.depsLayout = next
-  patchMarketNextConfig({ depsLayout: next })
 }
 
 /** 丢弃全部待应用变更(底部应用栏"放弃")。 */

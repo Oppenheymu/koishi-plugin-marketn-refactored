@@ -22,8 +22,6 @@ export const active = ref('')
 
 /** 可通过 patchMarketNextConfig 下发的插件配置补丁形态。 */
 export interface MarketNextConfigPatch extends UpdatePolicy {
-  frontendMode?: FrontendMode
-  depsLayout?: LayoutMode
   marketSilentStatusRules?: MarketSilentStatusRule[]
   marketSilentDateRules?: MarketSilentDateRule[]
   marketSilentRecentRules?: MarketSilentRecentRule[]
@@ -50,11 +48,6 @@ export type MarketNextConfig = MarketNextConfigPatch & {
     logLevel?: string
   }
 }
-
-/** 前端渲染模式:performance(默认,精简) / polished(动效增强)。 */
-export type FrontendMode = 'performance' | 'polished'
-/** 依赖页布局:grid(卡片网格,默认) / list(列表)。 */
-export type LayoutMode = 'grid' | 'list'
 
 /**
  * 从 store.config.plugins 里定位本插件的配置节点;插件未配置时为 undefined。

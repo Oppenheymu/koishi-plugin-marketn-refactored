@@ -6,7 +6,7 @@
  * 消费方的导入路径('../shared/plugin-config')与符号名不变。
  */
 
-export type { FrontendMode, LayoutMode, MarketNextConfig, MarketNextConfigPatch } from './config'
+export type { MarketNextConfig, MarketNextConfigPatch } from './config'
 export {
   active,
   getBulkMode,
@@ -36,4 +36,3 @@ export {
 } from './update-policy'
 export type { IgnoredUpdates, UpdateIgnoreRule } from './update-policy'
 export { getMarketSilentFilters, getMarketSilentRules } from './silent'
-export { getDepsLayout, getFrontendMode } from './prefs'

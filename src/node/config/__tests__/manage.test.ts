@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../installer/index.js", () => ({ SELF_PACKAGE: "koishi-plugin-marketn-refactored" }));
 vi.mock("../index.js", () => ({
-    configPatchKeys: ["frontendMode", "depsLayout", "idleProbe", "marketSilentRules"],
+    configPatchKeys: ["bulkMode", "idleProbe", "marketSilentRules"],
     configReloadKeys: new Set(["idleProbe"]),
     normalizeMarketSilentRules: vi.fn((value: unknown) => value),
 }));
@@ -83,50 +83,44 @@ function contextWithoutEntry(plugins: Record<string, unknown>) {
 }
 
 describe("findMarketNextConfigNode（经公开操作间接验证）", () => {
-    it("按新短名 koishi-plugin-marketn-refactored 定位", () => {
+    it("按新短名 koishi-plugin-marketn-refactored 定位并清理废弃键", () => {
         const config = {} as Config;
         const plugins = { "koishi-plugin-marketn-refactored": { marketLayout: "x" } };
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(true);
-        // 废弃键被删除,同时回填默认值
-        expect(plugins["koishi-plugin-marketn-refactored"]).toEqual({
-            frontendMode: "performance",
-            depsLayout: "grid",
-        });
+        // 废弃键被删除
+        expect(plugins["koishi-plugin-marketn-refactored"]).toEqual({});
     });
 
     it("按旧短名 market-next 定位（含 :ident 后缀）", () => {
         const config = {} as Config;
-        const plugins = { "market-next:ident": { frontendMode: "bad" } };
+        const plugins = { "market-next:ident": { marketLayout: "x" } };
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(true);
-        expect(plugins["market-next:ident"].frontendMode).toBe("performance");
+        expect(plugins["market-next:ident"]).toEqual({});
     });
 
     it("按配置对象引用（identity）定位", () => {
         const plugins: Record<string, unknown> = {};
-        const config = { depsLayout: "bad" } as unknown as Config;
+        const config = { marketLayout: "x" } as unknown as Config;
         plugins["anything:else"] = config;
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(true);
-        expect(plugins["anything:else"]).toMatchObject({ depsLayout: "grid" });
+        expect(plugins["anything:else"]).toEqual({});
     });
 
     it("深层 group 嵌套下定位", () => {
         const config = {} as Config;
         const plugins = {
-            "group:a": { "group:b": { "group:c": { "market-next": { depsLayout: "x" } } } },
+            "group:a": { "group:b": { "group:c": { "market-next": { marketLayout: "x" } } } },
         };
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(true);
-        expect(plugins["group:a"]["group:b"]["group:c"]["market-next"].depsLayout).toBe("grid");
+        expect(plugins["group:a"]["group:b"]["group:c"]["market-next"]).toEqual({});
     });
 
     it("仅有禁用节点时作为 fallback 返回", () => {
         const config = {} as Config;
-        const plugins = { "~market-next:old": { frontendMode: "polished" } };
+        const plugins = { "~market-next:old": { marketLayout: "x" } };
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(true);
-        // fallback 节点同样被修复默认值,但保留原有合法值
-        expect(plugins["~market-next:old"]).toEqual({
-            frontendMode: "polished",
-            depsLayout: "grid",
-        });
+        // fallback 节点同样被清理
+        expect(plugins["~market-next:old"]).toEqual({});
     });
 
     it("非对象候选值（null / 字符串 / $ 元键）被跳过", () => {
@@ -137,16 +131,16 @@ describe("findMarketNextConfigNode（经公开操作间接验证）", () => {
     });
 
     it("未启用优先于禁用 fallback（含 identity 命中）", () => {
-        const disabledConfig = { frontendMode: "polished" };
-        const enabledConfig = {};
+        const disabledConfig = { marketLayout: "x" };
+        const enabledConfig = { marketLayout: "y" };
         const plugins = {
             "~market-next:old": disabledConfig,
             "market-next:2": enabledConfig,
         };
         const { ctx } = context(plugins);
         expect(ensureMarketNextConfigDefaults(ctx, enabledConfig as Config)).toBe(true);
-        expect(enabledConfig).toEqual({ frontendMode: "performance", depsLayout: "grid" });
-        expect(disabledConfig).toEqual({ frontendMode: "polished" });
+        expect(enabledConfig).toEqual({});
+        expect(disabledConfig).toEqual({ marketLayout: "x" });
     });
 
     it("找不到节点时各操作返回 false", async () => {
@@ -154,16 +148,14 @@ describe("findMarketNextConfigNode（经公开操作间接验证）", () => {
         const { ctx } = context({ "other:1": {} });
         expect(ensureMarketNextConfigDefaults(ctx, config)).toBe(false);
         expect(removeLegacyCollapsedGroupsConfig(ctx, config)).toBe(false);
-        expect(await updateMarketNextConfig(ctx, config, { frontendMode: "polished" })).toBe(false);
+        expect(await updateMarketNextConfig(ctx, config, { marketSilentRules: [] })).toBe(false);
     });
 });
 
 describe("ensureMarketNextConfigDefaults", () => {
-    it("值全部合法时返回 false（无写盘需求）", () => {
+    it("无废弃键时返回 false（无写盘需求）", () => {
         const config = {} as Config;
-        const plugins = {
-            "market-next": { frontendMode: "polished", depsLayout: "list" },
-        };
+        const plugins = { "market-next": {} };
         expect(ensureMarketNextConfigDefaults(context(plugins).ctx, config)).toBe(false);
     });
 });
@@ -183,11 +175,11 @@ describe("removeLegacyCollapsedGroupsConfig", () => {
 describe("updateMarketNextConfig", () => {
     it("按白名单应用 patch 并写盘、刷新 config 视图", async () => {
         const config = {} as Config;
-        const plugins = { "koishi-plugin-marketn-refactored": { frontendMode: "performance" } };
+        const plugins = { "koishi-plugin-marketn-refactored": { bulkMode: false } };
         const { ctx, fixture } = context(plugins);
 
-        expect(await updateMarketNextConfig(ctx, config, { depsLayout: "list" })).toBe(true);
-        expect(plugins["koishi-plugin-marketn-refactored"]).toMatchObject({ depsLayout: "list" });
+        expect(await updateMarketNextConfig(ctx, config, { bulkMode: true })).toBe(true);
+        expect(plugins["koishi-plugin-marketn-refactored"]).toMatchObject({ bulkMode: true });
         expect(fixture.writeConfig).toHaveBeenCalledWith(true);
         expect(fixture.refresh).toHaveBeenCalledWith("config");
         expect(fixture.refresh).not.toHaveBeenCalledWith("entry");
@@ -207,10 +199,10 @@ describe("updateMarketNextConfig", () => {
 
     it("幂等 patch（白名单键值未变）返回 true 且不写盘", async () => {
         const config = {} as Config;
-        const plugins = { "market-next": { depsLayout: "list" } };
+        const plugins = { "market-next": { bulkMode: true } };
         const { ctx, fixture } = context(plugins);
 
-        expect(await updateMarketNextConfig(ctx, config, { depsLayout: "list" })).toBe(true);
+        expect(await updateMarketNextConfig(ctx, config, { bulkMode: true })).toBe(true);
         expect(fixture.writeConfig).not.toHaveBeenCalled();
         expect(fixture.refresh).not.toHaveBeenCalled();
     });

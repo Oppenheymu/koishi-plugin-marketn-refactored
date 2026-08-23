@@ -3,7 +3,7 @@
     v-model="showInstallHistory"
     append-to-body
     destroy-on-close
-    :class="['install-history-dialog', modeClass]"
+    :class="'install-history-dialog'"
     :title="t('operations.history.title')"
     width="min(1040px, calc(100vw - 24px))"
   >
@@ -120,14 +120,11 @@
 import { computed, ref, watch } from 'vue'
 import { message, send, useConfig } from '@koishijs/client'
 import type { InstallHistoryChange, InstallHistoryEntry, InstallLogDetail } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../../shared/plugin-config'
 import { showInstallHistory } from '../../shared/operations'
 import { useMarketNextI18n } from '../../shared/i18n'
 
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${getFrontendMode(config.value)}`)
 /** 安装记录列表(左侧栏数据源)。 */
 const entries = ref<InstallHistoryEntry[]>([])
 /** 当前选中的记录 id。 */

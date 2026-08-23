@@ -4,7 +4,7 @@
     append-to-body
     :show-close="installProgressState.status !== 'running'"
     :before-close="handleBeforeClose"
-    :class="['install-progress-dialog', modeClass]"
+    :class="'install-progress-dialog'"
     :title="installProgressState.title"
     width="min(800px, calc(100vw - 24px))"
   >
@@ -84,16 +84,12 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useConfig } from '@koishijs/client'
-import { getFrontendMode } from '../../shared/plugin-config'
 import { useMarketNextI18n } from '../../shared/i18n'
 import { installProgressState } from '../../shared/operations'
 import MarketIcon from '../../market/icons'
 
 const config = useConfig()
 const { t } = useMarketNextI18n()
-const frontendMode = computed(() => getFrontendMode(config.value))
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
 /** 日志视口元素引用,用于自动滚底。 */
 const viewport = ref<HTMLElement>()

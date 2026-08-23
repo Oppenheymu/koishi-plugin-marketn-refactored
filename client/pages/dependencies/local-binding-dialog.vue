@@ -3,7 +3,7 @@
     v-model="showLocalBindingDialog"
     append-to-body
     align-center
-    :class="['market-dialog', 'market-dialog--small', 'dep-local-binding-dialog', modeClass]"
+    :class="['market-dialog', 'market-dialog--small', 'dep-local-binding-dialog']"
     destroy-on-close
   >
     <template #header>{{ t('dependencyCard.localBinding.title') }}</template>
@@ -30,7 +30,6 @@ import { useLocalBinding } from './use-local-binding'
 const props = defineProps<{
   name: string
   displayName: string
-  modeClass?: string
 }>()
 
 const { t } = useMarketNextI18n()

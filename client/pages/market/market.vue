@@ -1,5 +1,5 @@
 <template>
-  <k-layout main="darker" :class="['page-market', modeClass]" menu="market">
+  <k-layout main="darker" :class="'page-market'" menu="market">
     <!-- 左侧栏:排序/徽章/高级日期/分类筛选 -->
     <template #left>
       <el-scrollbar>
@@ -143,7 +143,7 @@
 
 import { router, store, global, useConfig } from '@koishijs/client'
 import { computed, onMounted, onUnmounted, provide, ref } from 'vue'
-import { active, getFrontendMode, getPendingOverrides } from '../../shared/plugin-config'
+import { active, getPendingOverrides } from '../../shared/plugin-config'
 import { kConfig, MarketFilter, MarketList, MarketSearch } from '../../market'
 import { SearchObject } from '@koishijs/registry'
 import { activeBundle } from '../../shared/operations'
@@ -161,12 +161,8 @@ const root = ref()
 const searchBox = ref<{ focus?: () => void }>()
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
-/** 前端渲染模式(驱动根类名 market-mode-*)。 */
-const frontendMode = computed(() => getFrontendMode(config.value))
 /** gravatar 镜像:插件配置优先,退化为服务端下发的 store.market.gravatar。 */
 const marketGravatar = computed(() => config.value.market?.gravatar || store.market?.gravatar)
-/** 模式类名(performance/polished)。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
 // 注入市场配置:静态站点下不提供 installed 判定
 provide(kConfig, {

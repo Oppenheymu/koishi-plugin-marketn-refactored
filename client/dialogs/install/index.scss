@@ -84,7 +84,7 @@
     min-height: 40px;
     background: color-mix(in srgb, var(--k-side-bg) 58%, var(--k-card-bg));
 
-    > div {
+    >div {
       margin: 1rem 0;
     }
 
@@ -125,8 +125,11 @@
       width: 20%;
     }
 
-    thead, tbody {
-      td, th {
+    thead,
+    tbody {
+
+      td,
+      th {
         padding: 0.62rem 0.875rem;
         white-space: nowrap;
         overflow: hidden;
@@ -200,7 +203,7 @@
     }
   }
 
-  .el-button + .el-button {
+  .el-button+.el-button {
     margin-left: 1rem;
   }
 
@@ -212,31 +215,6 @@
     padding: 14px 16px;
     border-top: 1px solid color-mix(in srgb, var(--k-color-border) 82%, transparent);
     background: color-mix(in srgb, var(--k-side-bg) 50%, var(--k-card-bg));
-  }
-
-  &.market-mode-polished {
-    border-color: color-mix(in srgb, var(--k-color-primary) 18%, var(--k-color-border));
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--k-color-primary) 4%, transparent), transparent 44%),
-      var(--k-card-bg);
-    box-shadow:
-      0 28px 80px rgb(0 0 0 / 32%),
-      0 0 0 1px color-mix(in srgb, var(--fg1) 8%, transparent) inset;
-
-    .el-dialog__header {
-      border-bottom-color: color-mix(in srgb, var(--k-color-primary) 12%, var(--k-color-border));
-      background:
-        linear-gradient(135deg, color-mix(in srgb, var(--k-color-primary) 8%, transparent), transparent 70%),
-        color-mix(in srgb, var(--k-side-bg) 72%, var(--k-card-bg));
-    }
-
-    .peer-table-scroll {
-      box-shadow: 0 12px 30px rgb(0 0 0 / 12%);
-    }
-
-    .el-dialog__footer {
-      border-top-color: color-mix(in srgb, var(--k-color-primary) 12%, var(--k-color-border));
-    }
   }
 
   .wrapper {

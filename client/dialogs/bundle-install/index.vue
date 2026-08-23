@@ -3,7 +3,7 @@
     :model-value="!!activeBundle"
     append-to-body
     align-center
-    :class="['bundle-install-panel', modeClass]"
+    :class="'bundle-install-panel'"
     width="min(880px, calc(100vw - 24px))"
     destroy-on-close
     @update:model-value="close"
@@ -349,7 +349,6 @@ import { store, useConfig } from '@koishijs/client'
 import { activeBundle } from '../../shared/operations'
 import { formatShortname } from '../../market/utils'
 import MarketIcon from '../../market/icons'
-import { getFrontendMode } from '../../shared/plugin-config'
 import { useMarketNextI18n } from '../../shared/i18n'
 import {
   formatConfig,
@@ -366,9 +365,6 @@ import { useBundleInstall } from './use-bundle-install'
 
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
-const frontendMode = computed(() => getFrontendMode(config.value))
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
 const membersState = useBundleMembers(t)
 const diffState = useBundleDiff(membersState, t)

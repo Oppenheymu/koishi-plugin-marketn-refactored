@@ -3,7 +3,7 @@
     v-model="showEnvironmentVersions"
     append-to-body
     destroy-on-close
-    :class="['environment-versions-dialog', modeClass]"
+    :class="'environment-versions-dialog'"
     :title="t('environment.title')"
     width="min(1080px, calc(100vw - 24px))"
   >
@@ -102,7 +102,7 @@
   <el-dialog
     v-model="confirmVisible"
     append-to-body
-    :class="['environment-confirm-dialog', modeClass]"
+    :class="'environment-confirm-dialog'"
     :title="t('environment.confirmTitle')"
     width="min(520px, calc(100vw - 24px))"
   >
@@ -139,15 +139,12 @@ import type {
   EnvironmentSnapshotSource,
   EnvironmentSnapshotSummary,
 } from 'koishi-plugin-marketn-refactored'
-import { getFrontendMode } from '../../shared/plugin-config'
 import { applyEnvironmentSnapshot, showEnvironmentVersions } from '../../shared/operations'
 import { useMarketNextI18n } from '../../shared/i18n'
 import MarketIcon from '../../market/icons'
 
 const config = useConfig()
 const { t, locale } = useMarketNextI18n()
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${getFrontendMode(config.value)}`)
 /** 快照摘要列表(左侧栏数据源)。 */
 const snapshots = ref<EnvironmentSnapshotSummary[]>([])
 /** 当前选中的快照 id。 */

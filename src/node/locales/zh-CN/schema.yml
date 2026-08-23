@@ -30,16 +30,6 @@ updateIgnoredPackages: 不检测更新的依赖名。每行一个包名，也可
 updateIgnoreDuration: 点击“忽略此次更新”后的默认忽略时长。0 表示不按时间过期。
 updateIgnoreVersions: 点击“忽略此次更新”后连续忽略几个新版本。1 表示只忽略当前最新版本。
 updateIgnorePrerelease: 手动开启后，alpha / beta / rc 等预发布版本不会被视为可更新版本。
-frontendMode:
-  $description: 前端显示模式。性能模式保持低动效；精致模式启用更细腻的动效和高级样式。
-  $inner:
-    - 性能模式
-    - 精致模式
-depsLayout:
-  $description: 依赖管理页布局。网格模式多列展示；列表模式单列宽卡片，信息更密集。
-  $inner:
-    - 网格
-    - 列表
 marketSilentRules:
   $description: 插件市场永久静默过滤。添加后命中的插件会直接隐藏，不会显示在搜索框中。
   type:

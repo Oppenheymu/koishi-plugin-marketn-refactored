@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     append-to-body
-    :class="['bundle-uninstall-dialog', modeClass]"
+    :class="'bundle-uninstall-dialog'"
     :title="title || t('bundle.actions.uninstall')"
     width="min(760px, calc(100vw - 24px))"
     destroy-on-close
@@ -120,7 +120,7 @@ import {
   type BundleRecordView,
   type BundleMemberCleanupTarget,
 } from '../../shared/operations'
-import { getBulkMode, getFrontendMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
+import { getBulkMode, getPendingOverrides, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
 import { useMarketNextI18n } from '../../shared/i18n'
 
 /** 成员级卸载策略:config=仅清组内配置,dependency=卸载依赖(含清配置),keep=保留不动。 */
@@ -144,9 +144,6 @@ const emit = defineEmits<{
 
 const config = useConfig()
 const { t } = useMarketNextI18n()
-const frontendMode = computed(() => getFrontendMode(config.value))
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 
 /** 批量操作:一键设置所有成员策略,不可行者自动降级(卸载→清配置/保留)。 */
 function setAllActions(action: MemberAction) {

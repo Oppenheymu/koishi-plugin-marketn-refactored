@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :model-value="!!active" @update:model-value="closePanel" :class="['install-panel', modeClass]" destroy-on-close>
+  <el-dialog :model-value="!!active" @update:model-value="closePanel" :class="'install-panel'" destroy-on-close>
     <!-- 头部:包名(本地形态带标记) + 目标版本下拉(每项带红黄绿点) -->
     <template v-if="active" #header="{ titleId, titleClass }">
       <span :id="titleId" :class="titleClass">
@@ -10,7 +10,6 @@
         v-model="selectVersion"
         class="market-version-select"
         :disabled="localSelection"
-        :popper-class="versionPopperClass"
       >
         <el-option v-for="({ result }, version) in data" :key="version" :value="version">
           {{ version }}
@@ -59,7 +58,6 @@
                 <el-select
                   class="frameless market-version-select"
                   :model-value="getVersion(name)"
-                  :popper-class="versionPopperClass"
                   @update:model-value="setVersion(name, $event)"
                 >
                     <el-option value="">{{ t('dependencyCard.actions.remove') }}</el-option>
@@ -154,7 +152,6 @@
 
 import { computed, ref } from 'vue'
 import { global, store, useConfig, useContext } from '@koishijs/client'
-import { getFrontendMode } from '../../shared/plugin-config'
 import { active } from '../../shared/plugin-config'
 import BundleUninstall from '../bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
@@ -165,11 +162,6 @@ import { useInstallFlow } from './use-install-flow'
 const ctx = useContext()
 const config = useConfig()
 const { t } = useMarketNextI18n()
-const frontendMode = computed(() => getFrontendMode(config.value))
-/** 前端外观模式对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${frontendMode.value}`)
-/** 版本下拉弹层的 class(带主题模式前缀)。 */
-const versionPopperClass = computed(() => `market-version-popper ${modeClass.value}`)
 
 const versionsState = useInstallVersions()
 const {

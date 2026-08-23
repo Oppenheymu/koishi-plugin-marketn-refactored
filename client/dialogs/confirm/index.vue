@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-if="store.market?.registry" v-model="showConfirm" :class="['confirm-panel', modeClass]" destroy-on-close>
+  <el-dialog v-if="store.market?.registry" v-model="showConfirm" :class="'confirm-panel'" destroy-on-close>
     <template #header>{{ t('operations.confirm.title') }}</template>
     <!-- 变更表格:逐行列出 依赖 / 旧版本 → 新版本(空串显示为"移除依赖") -->
     <div class="confirm-change-list">
@@ -57,7 +57,7 @@
 import { computed, ref } from 'vue'
 import { message, send, store, useContext, useConfig } from '@koishijs/client'
 import { ensureInstalledConfigs, getConfigWriter, showConfirm, install, pendingBundleUninstalls, MARKET_NEXT_PACKAGE } from '../../shared/operations'
-import { getFrontendMode, getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
+import { getPendingOverrides, getRemoveConfig, getWritableBundleRecords, patchMarketNextData } from '../../shared/plugin-config'
 import { useMarketNextI18n } from '../../shared/i18n'
 
 const ctx = useContext()
@@ -65,8 +65,6 @@ const config = useConfig()
 const { t } = useMarketNextI18n()
 /** 待应用的覆盖清单:包名 → 版本请求(空串代表卸载),来自 marketData.override。 */
 const overrides = computed(() => getPendingOverrides())
-/** 前端外观模式(performance/polished)对应的根 class,主题适配用。 */
-const modeClass = computed(() => `market-mode-${getFrontendMode(config.value)}`)
 
 /** "同时移除插件配置"勾选状态,初始值取用户上次保存的选择(未保存过则默认未勾)。 */
 const removeConfig = ref(getRemoveConfig(config.value))

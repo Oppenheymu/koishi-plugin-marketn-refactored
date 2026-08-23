@@ -45,8 +45,6 @@ export type {
 export interface Config {
     registry?: InstallerConfig;
     search?: MarketProviderConfig;
-    frontendMode?: "performance" | "polished";
-    depsLayout?: "grid" | "list";
     marketSilentStatusRules?: MarketSilentStatusRule[];
     marketSilentDateRules?: MarketSilentDateRule[];
     marketSilentRecentRules?: MarketSilentRecentRule[];
@@ -100,20 +98,6 @@ const MarketSilentRules = Schema.array(
     .description("插件市场永久静默过滤。添加规则后，命中的插件会直接从市场页隐藏。");
 
 export const Config: Schema<Config> = Schema.object({
-    frontendMode: Schema.union([
-        Schema.const("performance").description("性能模式"),
-        Schema.const("polished").description("精致模式"),
-    ])
-        .role("radio")
-        .default("performance")
-        .description("Frontend display mode."),
-    depsLayout: Schema.union([
-        Schema.const("grid").description("网格"),
-        Schema.const("list").description("列表"),
-    ])
-        .role("radio")
-        .default("grid")
-        .description("Dependencies page layout."),
     idleProbe: Schema.boolean()
         .default(true)
         .description("Run dependency and market metadata probes while Console is idle."),
@@ -181,8 +165,6 @@ export const Config: Schema<Config> = Schema.object({
 
 /** market/update-config 白名单（只有这些键允许写回 loader 配置）。 */
 export const configPatchKeys: Array<keyof Config> = [
-    "frontendMode",
-    "depsLayout",
     "marketSilentStatusRules",
     "marketSilentDateRules",
     "marketSilentRecentRules",

@@ -44,10 +44,9 @@ import { Config, configPatchKeys, configReloadKeys, normalizeMarketSilentRules }
 describe("config schema 导出", () => {
     it("Config schema 与白名单/热重载键集合可用", () => {
         expect(Config).toBeTypeOf("object");
-        expect(configPatchKeys).toContain("frontendMode");
         expect(configPatchKeys).not.toContain("registry" as never);
         expect(configReloadKeys.has("idleProbe")).toBe(true);
-        expect(configReloadKeys.has("frontendMode")).toBe(false);
+        expect(configPatchKeys).toContain("bulkMode");
     });
 });
 

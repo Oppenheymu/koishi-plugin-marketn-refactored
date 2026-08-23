@@ -27,8 +27,6 @@ npm install koishi-plugin-marketn-refactored
 
 | 配置项 | 默认 | 说明 |
 |---|---|---|
-| `frontendMode` | `performance` | 前端渲染模式（performance / polished） |
-| `depsLayout` | `grid` | 依赖页布局（grid / list） |
 | `idleProbe` | `true` | 空闲时后台探测刷新依赖与市场元数据 |
 | `idleProbeDelay` / `idleProbeBootDelay` / `idleProbeInterval` | 5min / 1min / 6h | 空闲探测延迟 / 启动延迟 / 间隔 |
 | `registry.endpoint` | （自动） | npm registry 地址，留空自动按 .npmrc 与镜像路由 |

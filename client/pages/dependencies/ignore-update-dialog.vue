@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="showIgnoreDialog" :class="['dep-ignore-dialog', modeClass]" append-to-body destroy-on-close>
+  <el-dialog v-model="showIgnoreDialog" :class="'dep-ignore-dialog'" append-to-body destroy-on-close>
     <template #header>{{ t('dependencyCard.ignore.title') }}</template>
     <div class="dep-ignore-body">
       <p>
@@ -59,7 +59,6 @@ const props = defineProps<{
   latestVersion?: string
   target: IgnoreUpdateTarget
   config: { value: unknown }
-  modeClass?: string
 }>()
 
 const { t } = useMarketNextI18n()

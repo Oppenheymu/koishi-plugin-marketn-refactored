@@ -1,8 +1,8 @@
 /**
  * @file 依赖卡片的显隐开关 composable(dependencies 域)。
  *
- * 由状态/展示结论推导全部 show* 系列与 markIcon:控制列表行与卡片两种
- * 模式下各操作按钮、元数据格、版本选择器的出现条件。
+ * 由状态/展示结论推导全部 show* 系列与 markIcon:控制卡片模式下
+ * 各操作按钮、元数据格、版本选择器的出现条件。
  */
 
 import { computed } from 'vue'
@@ -19,7 +19,6 @@ export function usePackageVisibility(options: {
   identityIcon: ComputedRef<string>
   detailText: ComputedRef<string>
   editing: ComputedRef<boolean>
-  listMode?: boolean
 }) {
   const { state, statusClass, configText, sourceText, editing } = options
   const t = options.t
@@ -85,7 +84,7 @@ export function usePackageVisibility(options: {
   })
 
   const showRemoveDependency = computed(() => {
-    return (options.listMode || editing.value || statusClass.value !== 'installed')
+    return (editing.value || statusClass.value !== 'installed')
       && !state.pending.value
       && !!state.dep.value
       && !state.dep.value.workspace

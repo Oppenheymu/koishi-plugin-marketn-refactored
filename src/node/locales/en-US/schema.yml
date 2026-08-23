@@ -30,16 +30,6 @@ updateIgnoredPackages: Dependency package names that should not be checked for u
 updateIgnoreDuration: Default duration after ignoring one update. 0 means no time-based expiry.
 updateIgnoreVersions: How many consecutive newer versions should be ignored after ignoring one update. 1 means only the current latest version.
 updateIgnorePrerelease: When enabled, alpha / beta / rc and other prerelease versions are not treated as update targets.
-frontendMode:
-  $description: Frontend display mode. Performance mode keeps low-motion dense UI; polished mode enables richer visual effects.
-  $inner:
-    - Performance mode
-    - Polished mode
-depsLayout:
-  $description: Dependencies page layout. Grid shows compact cards; list shows a denser single-column view.
-  $inner:
-    - Grid
-    - List
 marketSilentRules:
   $description: Permanent silent market filters. Matched plugins are hidden from the market page.
   type:

@@ -38,7 +38,7 @@ describe("shared/plugin-config 聚合出口", () => {
         expect(pluginConfig.active).toBeTypeOf("object");
     });
 
-    it("更新忽略策略与静默过滤、偏好", () => {
+    it("更新忽略策略与静默过滤", () => {
         for (const name of [
             "createUpdateIgnoreRule",
             "getIgnoredUpdateVersion",
@@ -49,8 +49,6 @@ describe("shared/plugin-config 聚合出口", () => {
             "isUpdateIgnored",
             "getMarketSilentFilters",
             "getMarketSilentRules",
-            "getDepsLayout",
-            "getFrontendMode",
         ]) {
             expect(pluginConfig[name]).toBeTypeOf("function");
         }
