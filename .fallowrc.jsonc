@@ -26,11 +26,19 @@
     ],
     // 已人工复核的结构性重复：版本选择器、两套变量体系的批量行，以及
     // install/uninstall 中语义相反的安装状态守卫，不应强行抽象。
+    // 另登记 2026-08-24 复核的 3 组视觉有意重复：
+    // 1. extensions/version 与 dependencies 页面的危险按钮样式（各自作用域，
+    //    颜色体系完全一致但类名不同，合并会破坏样式隔离）；
+    // 2. bundle-install 必装/可选成员的行模板（结构对称、交互分支不同）；
+    // 3. bundle-install 与 market/package 的分类色映射（cat-* 两套变量体系）。
     "duplicates": {
         "ignoredClones": [
             "dup:c77b3abb6f87acd9-2:2",
             "dup:f93565d2:2",
-            "dup:c77b3abb6f87acd9-1:2"
+            "dup:c77b3abb6f87acd9-1:2",
+            "dup:deb1902d:2",
+            "dup:c77b3abb6f87acd9-3:2",
+            "dup:c19694e6:2"
         ]
     },
     // Koishi Console 通过 DataService 反射调用 get；MarketProvider 还由 idle-probe
