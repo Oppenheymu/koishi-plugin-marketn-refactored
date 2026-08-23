@@ -24,7 +24,7 @@
  * 父组件通过 ref 调用 open() 打开。
  */
 
-import { useMarketNextI18n } from '../../../shared/i18n'
+import { useMarketNextI18n } from '../../shared/i18n'
 import { useLocalBinding } from './use-local-binding'
 
 const props = defineProps<{

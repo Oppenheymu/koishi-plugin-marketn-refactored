@@ -51,7 +51,7 @@
  * 父组件通过 ref 调用 open() 打开(打开时按当前策略初始化预设)。
  */
 
-import { useMarketNextI18n } from '../../../shared/i18n'
+import { useMarketNextI18n } from '../../shared/i18n'
 import { useIgnoreUpdate, type IgnoreUpdateTarget } from './use-ignore-update'
 
 const props = defineProps<{
