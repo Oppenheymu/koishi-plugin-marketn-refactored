@@ -93,19 +93,6 @@ export function getMarketSnapshotData() {
 }
 
 /**
- * 当前快照数据的有效性判定:shallowRef 快照与 store 的 dataVersion 一致
- * (或任一侧缺版本号)时可用;否则只认 store 自己带的数据。仅供本域子模块共享。
- */
-export function getCurrentSnapshotData() {
-  const snapshot = marketSnapshot.value
-  const currentVersion = store.market?.dataVersion
-  if (snapshot && (currentVersion == null || snapshot.dataVersion == null || snapshot.dataVersion === currentVersion)) {
-    return snapshot.data
-  }
-  if (!snapshot && store.market?.data) return store.market.data
-}
-
-/**
  * 把快照数据回填到 legacy store.market:服务端推送可能只带部分字段把
  * store.market.data 冲掉,此函数在检测到丢失时用 shallowRef 里的完整数据补回。
  */

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * mock @koishijs/client(send/receive/store),按用例 resetModules 隔离
  * 模块级快照状态。覆盖:store 初值采用、缓存命中与单飞复用、force 刷新、
  * http-gzip 失败回退 inline、请求不可用报错、superseded 重试与超限、
- * getCurrentSnapshotData 版本矩阵、restoreMarketSnapshot 回填与
+ * getMarketSnapshotData 取值优先级、restoreMarketSnapshot 回填与
  * market/patch 增量合并。
  */
 
@@ -52,11 +52,10 @@ afterEach(() => {
     vi.doUnmock('../snapshot-utils')
 })
 
-describe('getMarketSnapshotData / getCurrentSnapshotData', () => {
-    it('无快照无 store 时:前者兜底空对象,后者 undefined', async () => {
+describe('getMarketSnapshotData', () => {
+    it('无快照无 store 时兜底空对象', async () => {
         const state = await loadState()
         expect(state.getMarketSnapshotData()).toEqual({})
-        expect(state.getCurrentSnapshotData()).toBeUndefined()
     })
 
     it('无快照时采用 store.market.data', async () => {
@@ -64,23 +63,15 @@ describe('getMarketSnapshotData / getCurrentSnapshotData', () => {
         const data = { 'koishi-plugin-foo': makeManifestEntry() }
         client.store.market = { data, dataVersion: 1 }
         expect(state.getMarketSnapshotData()).toBe(data)
-        expect(state.getCurrentSnapshotData()).toBe(data)
     })
 
-    it('有快照且版本一致(或缺版本)时认快照数据,版本漂移时不认', async () => {
+    it('有快照时始终优先快照本体,store 版本漂移不影响', async () => {
         const state = await loadState()
         client.store.market = inlinePayload(1)
         await state.loadMarketSnapshot()
-        // 发布后 store 与快照版本一致
-        expect(state.getCurrentSnapshotData()).toBe(state.marketSnapshot.value!.data)
-        // store 丢失版本号 → currentVersion == null → 仍认快照
         const published = state.marketSnapshot.value!
-        client.store.market = { data: { other: makeManifestEntry() } }
-        expect(state.getCurrentSnapshotData()).toBe(published.data)
-        // store 版本前进 → 快照过期,不再认
+        // store 版本前进后,getMarketSnapshotData 仍认快照本体
         client.store.market = { dataVersion: 99, data: { other: makeManifestEntry() } }
-        expect(state.getCurrentSnapshotData()).toBeUndefined()
-        // getMarketSnapshotData 始终优先快照本体
         expect(state.getMarketSnapshotData()).toBe(published.data)
     })
 })
