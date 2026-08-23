@@ -1,7 +1,8 @@
 # client 端全量结构（旧 client 底册）
 
-> 状态：考据文档。对象是旧 `参考/client/`（P4 移植底册，即旧 `Waiting_refactored/client/`），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照，不随重构更新。基准目录：`参考/client`（下文用 `client/` 缩写）。
-> 2026-08-22 目录重组：`client/` 已按 app（接线）/ pages（页面）/ dialogs（全局对话框）/ market / extensions / shared（共享层）重组，本文路径已同步为新布局（`components/utils.ts`→`shared/operations.ts`、根 `utils.ts`→`shared/plugin-config.ts`、`components/X.vue`→`pages/*/X.vue` 或 `dialogs/X.vue`、`composables/`→`pages/dependencies/`）。
+> 状态：考据文档。对象是旧 `参考/client/`（P4 移植底册，即旧 `Waiting_refactored/client/`），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照。
+>
+> **路径与行号体系（P6 勘误）**：本文有三层对应关系——①文中路径是 P4 移植时点的"新布局"名（`components/utils.ts`→`shared/operations.ts`、根 `utils.ts`→`shared/plugin-config.ts`、`components/X.vue`→`pages/*/X.vue` 或 `dialogs/X.vue`、`composables/`→`pages/dependencies/`）；②行数与行内行号对应 `参考/client/` 的实际旧文件（参考目录本身仍是 components/ 旧布局：`components/utils.ts` 531 行、根 `utils.ts` 429 行等）；③参考目录在本文初稿后又经历了一轮自身拆分（`client/index.ts` 420 行 → 45 行 + `actions.ts` 96 行 + `pages.ts` 96 行 + `registry-state.ts` 96 行 + `i18n.ts` 等），§1 的 420 行版本时序描述对应拆分前的大文件。当前（重构后）`client/` 又在 P4 布局基础上把 `shared/operations.ts`、`shared/plugin-config.ts` 拆成了目录、大组件拆出 use-* composables；检索以组件/符号名为准。
 
 # 1. 入口与路由 — `client/index.ts` (420 行)
 
@@ -130,6 +131,17 @@
 
 **消费关系**：pages/market/market.vue 从 `../market` 导入 MarketFilter/MarketList/MarketSearch + getSilentFiltered/getVisible/kConfig/parseSilentFilters；list.vue 再内嵌 market/components/package.vue；state.ts 被 index.ts（restoreMarketLookups）、market.vue（loadMarketSnapshot/snapshot refs）、package.vue（getMarketObject）、dependencies.vue（loadMarketObjects）、extensions（loadMarketObjects/loadMarketServiceProviders）消费。
 
+**P6 补全考据——market 模块的算法与数据细节**：
+
+1. **市场推荐排序评分公式**（参考 client/market/utils.ts:129-270）：
+   - 搜索相似度分档：包名全等 1 / `-`/`_` 分词命中 0.5 / 包名前缀 0.4 / 分词前缀 0.3 / 包名包含 0.25 / 分词包含 0.2 / 关键词包含 0.05 / 否则 0（任一词为 0 则整条 0）。
+   - 搜索分 = rank × Σ相似度，rank = `rating ?? (1 - log2(days+1)/16)`。
+   - 推荐公式 `100 × (0.30×popularity + 0.24×maintenance + 0.16×freshness + 0.12×trust + 0.10×quality + 0.08×exploration)`。
+   - popularity = `sigmoid(log10(下载+1), 2.6, 1.15)`；maintenance = `exp(-更新天数/120)`；freshness：≤30d→1 / ≤90d→0.75 / ≤180d→0.45 / 其余 `exp(-days/720)`；trust：verified 0.55 + portable 0.15 + 有链接 0.10；quality：manifest 描述 0.22 + package 描述 0.18 + 分类非 other 0.14 + keywords≥3 0.12 + 有 maintainers 0.10 + license 0.08 + 非 bundle 0.08；exploration = `(1-sigmoid(log10(下载+1),2.2,1.25)) × maintenance × clamp((quality-0.35)/0.65)`。
+   - 风险乘数：insecure 0.15 / deprecated 0.25 / preview 0.60；已安装再乘 0.18。
+2. **头像候选链构造**（参考 client/market/avatar.ts:39-103）：gravatar 基址顺序：自定义（`GRAVATAR_MIRROR`，自动剥尾部 `/avatar`）→ cravatar.cn → www.cravatar.cn → s.gravatar.com → www.gravatar.com → gravatar.com；URL 一律 `{base}/avatar/{md5(email.trim().toLowerCase())}.png?d=404`；npm-avatar 代理 URL = `https://www.npmjs.com/npm-avatar/{base64url('https://s.gravatar.com/avatar/{hash}.png?size=100&default=404')}`；候选顺序 explicit（支持 data:）/ url（须图片扩展名正则）/ gravatar×N / npm-avatar，按 url+cacheKey 去重；data: URL 直接返回不走缓存。注意：参考用 `spark-md5` 算 gravatar md5，重构后 `@noble/hashes` v2 **不含 md5**，若需 md5 须另寻实现。
+3. **用户合并规则**（参考 client/market/users.ts:5-26）：contributors 按 email/username/name 键去重合并且 maintainers 已在其中时**丢弃 maintainers**，否则用 maintainers（`name||username` 归一）；WeakMap 缓存。
+
 # 4. extensions/ — Console 其他页面的扩展注入
 
 入口 `extensions/index.ts (125 行)`：
@@ -149,7 +161,7 @@
 # 5. i18n 体系
 
 - **i18n.ts (87 行)**：namespace = `marketNext`。静态 import 所有 yml（构建期打包，非运行时加载），组成 `{ 'zh-CN': {common, dependencies, marketPage, operations, dependencyCard, extensions, bundle, environment, market}, 'en-US': {...} }`。三个导出：`registerMarketNextI18n(ctx)`（拿 `ctx.$i18n.i18n.global` composer 并装 guard）、`useMarketNextI18n()`（组合式，t 自动加 `marketNext.` 前缀）、`translate(key)`（非组合式全局翻译，composer 缺失时回退返回 key）
-- **i18n-runtime.ts (75 行)**：`ensureLocaleNamespace`（递归比对完整性后 mergeLocaleMessage）、`installLocaleNamespaceGuard`（monkey-patch `setLocaleMessage`，老版本 bundle 恢复 locale 快照时自动重新合并本插件 namespace；guard 注册表用 `Symbol.for` 全局 WeakMap 防多实例）
+- **i18n-runtime.ts (75 行)**：`ensureLocaleNamespace`（递归比对完整性后 mergeLocaleMessage）、`installLocaleNamespaceGuard`（monkey-patch `setLocaleMessage`，老版本 bundle 恢复 locale 快照时自动重新合并本插件 namespace；guard 注册表用全局 WeakMap 防多实例，注册键 `Symbol.for('koishi-plugin-market-next/i18n-namespace-guards')`——键名含旧包名，多实例共存判定依赖它）
 - **locales/**（zh-CN 与 en-US 各 8 个文件）：common(72 行/9 顶级键)、dependencies(68/6)、dependency-card(145/12)、market-page(115/10)、operations(169/5)、bundle(95/11)、environment(45/36)、extensions(53/6)。合计约 750 行 ×2 语言，量级数百 key
 - **market/locales/**（market 模块自带，注册在 `marketNext.market.*` 下）：en-US、zh-CN、zh-TW、ja-JP、de-DE、fr-FR、ru-RU 七语言，每份 ~53-61 行 / 7 个顶级键（type/badge/sort/advanced/category/time/search）。**注意只有 zh-CN 和 en-US 被 i18n.ts 静态引入，其余 5 种语言当前无人加载。**
 
@@ -169,6 +181,7 @@
 - 数据存取：`getPendingOverrides`(109)、`getCollapsedGroups`(115)、`getBundleRecords`(294)、`getWritableBundleRecords`(298)、`getMarketNextConfig`(251，遍历 config.plugins 递归找本插件节点，兼容禁用 `~` 前缀)、`getMarketNextPolicy`(255)/`getWritableMarketNextPolicy`(269)、`patchMarketNextConfig`(304，send `market/update-config`)、`patchMarketNextData`(315，send `market/update-data`)
 - 模式：`normalizeFrontendMode`(121)、`getFrontendMode`(125)、`getDepsLayout`(131)、`getBulkMode`(278)、`getRemoveConfig`(286)
 - 静默规则：`getMarketSilentFilters`(148)、`getMarketSilentRules`(162)、`rulesToSilentFilters`(218)、`ruleToSilentFilter`(225)
+- **静默规则→过滤词映射细节（P6 补全）**：三代配置共存优先级 `marketSilentRules`（新版 table）> 四类结构化 legacy 规则（marketSilentStatusRules/DateRules/RecentRules/CustomRules）> `marketSilentFilters` 字符串；日期须 `YYYY-MM-DD`、天数须正整数才生效；映射语法 `is:preview`、`created:<2024-01-01`、`created:within:30`。
 - 更新忽略：`createUpdateIgnoreRule`(329)、`getLatestVersion`(343)、`getIgnoredUpdateVersion`(348)、`getUpdateIgnoreText`(355)、`isUpdateIgnored`(364)、`hasUpdate`(368)、`isUpdateCheckDisabled`(377)
 
 使用方：index.ts、components/{package,bundle-install,bundle-uninstall,confirm,dependencies,environment-versions,install-history,install-progress,install,manual,market}.vue、extensions/{index,dep-link,missing,version,bundle-group-uninstall}、market/components/*（经 market/index.ts re-export）。

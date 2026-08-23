@@ -138,12 +138,17 @@ export function registerCommands(
                 ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
                 content: session.text(".success"),
             };
-            await ctx.installer.install(result, undefined, () =>
-                ensurePluginConfigs(ctx, Object.keys(result)),
-            );
-            await ensurePluginConfigs(ctx, Object.keys(result));
-            ctx.loader.envData.message = null;
-            return session.text(".success");
+            try {
+                await ctx.installer.install(result, undefined, () =>
+                    ensurePluginConfigs(ctx, Object.keys(result)),
+                );
+                // beforeReload 回调之外再补一次:覆盖安装未触发 reload 的场景
+                await ensurePluginConfigs(ctx, Object.keys(result));
+                return session.text(".success");
+            } finally {
+                // 同 performUpgrade:无论成败都清空定向回执
+                ctx.loader.envData.message = null;
+            }
         });
 
     ctx.command("plugin.uninstall <name>", { authority: 4 })

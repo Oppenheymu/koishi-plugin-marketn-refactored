@@ -7,10 +7,11 @@
  * 保证对协议结构、判定算法的理解严格一致。
  *
  * 注意：新增子模块时必须在此补一行 `export *`，否则不会进入共享出口
- * （bundle-idents.ts 即未列入，client 侧直接按文件路径引用它）；
+ * （bundle-idents.ts 曾因漏列而掉出 `./shared` 出口，P6 契约核对时已补回）；
  * 子模块之间应保持互相独立（除类型引用外），避免出口层出现循环依赖。
  */
 export * from "./bundle.js";
+export * from "./bundle-idents.js";
 export * from "./dependency-source.js";
 export * from "./lookup.js";
 export * from "./provider.js";

@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 /**
- * P3 可执行契约：23 个 RPC 事件的入参 zod schema。
+ * P3 可执行契约：24 个 RPC 事件的入参 zod schema（另有 market/refresh 无参，
+ * 注册在 shared/provider.ts）。
  * listener 边界统一校验，契约即代码、即文档。
  * 事件参数均为位置参数（client send(event, ...args)），因此用 tuple 描述整组入参。
  * 与 shared/bundle、shared/types 及 core 各 types 模块中的 TS 接口一一对应。
