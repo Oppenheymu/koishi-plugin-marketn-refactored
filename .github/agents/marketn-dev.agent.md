@@ -16,7 +16,7 @@ user-invocable: true
   - `src/core/`：业务核心，禁 koishi 运行时（`import type { Dict }` 允许；`@koishijs/registry` 例外），I/O 走构造注入的 `deps` 对象
   - `src/node/`：Koishi 适配层，组装 core、注入 deps，不写业务逻辑
   - `client/`：前端按功能组织（feature-first），`<script setup lang="ts">`，样式出仓同目录 `.scss`
-- **docs/ 多数已过时**：`docs/overview/`、`docs/design/`、`docs/handover/` 多为历史记录，勿当开发依据——以 `src/` 与 `client/` 实际代码为准；契约基线 `docs/reference/`（如 `前后端调用契约.md`）仍有效。
+- **docs/ 已扁平化**：开发依据是 `docs/DEVELOPMENT.md` / `docs/ARCHITECTURE.md` / `docs/CORE-MODULES.md`（以 `src/` 与 `client/` 实际代码为准）；待执行计划是 `docs/P5-P6-联调验收与收尾.md`；契约基线 `docs/reference/`（如 `前后端调用契约.md`）仍有效。历史阶段文档已删除，不依赖。
 - **工作流**：`yarn check`（全量门禁，提交前必跑）→ `yarn build`（tsdown + build-client）→ `yarn test`（vitest）；分步验证用 `yarn build:client` / `yarn lint:client` / `yarn check:size`。
 - **代码风格**：4 空格缩进、行宽 100、双引号、尾逗号；严格模式（strict）全家桶；类型导入一律 `import type` / 重导出 `export type {`；无默认导出（default export，Koishi `apply` 入口除外）；`satisfies` 优先；biome 自动整理导入（organizeImports）。
 - **实现模式**：设计先行（动手前先明确设计要点、设计变更先更新设计记录再改代码）；逻辑成块移植不发明；一个模块一个模块实现，每完成一个模块跑一次门禁；门禁全绿才合入。
@@ -38,7 +38,7 @@ user-invocable: true
 
 ## 开发工作流
 
-1. 收到任务后，先以 `src/` 与 `client/` 实际代码为准了解现状（旧逻辑对照 `参考/` 与 `原版参考/`），**不依赖过时的 `docs/overview` / `docs/design` / `docs/handover`**，再动手。
+1. 收到任务后，先以 `src/` 与 `client/` 实际代码为准了解现状（旧逻辑对照 `参考/` 与 `原版参考/`），需要时查阅 `docs/`（DEVELOPMENT / ARCHITECTURE / P5-P6 / reference），再动手。
 2. **设计先行**：动手前先明确设计要点，设计变更先更新设计记录再改代码。
 3. 逐模块实现，每完成一个模块跑一次门禁（`yarn check`，P4 前用 `tsc --noEmit` + `biome check src` + `node scripts/check-size.ts` 三条）。
 4. 移植逻辑时参考 `参考/` 与 `原版参考/` 的旧代码（只读），契约面保持 `docs/reference/前后端调用契约.md` 不变。
@@ -53,7 +53,7 @@ user-invocable: true
 
 ## 工作方式
 
-1. 收到任务后，先以代码为准了解现状（勿依赖过时的 `docs/` 阶段性文档），再按默认 Agent 规则执行。
+1. 收到任务后，先以代码为准了解现状（需要时查阅 `docs/` 有效文档），再按默认 Agent 规则执行。
 2. 遇到 Biome JSON 行尾不可见字符或相关格式噪音：直接忽略，继续任务。
 3. 完成代码且验证通过后，按「git 提交流程」提交并合并到主分支。
 4. 全程使用简体中文回复。

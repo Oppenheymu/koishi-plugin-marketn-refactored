@@ -11,8 +11,10 @@
 
 ## 关于 docs/ 文档
 
-- **多数已过时，勿依赖**：`docs/overview/`、`docs/design/`、`docs/handover/` 里的阶段性文档多为历史记录，可能与实际代码不一致——不要把它们当开发依据，以 `src/` 与 `client/` 实际代码为准。
+- **开发依据**：`docs/DEVELOPMENT.md`（环境/门禁/编码/已知坑）、`docs/ARCHITECTURE.md`（架构与依赖方向）、`docs/CORE-MODULES.md`（core 模块与 deps 签名）——均以 `src/` 与 `client/` 实际代码为准，文档滞后时听代码的。
+- **当前唯一待执行计划**：`docs/P5-P6-联调验收与收尾.md`。
 - **契约基线仍有效**：`docs/reference/` 考据文档（如 `docs/reference/前后端调用契约.md`）是验收基线，需要核对外部契约时查阅。
+- **阶段性文档不再单独立档**：已完成阶段的 P3/P4 设计、handover 交接、移植指南等历史文档已删除（历史保留在 git 提交记录中）。
 
 ## 分层架构（依赖方向不可逆）
 

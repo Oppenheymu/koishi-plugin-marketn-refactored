@@ -1,6 +1,6 @@
 # 架构总览
 
-> 状态：P2 已完成（shared + core 建成），P3（node 适配层）实现进行中。本文描述**目标架构**，并标注每部分的现状。
+> 状态：P0–P4 已完成（shared / core / node 适配层 / client 全部建成），P5（宿主联调）进行中。本文描述**目标架构**，以 `src/` 与 `client/` 实际代码为准。
 
 ## 1. 一图总览
 
@@ -59,13 +59,13 @@ node 端与 client 端**共用**的类型与纯逻辑，随包以 `./shared` 入
 | `upload/` | 本地 .tgz 分块上传会话、tar 安全校验、本地绑定（npm pack） | [→](CORE-MODULES.md#coreupload) |
 | `environment/` | 环境快照模型、diff、恢复规划（纯函数） | [→](CORE-MODULES.md#coreenvironment) |
 
-### src/node —— Koishi 适配层（P3 进行中，设计见 design/P3）
+### src/node —— Koishi 适配层 ✅
 
-只做「把 core 组装成 Koishi 服务」：zod 契约校验、`Installer` 服务门面（public 签名与旧版不变）、5 个 DataService、23 个 RPC listener、4 个命令、头像代理、快照 HTTP 传输、空闲探测。**不含业务逻辑**——业务逻辑全部下沉 core。
+只做「把 core 组装成 Koishi 服务」：zod 契约校验、`Installer` 服务门面（public 签名与旧版不变）、5 个 DataService、23 个 RPC listener、4 个命令、头像代理、快照 HTTP 传输、空闲探测。**不含业务逻辑**——业务逻辑全部下沉 core。实际结构为 `installer/`、`config/`、`console/`、`avatar/`、`locales/` 等扁平布局。
 
-### client —— Console 前端（P4，设计见 design/P4）
+### client —— Console 前端 ✅
 
-feature-first 组织：`pages/`（market、dependencies）、`dialogs/`（安装/捆绑/历史/环境等对话框）、`components/`、`extensions/`（其他页面的注入扩展）、`lib/`（原两个巨型 utils.ts 拆成 ~10 个小模块）。全部 `<script setup lang="ts">`，样式出仓到 `.scss`。
+feature-first 组织：`app/`（pages/actions/registry-state）、`pages/`（market、dependencies）、`dialogs/`（安装/捆绑/历史/环境等对话框）、`components/`（dependency-card 等）、`extensions/`、`market/`、`shared/`。全部 `<script setup lang="ts">`，样式出仓到同目录 `.scss`。
 
 ## 3. 依赖方向规则（工具强制）
 
@@ -105,7 +105,7 @@ registry 侧另有 5 个 npm 镜像 fallback（npmmirror/腾讯/华为/npmjs/cnp
 
 ### 4.3 契约冻结
 
-对外行为面（重构前后必须逐项一致，验收清单见 [design/P5-P6-联调验收与收尾.md](../design/P5-P6-联调验收与收尾.md)）：
+对外行为面（重构前后必须逐项一致，验收清单见 [P5-P6-联调验收与收尾.md](P5-P6-联调验收与收尾.md)）：
 
 - DataService 通道 ×5：`market` / `dependencies` / `registry` / `registryStatus` / `marketData`
 - RPC listener ×23（`market/` 前缀，全部 authority 4）
@@ -114,17 +114,17 @@ registry 侧另有 5 个 npm 镜像 fallback（npmmirror/腾讯/华为/npmjs/cnp
 - 命令 ×4：`plugin.install(.i)` / `plugin.uninstall(.r)` / `plugin.upgrade(.update/.up)` / `plugin.clear-avatar-cache`
 - 磁盘路径：`data/market-next*.json`、`data/market-next-install-logs/`、`cache/market-next-*`、`.yarn/local/` + `file:.yarn/local/xxx.tgz` 请求串
 
-完整契约面（含每个 RPC 的参数/返回/旧代码行号）：[前后端调用契约.md](../reference/前后端调用契约.md)。
+完整契约面（含每个 RPC 的参数/返回/旧代码行号）：[reference/前后端调用契约.md](reference/前后端调用契约.md)。
 
 ## 5. 构建产物
 
 | 产物 | 工具 | 入口 → 输出 | 说明 |
 |---|---|---|---|
-| 服务端 | tsdown | `src/node/index.ts` → `lib/node/`；`src/shared/index.ts` → `lib/shared/` | ESM + dts；package.json exports 的 development 条件指向 src（宿主无 `--conditions development`，**验证前必须先构建 lib/**） |
+| 服务端 | tsdown | `src/node/index.ts` → `lib/node/`；`src/shared/index.ts` → `lib/shared/` | CJS + d.ts（package.json `main`/`exports` 指向 `lib/node/index.cjs`）；package.json exports 的 development 条件指向 src（宿主无 `--conditions development`，**验证前必须先构建 lib/**） |
 | 前端 | vite 8 | `client/index.ts` → `dist/` | 配置逐项对齐 `@koishijs/client` 官方打包（external/alias/unocss preset-mini），保证与宿主 dev 模式（宿主内置 vite 5）行为一致；CSS 产物固定 `style.css`（prod console 只探测它） |
 
-构建链路与宿主加载机制的完整考据：[构建与宿主接线.md](../reference/构建与宿主接线.md)。
+构建链路与宿主加载机制的完整考据：[reference/构建与宿主接线.md](reference/构建与宿主接线.md)。
 
 ## 6. 与旧代码的关系
 
-`Waiting_refactored/` 是逻辑移植来源（旧屎山，**勿改**），P6 阶段删除。重构约定：逻辑成块移植不发明、只换外壳（I/O 注入）；上表契约面保持不变；已知旧 bug（如 agent 检测未 await）在移植时修复并记录于 [handover/P2交接P3.md](../handover/P2交接P3.md)。
+`参考/` 与 `原版参考/` 是逻辑移植来源（重构过程参照与原版快照，**只读勿改**），P6 阶段删除。重构约定：逻辑成块移植不发明、只换外壳（I/O 注入）；契约面保持不变（见 §4.3）；已知旧 bug（如 agent 检测未 await）在移植时修复。

@@ -1,58 +1,47 @@
-# 文档索引
+# 文档索引（现状）
 
-本目录是 `koishi-plugin-marketn-refactored` 的完整文档集。项目遵循**设计先行**原则：已建成的层写"现状文档"（`overview/`），未建成的层写"设计文档"（`design/`），实现按设计落地、落地后回填状态。
+> 本目录是 `koishi-plugin-marketn-refactored` 的文档集，2026-08-23 整理后扁平化为「有效文档 + 契约基线」两类。
+> 已完成阶段的阶段性文档（P3/P4 设计、handover 交接、移植指南、样式出仓计划）已删除——历史信息保留在 git 提交记录中。
 
-按文档类型分四个子目录：
+## 当前状态
 
-- `overview/` — 现状：ROADMAP、ARCHITECTURE、DEVELOPMENT、CORE-MODULES（随实现更新）
-- `design/` — 设计：各阶段开工前写定的目标结构与方案
-- `handover/` — 交接：每阶段完成时生成，命名 `P{n}交接P{n+1}.md`
-- `reference/` — 考据：旧代码 `Waiting_refactored/` 的探索记录（验收基线，P6 删旧码后唯一参照）
-
-## 阅读路线
-
-**新接手本项目**（按顺序）：
-
-1. [overview/ROADMAP.md](overview/ROADMAP.md) — P0–P6 阶段划分与当前状态（5 分钟了解全局）
-2. [overview/ARCHITECTURE.md](overview/ARCHITECTURE.md) — 分层架构、依赖方向规则、各层职责
-3. [overview/DEVELOPMENT.md](overview/DEVELOPMENT.md) — 环境搭建、门禁命令、编码约定
-4. 按接下来要做的阶段，读对应的 `design/` 文档或 `handover/` 交接文档
-
-**接手 P3（node 适配层）**：
-
-1. [handover/P2交接P3.md](handover/P2交接P3.md) — P2 成果、架构约定、各服务构造 deps 精确签名
-2. [design/P3-node适配层设计.md](design/P3-node适配层设计.md) — 目标结构、执行顺序、门禁
-3. [reference/前后端调用契约.md](reference/前后端调用契约.md) — 必须保持不变的对外契约面（验收基线）
-
-**接手 P5（宿主联调）**：
-
-1. [handover/P4交接P5.md](handover/P4交接P5.md) — P4 门禁状态、剩余收尾清单、类型接线与 .vue 盲区等关键坑
-2. [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) — 冒烟全清单、契约冻结核对表
-3. [reference/前后端调用契约.md](reference/前后端调用契约.md) — 必须保持不变的对外契约面（验收基线）
-
-## 文档清单
-
-| 文档 | 类型 | 内容 |
+| 阶段 | 内容 | 状态 |
 |---|---|---|
-| [overview/ROADMAP.md](overview/ROADMAP.md) | 现状 | P0–P6 阶段计划、门禁、当前进度 |
-| [overview/ARCHITECTURE.md](overview/ARCHITECTURE.md) | 现状 | 分层架构、依赖方向、core 禁 koishi 规则、各层职责 |
-| [overview/CORE-MODULES.md](overview/CORE-MODULES.md) | 现状 | `src/shared` + `src/core` 全部模块的职责、关键导出、注入依赖 |
-| [overview/DEVELOPMENT.md](overview/DEVELOPMENT.md) | 现状 | 环境要求、门禁命令、编码约定、行数预算、已知坑 |
-| [overview/CLIENT-STRUCTURE.md](overview/CLIENT-STRUCTURE.md) | 现状 | 重构后 client 端目录结构规范：分层、约定、"新文件放哪"决策表、变更纪律 |
-| [overview/Installer运行时精简计划.md](overview/Installer运行时精简计划.md) | 计划 | 删除旧 Installer facade、收敛 runtime 依赖与验收规则 |
-| [design/P3-node适配层设计.md](design/P3-node适配层设计.md) | 设计 | Koishi 适配层的目标结构、contracts/installer.service/listeners/commands 设计 |
-| [design/P4-client移植设计.md](design/P4-client移植设计.md) | 设计 | client feature-first 重组方案、lib 拆分、砍除清单 |
-| [design/P5-P6-联调验收与收尾.md](design/P5-P6-联调验收与收尾.md) | 设计 | 宿主联调冒烟清单、契约冻结核对表、收尾事项 |
-| [handover/P2交接P3.md](handover/P2交接P3.md) | 交接 | P2 完成时的门禁状态、core 构造 deps 签名、P3 注意事项 |
-| [handover/P3进行中交接.md](handover/P3进行中交接.md) | 交接 | P3 实现过程中的架构决策与 tsc 修复记录 |
-| [handover/P4交接P5.md](handover/P4交接P5.md) | 交接 | P4 门禁修复全记录、剩余收尾清单、P5 必读坑 |
-| [P4-PORTING-GUIDE.md](P4-PORTING-GUIDE.md) | 指南 | P4 子任务执行规范：移植原则、import 约定、严格 TS、砍除清单 |
-| [reference/前后端调用契约.md](reference/前后端调用契约.md) | 考据 | 旧代码（`Waiting_refactored/`）对外契约面全量清单 |
-| [reference/client端全量结构.md](reference/client端全量结构.md) | 考据 | 旧 client 全量结构（组件/模块/i18n/彩蛋）逐文件说明 |
-| [reference/构建与宿主接线.md](reference/构建与宿主接线.md) | 考据 | client 构建加载链路、宿主 workspace 集成、dev/prod 解析机制 |
+| P0 | 基线：工具链 / tsdown / vite / vitest / lint + check-size | ✅ |
+| P1 | shared 平移：bundle / dependency-source / provider / types / update | ✅ |
+| P2 | core 建设：utils → racing → registry → market → deps → install → upload → environment | ✅ |
+| P3 | node 适配层：contracts / installer / market / providers / listeners / commands / avatar / bundle | ✅ |
+| P4 | client 移植拆分：feature-first 重组 + 样式出仓 + 门禁全绿 | ✅ |
+| P5 | 宿主联调：构建 lib+dist → 宿主 koishi.yml → dev 冒烟 → prod 复验 | ⏳ 进行中 |
+| P6 | 收尾：契约核对 → 删旧码 → README 定稿 → 最终 commit | ⏳ |
 
-## 约定
+## 有效文档链（按阅读顺序）
 
-- **考据类文档**（契约面 / client 结构 / 构建接线）是对旧代码 `Waiting_refactored/` 的探索记录，P6 会删除旧码，这些文档是删除后的唯一参照，不随重构更新。
-- **设计文档**（`design/`）在对应阶段开工前写定，实现过程中若设计变更，先改文档再改代码。
-- **交接文档**（`handover/`）在每个阶段完成时生成，命名 `P{n}交接P{n+1}.md`。
+| 文档 | 用途 |
+|---|---|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | **开发依据**：环境、门禁命令、编码约定、已知坑、fallow 用法 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 分层架构、依赖方向规则、契约冻结清单 |
+| [CORE-MODULES.md](CORE-MODULES.md) | `src/shared` + `src/core` 模块职责、关键导出、构造 deps 签名 |
+| [P5-P6-联调验收与收尾.md](P5-P6-联调验收与收尾.md) | **当前唯一待执行计划**：宿主联调冒烟清单 + 契约冻结核对表 |
+| [reference/前后端调用契约.md](reference/前后端调用契约.md) | **验收基线**：对外契约面全量清单（DataService / RPC / 广播 / HTTP / 命令） |
+| [reference/构建与宿主接线.md](reference/构建与宿主接线.md) | 旧代码构建/加载链路考据（P5 联调的操作依据） |
+| [reference/client端全量结构.md](reference/client端全量结构.md) | 旧 client 逐文件职责底册（P6 删旧码后的备份参照） |
+
+> **关于 docs/ 的纪律**：除上表外，`docs/` 下不应出现其他文档。新文档仅在确有长期维护价值时创建；阶段性设计/交接记录直接写进提交信息或本目录的 `P5-P6` 计划，不再单独立档。
+
+## 架构摘要（详见 ARCHITECTURE.md 与代码）
+
+```
+宿主 Koishi 应用 ──► src/node/（适配层，组装 core）──► src/core/（领域层，禁 koishi）──► src/shared/（共享语言层）
+                        │  console 通道 / RPC / 广播
+                        └──► client/（Vue 3 Console 前端，feature-first）
+```
+
+- **依赖方向不可逆**：`client → shared`、`node → core → shared`。
+- **core 禁 koishi 运行时**：仅允许 `import type { Dict }` 与 `@koishijs/registry`，I/O 全部构造注入 `deps` 对象（`scripts/check-size.ts` 强制）。
+- **契约冻结**（重构前后逐项一致，P6 核对）：DataService ×5、RPC ×23（口径以契约文档为准）、广播 ×5、HTTP ×1、命令 ×4、磁盘路径。完整清单见 [reference/前后端调用契约.md](reference/前后端调用契约.md)。
+- **构建产物**：tsdown → `lib/node` + `lib/shared`（`lib/node/index.cjs`）；vite 8 → `dist/`（CSS 固定 `style.css`）。
+
+## 旧代码位置
+
+- **`参考/` 与 `原版参考/`**：重构过程参照与原版快照，**可以放心阅读、对照逻辑**，但**只读勿改**；P6 收尾阶段删除后，`reference/` 考据文档是唯一参照。

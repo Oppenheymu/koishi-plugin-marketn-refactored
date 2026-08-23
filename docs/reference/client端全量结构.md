@@ -1,6 +1,6 @@
 # client 端全量结构（旧 client 底册）
 
-> 状态：考据文档。对象是旧 `Waiting_refactored/client/`（P4 移植底册），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照，不随重构更新。基准目录：`Waiting_refactored/client`（下文用 `client/` 缩写）。
+> 状态：考据文档。对象是旧 `参考/client/`（P4 移植底册，即旧 `Waiting_refactored/client/`），逐文件说明组件/模块/i18n/彩蛋；P6 删除旧码后本文是唯一参照，不随重构更新。基准目录：`参考/client`（下文用 `client/` 缩写）。
 > 2026-08-22 目录重组：`client/` 已按 app（接线）/ pages（页面）/ dialogs（全局对话框）/ market / extensions / shared（共享层）重组，本文路径已同步为新布局（`components/utils.ts`→`shared/operations.ts`、根 `utils.ts`→`shared/plugin-config.ts`、`components/X.vue`→`pages/*/X.vue` 或 `dialogs/X.vue`、`composables/`→`pages/dependencies/`）。
 
 # 1. 入口与路由 — `client/index.ts` (420 行)

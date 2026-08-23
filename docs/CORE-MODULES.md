@@ -1,6 +1,7 @@
 # core 层模块参考
 
-> 状态：P2 已建成，门禁全绿（tsc / biome / check-size）。本文是 `src/shared/` 与 `src/core/` 的模块级参考，按模块分节：职责、文件、入口类的构造 deps（I/O 注入面）、被谁消费。**P3 适配层组装时以本文与 [handover/P2交接P3.md](../handover/P2交接P3.md) 第 4 节的精确签名为准。**
+> 状态：P2 已建成，门禁全绿。本文是 `src/shared/` 与 `src/core/` 的模块级参考：职责、文件、入口类的构造 deps（I/O 注入面）、被谁消费。
+> **注意**：逐文件清单与行数可能滞后于代码（fallow 批次拆分过 cache/source/orchestrator 等），以 `src/` 实际代码为准。
 
 通用规则：
 
@@ -152,7 +153,7 @@ npm registry 元数据访问完整栈。`client/index.ts` 是编排门面，其�
 | `logs/reader.ts` | — | `getInstallHistory(limit, deps)` / `getInstallLogDetail(id, deps)`：元数据优先，回退 legacy 正则解析，大文件头尾截断（head 8KiB / tail 32KiB / 详情上限 512KiB） |
 | `logs/retention.ts` | — | 日志目录定位（`market-next-install-logs/`）、保留时长解析、过期清理（跳过活跃会话） |
 
-**InstallOrchestrator 构造 deps**（完整签名见 [handover/P2交接P3.md](../handover/P2交接P3.md) §4.1）：`{ cwd, log, config, scope, registry, packages, resolver, environments, queue, logs, agent, refreshChannels, refreshDependenciesChannel, clearRegistryStatus, fullReload, isActive, isPackageLoaded }`——后六个回调是 P3 接到 Koishi 的接线点。
+**InstallOrchestrator 构造 deps**（后六个回调是 P3 接到 Koishi 的接线点，具体接法以 `src/node/` 实际代码为准）：`{ cwd, log, config, scope, registry, packages, resolver, environments, queue, logs, agent, refreshChannels, refreshDependenciesChannel, clearRegistryStatus, fullReload, isActive, isPackageLoaded }`
 
 **installLocked 主流程**（成块移植自旧 `_installLocked`，算法未改）：
 

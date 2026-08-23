@@ -70,5 +70,5 @@
     ]
     // client/ 入口经上方 entry 显式声明（vite.config.ts 移除后 fallow 无法自动发现
     // lib 入口；原「无需 dynamicallyLoaded 豁免」的验证说明已随 c66bbc5 过时）。
-    // 用法、基线数据与误报豁免清单见 docs/overview/FALLOW.md。
+    // 用法、基线数据与误报豁免清单见 docs/DEVELOPMENT.md §8。
 }
