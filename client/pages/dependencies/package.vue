@@ -21,9 +21,9 @@
     <div class="col-actions" @click.stop>
       <el-button v-if="showQuickUpdate" size="small" type="primary" @click="selectedVersion = latestVersion">{{ t('dependencyCard.actions.update') }}</el-button>
       <el-button v-if="showConfigure" size="small" type="primary" :loading="configuring" @click="configure">{{ t('dependencyCard.actions.configure') }}</el-button>
-      <el-button v-if="showInlineIgnoreUpdate" size="small" @click="openIgnoreDialog">{{ t('dependencyCard.actions.ignore') }}</el-button>
+      <el-button v-if="showInlineIgnoreUpdate" size="small" @click="ignoreDialog?.open()">{{ t('dependencyCard.actions.ignore') }}</el-button>
       <el-button v-if="showRestoreUpdate" size="small" @click="restoreUpdate">{{ t('dependencyCard.actions.restore') }}</el-button>
-      <el-button v-if="showBindLocal" size="small" type="primary" :loading="bindingLocal" @click="openLocalBinding">{{ t('dependencyCard.actions.bindLocal') }}</el-button>
+      <el-button v-if="showBindLocal" size="small" type="primary"  @click="bindingDialog?.open()">{{ t('dependencyCard.actions.bindLocal') }}</el-button>
       <el-select
         v-if="showVersionControl && data && (editing || pending)"
         v-model="selectedVersion"
@@ -78,7 +78,7 @@
         <el-button
           v-if="showInlineIgnoreUpdate"
           size="small"
-          @click="openIgnoreDialog"
+          @click="ignoreDialog?.open()"
         >
           {{ t('dependencyCard.actions.ignore') }}
         </el-button>
@@ -174,8 +174,8 @@
           v-if="showBindLocal"
           size="small"
           type="primary"
-          :loading="bindingLocal"
-          @click="openLocalBinding"
+          
+          @click="bindingDialog?.open()"
         >
           {{ t('dependencyCard.actions.bindLocal') }}
         </el-button>
@@ -192,68 +192,21 @@
     </div>
   </article>
 
-  <el-dialog v-model="showIgnoreDialog" :class="['dep-ignore-dialog', modeClass]" append-to-body destroy-on-close>
-    <template #header>{{ t('dependencyCard.ignore.title') }}</template>
-    <div class="dep-ignore-body">
-      <p>
-        {{ t('dependencyCard.ignore.intro', { name: displayName }) }}
-        <template v-if="latestVersion">{{ t('dependencyCard.ignore.versionIntro', { version: latestVersion }) }}</template>
-      </p>
-      <el-checkbox v-model="ignorePackagePermanently">
-        {{ t('dependencyCard.ignore.permanent') }}
-      </el-checkbox>
-      <template v-if="!ignorePackagePermanently">
-        <label class="dep-ignore-field">
-          <span>{{ t('dependencyCard.ignore.duration') }}</span>
-          <el-radio-group v-model="ignoreDurationPreset">
-            <el-radio-button value="forever">{{ t('dependencyCard.ignore.forever') }}</el-radio-button>
-            <el-radio-button value="1d">{{ t('dependencyCard.ignore.day', { count: 1 }) }}</el-radio-button>
-            <el-radio-button value="7d">{{ t('dependencyCard.ignore.day', { count: 7 }) }}</el-radio-button>
-            <el-radio-button value="30d">{{ t('dependencyCard.ignore.day', { count: 30 }) }}</el-radio-button>
-            <el-radio-button value="custom">{{ t('dependencyCard.ignore.custom') }}</el-radio-button>
-          </el-radio-group>
-        </label>
-        <label v-if="ignoreDurationPreset === 'custom'" class="dep-ignore-field inline">
-          <span>{{ t('dependencyCard.ignore.customDays') }}</span>
-          <el-input-number v-model="ignoreCustomDays" :min="1" :max="3650" :step="1" controls-position="right"></el-input-number>
-        </label>
-        <label class="dep-ignore-field inline">
-          <span>{{ t('dependencyCard.ignore.versionCount') }}</span>
-          <el-input-number v-model="ignoreCount" :min="1" :max="20" :step="1" controls-position="right"></el-input-number>
-        </label>
-      </template>
-      <p class="dep-ignore-note">
-        <template v-if="ignorePackagePermanently">
-          {{ t('dependencyCard.ignore.permanentNote') }}
-        </template>
-        <template v-else>
-          {{ t('dependencyCard.ignore.durationNote') }}
-        </template>
-      </p>
-    </div>
-    <template #footer>
-      <el-button @click="showIgnoreDialog = false">{{ t('dependencyCard.ignore.cancel') }}</el-button>
-      <el-button type="primary" :loading="ignoreSaving" @click="confirmIgnoreUpdate">{{ t('dependencyCard.ignore.confirm') }}</el-button>
-    </template>
-  </el-dialog>
+  <ignore-update-dialog
+    ref="ignoreDialog"
+    :display-name="displayName"
+    :latest-version="latestVersion"
+    :target="ignoreTarget"
+    :config="config"
+    :mode-class="modeClass"
+  ></ignore-update-dialog>
 
-  <el-dialog
-    v-model="showLocalBindingDialog"
-    append-to-body
-    align-center
-    :class="['market-dialog', 'market-dialog--small', 'dep-local-binding-dialog', modeClass]"
-    destroy-on-close
-  >
-    <template #header>{{ t('dependencyCard.localBinding.title') }}</template>
-    <div class="dep-local-binding-body">
-      <p>{{ t('dependencyCard.localBinding.description', { name: displayName }) }}</p>
-      <k-comment type="warning">{{ t('dependencyCard.localBinding.note') }}</k-comment>
-    </div>
-    <template #footer>
-      <el-button @click="showLocalBindingDialog = false">{{ t('dependencyCard.localBinding.cancel') }}</el-button>
-      <el-button type="primary" :loading="bindingLocal" @click="confirmLocalBinding">{{ t('dependencyCard.localBinding.confirm') }}</el-button>
-    </template>
-  </el-dialog>
+  <local-binding-dialog
+    ref="bindingDialog"
+    :name="props.name"
+    :display-name="displayName"
+    :mode-class="modeClass"
+  ></local-binding-dialog>
 
   <bundle-uninstall
     v-model="showBundleUninstallDialog"
@@ -272,8 +225,9 @@ import { activeBundle, ensureInstalledConfig, expandedDependency, pendingBundleU
 import MarketIcon from '../../market/icons'
 import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
-import { useIgnoreUpdate } from './use-ignore-update'
-import { useLocalBinding } from './use-local-binding'
+import IgnoreUpdateDialog from './ignore-update-dialog.vue'
+import LocalBindingDialog from './local-binding-dialog.vue'
+import { useIgnoreUpdate, type IgnoreUpdateTarget } from './use-ignore-update'
 import { usePackageCardMeta } from './use-package-card-meta'
 import { usePackageCardState } from './use-package-card-state'
 import { usePackageCardStatus } from './use-package-card-status'
@@ -316,8 +270,16 @@ const visibility = usePackageVisibility({
   editing,
   listMode: props.listMode,
 })
-const ignore = useIgnoreUpdate(state, config, t)
-const binding = useLocalBinding(props.name, t)
+/** 忽略更新:对话框子组件内部自持状态,这里只保留"恢复更新"动作。 */
+const ignoreTarget = computed<IgnoreUpdateTarget>(() => ({
+  name: props.name,
+  getUpdatePolicy: state.getUpdatePolicy,
+  getUpdateIgnored: state.getUpdateIgnored,
+}))
+const { restoreUpdate } = useIgnoreUpdate(ignoreTarget.value, config, t)
+/** 对话框子组件引用(open 由 defineExpose 暴露)。 */
+const ignoreDialog = ref<{ open: () => void }>()
+const bindingDialog = ref<{ open: () => void }>()
 
 // 模板按名消费,此处平铺解构(script setup 的绑定要求)
 const {
@@ -338,11 +300,6 @@ const {
   showQuickUpdate, showInlineIgnoreUpdate, showRestoreUpdate, showConfigure, showBindLocal,
   showRemoveDependency, showCardActions, floatingActions,
 } = visibility
-const {
-  showIgnoreDialog, ignoreDurationPreset, ignoreCustomDays, ignoreCount,
-  ignorePackagePermanently, ignoreSaving, openIgnoreDialog, confirmIgnoreUpdate, restoreUpdate,
-} = ignore
-const { showLocalBindingDialog, bindingLocal, openLocalBinding, confirmLocalBinding } = binding
 
 const selectedVersion = computed({
   get() {

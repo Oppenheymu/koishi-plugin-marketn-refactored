@@ -8,7 +8,8 @@
 
 import { ref } from 'vue'
 import { message } from '@koishijs/client'
-import { createUpdateIgnoreRule, getWritableMarketNextPolicy, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
+import { createUpdateIgnoreRule, getWritableMarketNextPolicy, patchMarketNextConfig, patchMarketNextData, type UpdatePolicy } from '../../shared/plugin-config'
+import type { IgnoredUpdates } from '../../shared/plugin-config'
 import {
   day,
   dialogDuration,
@@ -16,10 +17,16 @@ import {
   normalizeDialogCount,
   type IgnoreDurationPreset,
 } from './package-utils'
-import type { PackageCardState } from './use-package-card-state'
+
+/** 忽略对话框依赖的最小接口:目标包名 + 更新策略/忽略记录的读写。 */
+export interface IgnoreUpdateTarget {
+  name: string
+  getUpdatePolicy(): UpdatePolicy
+  getUpdateIgnored(): IgnoredUpdates
+}
 
 export function useIgnoreUpdate(
-  state: PackageCardState,
+  target: IgnoreUpdateTarget,
   config: { value: unknown },
   t: (key: string, ...args: any[]) => string,
 ) {
@@ -31,11 +38,11 @@ export function useIgnoreUpdate(
   const ignoreSaving = ref(false)
 
   function openIgnoreDialog() {
-    const duration = Math.max(0, state.getUpdatePolicy().updateIgnoreDuration ?? 0)
+    const duration = Math.max(0, target.getUpdatePolicy().updateIgnoreDuration ?? 0)
     const days = Math.max(1, Math.ceil(duration / day))
     ignoreDurationPreset.value = duration ? getDurationPreset(duration) : 'forever'
     ignoreCustomDays.value = days
-    ignoreCount.value = normalizeDialogCount(state.getUpdatePolicy().updateIgnoreVersions)
+    ignoreCount.value = normalizeDialogCount(target.getUpdatePolicy().updateIgnoreVersions)
     ignorePackagePermanently.value = false
     showIgnoreDialog.value = true
   }
@@ -44,8 +51,8 @@ export function useIgnoreUpdate(
     if (ignoreSaving.value) return
     ignoreSaving.value = true
     if (ignorePackagePermanently.value) {
-      addPackageToIgnoredList(state.name)
-      delete state.getUpdateIgnored()[state.name]
+      addPackageToIgnoredList(target.name)
+      delete target.getUpdateIgnored()[target.name]
       const saved = await persistUpdatePolicy()
       ignoreSaving.value = false
       if (!saved) {
@@ -56,7 +63,7 @@ export function useIgnoreUpdate(
       message.success(t('dependencyCard.ignore.addedToDisabled'))
       return
     }
-    const rule = createUpdateIgnoreRule(state.name, state.getUpdatePolicy(), {
+    const rule = createUpdateIgnoreRule(target.name, target.getUpdatePolicy(), {
       duration: dialogDuration(ignoreDurationPreset.value, ignoreCustomDays.value),
       count: ignoreCount.value,
     })
@@ -64,7 +71,7 @@ export function useIgnoreUpdate(
       ignoreSaving.value = false
       return
     }
-    state.getUpdateIgnored()[state.name] = rule
+    target.getUpdateIgnored()[target.name] = rule
     const saved = await persistUpdatePolicy()
     ignoreSaving.value = false
     if (!saved) {
@@ -76,15 +83,15 @@ export function useIgnoreUpdate(
   }
 
   async function restoreUpdate() {
-    delete state.getUpdateIgnored()[state.name]
-    removePackageFromIgnoredList(state.name)
+    delete target.getUpdateIgnored()[target.name]
+    removePackageFromIgnoredList(target.name)
     const saved = await persistUpdatePolicy()
     if (!saved) message.error(t('common.messages.saveFailed'))
   }
 
   /** 忽略策略双写:全局开关进插件配置,逐包规则进数据仓。 */
   async function persistUpdatePolicy() {
-    const policy = state.getUpdatePolicy()
+    const policy = target.getUpdatePolicy()
     const configSaved = await patchMarketNextConfig({
       updateIgnoredPackages: policy.updateIgnoredPackages,
       updateIgnoreDuration: policy.updateIgnoreDuration,
