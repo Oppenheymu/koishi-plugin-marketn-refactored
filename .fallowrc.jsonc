@@ -63,6 +63,42 @@
             "exports": [
                 "MarketProvider"
             ]
+        },
+        // 契约面 type re-export：聚合出口按拆分前的导出面原样转发，
+        // 供外部消费者按名导入（客户端入口之外无静态消费者，误报 unused-types）。
+        {
+            "file": "client/shared/plugin-config/index.ts",
+            "exports": [
+                "MarketNextConfig",
+                "MarketNextConfigPatch",
+                "MarketNextDataStore",
+                "UpdateIgnoreOptions",
+                "UpdateIgnoreRule"
+            ]
+        },
+        {
+            "file": "client/market/avatar/index.ts",
+            "exports": [
+                "AvatarCandidate"
+            ]
+        },
+        {
+            "file": "client/market/utils.ts",
+            "exports": [
+                "MarketConfig"
+            ]
+        },
+        {
+            "file": "client/pages/dependencies/use-dependency-groups.ts",
+            "exports": [
+                "DependencyGroup"
+            ]
+        },
+        {
+            "file": "client/shared/operations/index.ts",
+            "exports": [
+                "LogLine"
+            ]
         }
     ],
     // 这些成员由安装器状态机或 Koishi 生命周期间接调用，调用点不以同名方法引用出现。
