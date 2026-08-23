@@ -27,7 +27,7 @@ import type {
 } from '../../src/shared'
 
 /** 快照的有效形态:服务端保证 data 非空(inline 或已解压完成)。 */
-export type MarketSnapshot = MarketProvider.Payload & {
+type MarketSnapshot = MarketProvider.Payload & {
   data: NonNullable<MarketProvider.Payload['data']>
 }
 
@@ -38,9 +38,9 @@ export const marketSnapshotLoading = ref(false)
 /** 快照加载失败原因(未失败为 undefined)。 */
 export const marketSnapshotError = ref<unknown>()
 /** lookup 结果缓存:包名 → 市场对象(仅含按需请求过的条目)。 */
-export const marketLookupData = shallowRef<MarketSnapshot['data']>({})
+const marketLookupData = shallowRef<MarketSnapshot['data']>({})
 /** lookup 结果缓存:服务名 → 实现该服务的包名列表。 */
-export const marketLookupServices = shallowRef<Record<string, string[]>>({})
+const marketLookupServices = shallowRef<Record<string, string[]>>({})
 
 /** 进行中的快照请求(单飞:并发调用复用同一 Promise)。 */
 let snapshotTask: Promise<MarketSnapshot> | undefined

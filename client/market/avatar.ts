@@ -270,7 +270,7 @@ export function isAvatarFailureCached(cacheKey: string) {
 }
 
 /** 读成功缓存并拼成 data: URI;无缓存或已过期返回 undefined。 */
-export function getCachedAvatar(cacheKey: string) {
+function getCachedAvatar(cacheKey: string) {
   if (isDataUrl(cacheKey)) return cacheKey
   readAvatarCache()
   const key = normalizeAvatarCacheKey(cacheKey)

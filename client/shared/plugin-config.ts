@@ -169,7 +169,7 @@ export function getCollapsedGroups() {
 }
 
 /** 校验前端模式取值,非法输入返回 undefined(由调用方回退默认值)。 */
-export function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
+function normalizeFrontendMode(value: unknown): FrontendMode | undefined {
   return value === 'polished' || value === 'performance' ? value : undefined
 }
 
@@ -289,7 +289,7 @@ function isDateString(value?: string) {
 }
 
 /** 扁平规则数组 → 有效查询词数组(enabled=false 与转换失败的丢弃)。 */
-export function rulesToSilentFilters(rules: MarketSilentRule[]) {
+function rulesToSilentFilters(rules: MarketSilentRule[]) {
   return rules
     .filter(rule => rule?.enabled !== false)
     .map(rule => ruleToSilentFilter(rule))
@@ -300,7 +300,7 @@ export function rulesToSilentFilters(rules: MarketSilentRule[]) {
  * 单条扁平规则 → 查询词。value 字段按规则类型被复用为 date/days/query
  * 的兜底来源;无法转换(日期非法、天数非正整数等)返回空串由上层过滤。
  */
-export function ruleToSilentFilter(rule: MarketSilentRule) {
+function ruleToSilentFilter(rule: MarketSilentRule) {
   const value = String(rule.value ?? '').trim()
   const date = String(rule.date ?? value).trim()
   const days = rule.days == null ? value : String(rule.days)

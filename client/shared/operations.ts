@@ -104,7 +104,7 @@ export function analyzeVersions(name: string, getVersion: (name: string) => stri
 }
 
 /** 手动添加(搜索未收录包)后缓存在前端的 registry 元数据,key 为包名。 */
-export const manualDeps = reactive<Dict<Registry>>({})
+const manualDeps = reactive<Dict<Registry>>({})
 
 /** store 上由本插件注入的运行时 registry 状态通道(非官方 store 字段的窄化声明)。 */
 type MarketStore = typeof store & {
@@ -203,7 +203,7 @@ export type BundleRecordView = PluginBundleRecord & {
  * 从清单构造合包记录视图(无本地安装状态时的"理想形态"):所有成员默认
  * selected、skipped,installedAt 为 0,标记 fallback 供 UI 与真实记录区分。
  */
-export function createBundleRecordFromManifest(packageName: string, version = '', bundle?: PluginBundleManifest, fallback = true): BundleRecordView | undefined {
+function createBundleRecordFromManifest(packageName: string, version = '', bundle?: PluginBundleManifest, fallback = true): BundleRecordView | undefined {
   if (!isBundlePackageName(packageName)) return
   return {
     package: packageName,
@@ -272,7 +272,7 @@ function normalizeGroupPath(path?: string) {
 }
 
 /** 判断配置节点是否位于指定合包分组下(两侧都做前缀归一)。 */
-export function isBundleGroupPath(path: string | undefined, groupKey: string | undefined) {
+function isBundleGroupPath(path: string | undefined, groupKey: string | undefined) {
   if (!path || !groupKey) return false
   return normalizeGroupPath(path) === normalizeGroupPath(groupKey)
 }
@@ -334,7 +334,7 @@ export interface LogLine {
 }
 
 /** 备选安装端点候选:主端点失败后提示用户可切换的 registry 镜像。 */
-export interface InstallFallbackCandidate {
+interface InstallFallbackCandidate {
   endpoint: string
   label: string
   reason: string
@@ -390,7 +390,7 @@ interface InstallMessages {
 }
 
 /** 向进度面板追加一条本地生成的日志(i18n 文案在此处格式化)。 */
-export function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
+function pushInstallLog(line: string, type: LogLine['type'] = 'stdout') {
   installProgressState.logs.push({ type, line })
 }
 

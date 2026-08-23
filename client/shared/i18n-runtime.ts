@@ -34,7 +34,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * 递归判定 actual 是否完整覆盖 expected 的每一个键(叶子节点要求全等)。
  * 只要缺任何一个键或值不一致即视为不完整,需要重新合并。
  */
-export function hasCompleteLocaleMessage(actual: unknown, expected: unknown): boolean {
+function hasCompleteLocaleMessage(actual: unknown, expected: unknown): boolean {
   if (!isRecord(expected)) return actual === expected
   if (!isRecord(actual)) return false
   return Object.entries(expected).every(([key, value]) => {
