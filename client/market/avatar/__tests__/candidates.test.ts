@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
  * @file 头像候选链生成的单元测试。
  *
  * 验证候选顺序与筛选规则:显式 avatar → 图片后缀的主页 url → gravatar
- * 镜像族(自配源最优先且去重)→ npm 代理;无邮箱时无 gravatar 系候选。
+ * 镜像族(自配源最优先且去重)→ npm 代理;无邮箱时无 gravatar 系候选;
+ * 另覆盖非法 URL 输入的容错分支(原样返回/丢弃)。
  */
 
-import { getUserAvatarCandidates } from '../candidates'
+import { getUserAvatarCandidates, normalizeAvatarUrl } from '../candidates'
 
 const EMAIL = 'Dev@Example.com'
 
@@ -56,5 +57,39 @@ describe('getUserAvatarCandidates', () => {
     it('无邮箱时没有 gravatar/npm 候选', () => {
         const candidates = getUserAvatarCandidates({ name: 'a' } as any)
         expect(candidates).toHaveLength(0)
+    })
+
+    it('非法 avatar 字符串不是 http/data: URI,不进候选', () => {
+        const candidates = getUserAvatarCandidates({
+            name: 'a', email: EMAIL, avatar: 'not a url',
+        } as any)
+        expect(candidates.some(item => item.source === 'explicit')).toBe(false)
+        expect(candidates[0]?.source).toBe('gravatar')
+    })
+
+    it('非法的主页 url 不进候选', () => {
+        const candidates = getUserAvatarCandidates({ name: 'a', email: EMAIL, url: '::bad::' } as any)
+        expect(candidates.some(item => item.source === 'url')).toBe(false)
+    })
+
+    it('非法的 gravatar 自配源被丢弃,不影响内置镜像', () => {
+        const candidates = getUserAvatarCandidates({ name: 'a', email: EMAIL } as any, '::bad::')
+        const gravatars = candidates.filter(item => item.source === 'gravatar')
+        expect(gravatars.length).toBeGreaterThanOrEqual(4)
+        expect(gravatars.every(item => item.url.startsWith('https://'))).toBe(true)
+        // 非 http(s) 协议与根路径形态同样被归一处理
+        const ftp = getUserAvatarCandidates({ name: 'a', email: EMAIL } as any, 'ftp://mirror.example/')
+        expect(ftp.filter(item => item.source === 'gravatar').every(item => item.url.startsWith('https://'))).toBe(true)
+        const rooted = getUserAvatarCandidates({ name: 'a', email: EMAIL } as any, 'https://mirror.example/')
+        expect(rooted[0]?.url.startsWith('https://mirror.example/avatar/')).toBe(true)
+    })
+
+    it('完全空的用户对象也能安全求 fallbackKey 并返回空候选', () => {
+        expect(getUserAvatarCandidates({} as any)).toEqual([])
+    })
+
+    it('normalizeAvatarUrl:协议相对地址补全,非法输入原样返回', () => {
+        expect(normalizeAvatarUrl('https://EXAMPLE.com/a.png')).toBe('https://example.com/a.png')
+        expect(normalizeAvatarUrl('::bad::')).toBe('::bad::')
     })
 })

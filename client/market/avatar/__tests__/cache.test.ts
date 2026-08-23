@@ -69,10 +69,50 @@ describe('成功缓存', () => {
     expect(getCachedAvatar('data:image/png;base64,zz')).toBe('data:image/png;base64,zz')
   })
 
-  it('getCachedAvatarFromCandidates 沿链返回第一个命中', () => {
-    cacheAvatar('key-2', { data: 'Yg==', type: 'image/png', cachedAt: Date.now() })
-    const result = getCachedAvatarFromCandidates([candidate('key-1'), candidate('key-2'), candidate('key-3')])
-    expect(result).toBe('data:image/png;base64,Yg==')
-    expect(getCachedAvatarFromCandidates([candidate('key-1')])).toBeUndefined()
-  })
+    it('getCachedAvatarFromCandidates 沿链返回第一个命中', () => {
+        cacheAvatar('key-2', { data: 'Yg==', type: 'image/png', cachedAt: Date.now() })
+        const chain = [candidate('key-1'), candidate('key-2'), candidate('key-3')]
+        const result = getCachedAvatarFromCandidates(chain)
+        expect(result).toBe('data:image/png;base64,Yg==')
+        expect(getCachedAvatarFromCandidates([candidate('key-1')])).toBeUndefined()
+    })
+
+    it('多条缓存触发裁剪排序,均未过期时全部保留', () => {
+        cacheAvatar('k-old', { data: 'aGk=', type: 'image/png', cachedAt: Date.now() - 10 })
+        cacheAvatar('k-new', { data: 'Yg==', type: 'image/png', cachedAt: Date.now() })
+        expect(getCachedAvatar('k-old')).toBe('data:image/png;base64,aGk=')
+        expect(getCachedAvatar('k-new')).toBe('data:image/png;base64,Yg==')
+        cacheAvatarFailure('f-old')
+        cacheAvatarFailure('f-new')
+        expect(isAvatarFailureCached('f-old')).toBe(true)
+        expect(isAvatarFailureCached('f-new')).toBe(true)
+    })
+
+    it('空 cacheKey 退化为 md5 形态仍可命中', () => {
+        cacheAvatar('', { data: 'aGk=', type: 'image/png', cachedAt: Date.now() })
+        expect(getCachedAvatar('')).toBe('data:image/png;base64,aGk=')
+        cacheAvatarFailure('')
+        expect(isAvatarFailureCached('')).toBe(true)
+    })
+
+    it('成功缓存超过 256 条按最新优先裁剪', () => {
+        const base = Date.now()
+        for (let i = 0; i < 258; i++) {
+            vi.setSystemTime(base + i)
+            cacheAvatar(`over-${i}`, { data: 'aGk=', type: 'image/png', cachedAt: Date.now() })
+        }
+        expect(getCachedAvatar('over-0')).toBeUndefined()
+        expect(getCachedAvatar('over-1')).toBeUndefined()
+        expect(getCachedAvatar('over-257')).toBe('data:image/png;base64,aGk=')
+    })
+
+    it('失败缓存超过 256 条按最新优先裁剪', () => {
+        const base = Date.now()
+        for (let i = 0; i < 258; i++) {
+            vi.setSystemTime(base + i)
+            cacheAvatarFailure(`over-f-${i}`)
+        }
+        expect(isAvatarFailureCached('over-f-0')).toBe(false)
+        expect(isAvatarFailureCached('over-f-257')).toBe(true)
+    })
 })

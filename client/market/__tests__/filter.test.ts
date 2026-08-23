@@ -8,7 +8,15 @@ import { describe, expect, it } from 'vitest'
  * getSilentFiltered 的批量行为。
  */
 
-import { getFiltered, getSilentFiltered, getVisible, hasFilter, parseSilentFilters, validate, validateWord } from '../filter'
+import {
+    getFiltered,
+    getSilentFiltered,
+    getVisible,
+    hasFilter,
+    parseSilentFilters,
+    validate,
+    validateWord,
+} from '../filter'
 
 /** 构造最小市场条目;默认无 manifest(走无 manifest 分支)。 */
 function makeEntry(overrides: Record<string, any> = {}) {
@@ -115,6 +123,8 @@ describe('validate 查询词判定', () => {
         expect(validate(entry, 'is:verified')).toBe(false)
         expect(validate(entry, 'not:verified')).toBe(true)
         expect(validate(entry, 'is:bundle')).toBe(false)
+        expect(validate(entry, 'not:bundle')).toBe(true)
+        expect(validate(entry, 'not:installed', { installed: () => true })).toBe(false)
     })
 })
 
@@ -126,6 +136,14 @@ describe('getVisible / getFiltered / getSilentFiltered', () => {
         expect(getVisible([hidden, normal], ['show:hidden'])).toEqual([hidden, normal])
     })
 
+    it('getVisible 对弃用条目放行需 show:deprecated,market 缺省安全', () => {
+        const deprecated = makeEntry({ deprecated: true })
+        const normal = makeEntry()
+        expect(getVisible([deprecated, normal], [])).toEqual([normal])
+        expect(getVisible([deprecated, normal], ['show:deprecated'])).toEqual([deprecated, normal])
+        expect(getVisible(undefined as any, [])).toBeUndefined()
+    })
+
     it('getFiltered 保留全部查询词命中的条目', () => {
         const verified = makeManifestEntry({ verified: true })
         const plain = makeManifestEntry()
@@ -133,9 +151,117 @@ describe('getVisible / getFiltered / getSilentFiltered', () => {
         expect(getFiltered([verified, plain], [])).toEqual([verified, plain])
     })
 
+    it('getFiltered 多查询词取交集', () => {
+        const hit = makeManifestEntry({ verified: true, insecure: true })
+        const verifiedOnly = makeManifestEntry({ verified: true })
+        expect(getFiltered([hit, verifiedOnly], ['is:verified'])).toEqual([hit, verifiedOnly])
+        expect(getFiltered([hit, verifiedOnly], ['is:verified', 'is:insecure'])).toEqual([hit])
+    })
+
     it('getSilentFiltered 排除任一命中的条目', () => {
         const verified = makeManifestEntry({ verified: true })
         const plain = makeManifestEntry()
         expect(getSilentFiltered([verified, plain], ['is:verified'])).toEqual([plain])
+    })
+
+    it('归一后为空的查询词直接返回原列表', () => {
+        const market = [makeEntry()]
+        expect(getFiltered(market, ['  ', ''])).toBe(market)
+        expect(getSilentFiltered(market, ['  ', ''])).toBe(market)
+    })
+})
+
+describe('validate 错误路径与边界补充', () => {
+    it('updated: 前缀四种比较符', () => {
+        const entry = makeEntry()
+        expect(validate(entry, 'updated:<2024-07-01')).toBe(true)
+        expect(validate(entry, 'updated:>2024-05-01')).toBe(true)
+        expect(validate(entry, 'updated:<=2024-06-01')).toBe(true)
+        expect(validate(entry, 'updated:>=2024-06-01')).toBe(true)
+        expect(validate(entry, 'updated:<2024-05-01')).toBe(false)
+    })
+
+    it('created 前缀四种比较符含边界', () => {
+        const entry = makeEntry()
+        expect(validate(entry, 'created:<=2024-01-01')).toBe(true)
+        expect(validate(entry, 'created:>=2024-01-01')).toBe(true)
+        expect(validate(entry, 'created:<=2023-12-31')).toBe(false)
+        expect(validate(entry, 'created:>=2024-01-02')).toBe(false)
+    })
+
+    it('完整 ISO 时间戳查询直接按 Date.parse 解析', () => {
+        const entry = makeEntry()
+        expect(validate(entry, 'created:<2024-03-01T12:00:00.000Z')).toBe(true)
+        expect(validate(entry, 'created:>2024-03-01T12:00:00.000Z')).toBe(false)
+    })
+
+    it('条目时间无效时日期比较回退到字符串比较(四操作符)', () => {
+        const entry = makeEntry({ updatedAt: 'not-a-date', createdAt: 'not-a-date' })
+        expect(validate(entry, 'updated:<zzz')).toBe(true)
+        expect(validate(entry, 'updated:<=zzz')).toBe(true)
+        expect(validate(entry, 'updated:>zzz')).toBe(false)
+        expect(validate(entry, 'updated:>=zzz')).toBe(false)
+    })
+
+    it('查询日期无效时同样回退到字符串比较', () => {
+        const entry = makeEntry()
+        expect(validate(entry, 'created:<bogus')).toBe(true)
+        expect(validate(entry, 'created:>bogus')).toBe(false)
+    })
+
+    it('within:N:查询非 1-4 位数字放行,时间无效拒绝', () => {
+        const entry = makeEntry({ createdAt: 'nope', updatedAt: 'nope' })
+        expect(validate(entry, 'created:within:abc')).toBe(true)
+        expect(validate(entry, 'created:within:100000')).toBe(true)
+        expect(validate(entry, 'updated:within:30')).toBe(false)
+    })
+
+    it('is:preview / not:preview / is:portable / not:portable / not:insecure', () => {
+        const entry = makeManifestEntry({
+            portable: true,
+            manifest: {
+                locales: [],
+                service: { implements: [], required: [], optional: [] },
+                preview: true,
+            },
+        })
+        expect(validate(entry, 'is:preview')).toBe(true)
+        expect(validate(entry, 'not:preview')).toBe(false)
+        expect(validate(entry, 'is:portable')).toBe(true)
+        expect(validate(entry, 'not:portable')).toBe(false)
+        expect(validate(entry, 'not:insecure')).toBe(true)
+    })
+
+    it('is:installed / not:installed 有 manifest 时也走 config 回调', () => {
+        const entry = makeManifestEntry()
+        expect(validate(entry, 'is:installed', { installed: () => true })).toBe(true)
+        expect(validate(entry, 'not:installed', { installed: () => true })).toBe(false)
+        expect(validate(entry, 'not:installed')).toBe(true)
+    })
+
+    it('未知 is:/not: 值:is 一律否决,not 一律放行', () => {
+        const entry = makeManifestEntry()
+        expect(validate(entry, 'is:bogus')).toBe(false)
+        expect(validate(entry, 'not:bogus')).toBe(true)
+        expect(validate(entry, 'is:bundle')).toBe(false)
+        expect(validate(entry, 'not:bundle')).toBe(true)
+    })
+
+    it('未知冒号前缀的词按中性词放行(有/无 manifest)', () => {
+        expect(validate(makeManifestEntry(), 'foo:bar')).toBe(true)
+        expect(validate(makeEntry(), 'foo:bar')).toBe(true)
+    })
+
+    it('email 未显式传 users 时回退到条目作者列表', () => {
+        const author = { name: 'dev', email: 'Dev@Example.com' }
+        const entry = makeManifestEntry({
+            package: {
+                name: 'koishi-plugin-foo',
+                contributors: [author],
+                maintainers: [author],
+            },
+        })
+        expect(validate(entry, 'email:dev@example.com')).toBe(true)
+        expect(validate(entry, 'email:other@example.com')).toBe(false)
     })
 })
