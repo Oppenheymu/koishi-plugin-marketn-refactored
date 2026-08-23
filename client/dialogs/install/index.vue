@@ -66,7 +66,6 @@
                   <el-option v-for="(_, version) in store.registry[name]" :key="version" :value="version">
                     {{ version }}
                     <template v-if="version === current">{{ t('dependencyCard.actions.current') }}</template>
-                    <!-- <span :class="[result, 'theme-color', 'dot-hint']"></span> -->
                   </el-option>
                 </el-select>
               </span>
