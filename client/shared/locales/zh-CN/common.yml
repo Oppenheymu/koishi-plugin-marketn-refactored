@@ -40,13 +40,6 @@ ignore:
   separator: ，
 format:
   listSeparator: 、
-status:
-  loading: 获取中
-  waiting: 等待
-  ready: 准备就绪
-  success: 成功
-  failed: 失败
-  unknown: 状态未知
 labels:
   current: 当前
   target: 目标

@@ -40,13 +40,6 @@ ignore:
   separator: ', '
 format:
   listSeparator: ', '
-status:
-  loading: Loading
-  waiting: Waiting
-  ready: Ready
-  success: Success
-  failed: Failed
-  unknown: Unknown status
 labels:
   current: Current
   target: Target

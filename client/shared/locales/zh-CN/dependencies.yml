@@ -56,13 +56,3 @@ groups:
   installed:
     label: 已安装
     description: 已安装且当前没有明确需要处理的依赖。
-card:
-  bundle: 插件包
-  update: 更新
-  configure: 配置
-  ignore: 忽略
-  restore: 恢复
-  remove: 移除依赖
-  current: （当前）
-  undo: 撤销
-  cancelChange: 取消改动
