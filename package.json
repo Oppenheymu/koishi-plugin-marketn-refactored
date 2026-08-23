@@ -1,7 +1,7 @@
 {
     "$schema": "https://json.schemastore.org/package.json",
     "name": "koishi-plugin-marketn-refactored",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Next-generation Koishi plugin market and dependency management center (refactored)",
     "main": "./lib/node/index.cjs",
     "types": "./lib/node/index.d.ts",
