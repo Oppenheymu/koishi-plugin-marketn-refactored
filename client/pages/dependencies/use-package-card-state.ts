@@ -37,7 +37,7 @@ export interface PackageCardProps {
 }
 
 /** 反查某成员包属于哪个合包(合包记录的 members 里含有该包名)。 */
-export function findBundleOrigin(name: string, config: unknown): PluginBundleRecord | undefined {
+function findBundleOrigin(name: string, config: unknown): PluginBundleRecord | undefined {
   const records = getBundleRecords(config as any)
   return Object.values(records).find(record => {
     return record?.members?.some(member => member.package === name)

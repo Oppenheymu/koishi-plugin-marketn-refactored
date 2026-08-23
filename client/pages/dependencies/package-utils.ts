@@ -16,7 +16,7 @@ export const day = 24 * 60 * 60 * 1000
 
 export type IgnoreDurationPreset = 'forever' | '1d' | '7d' | '30d' | 'custom'
 
-export const identityMap: Record<string, { label: string, icon: string, color: string }> = {
+const identityMap: Record<string, { label: string, icon: string, color: string }> = {
   adapter: { label: 'dependencyCard.identity.adapter', icon: 'solid:adapter', color: '#4d8df7' },
   database: { label: 'dependencyCard.identity.database', icon: 'solid:tool', color: '#21a67a' },
   webui: { label: 'dependencyCard.identity.webui', icon: 'solid:webui', color: '#8b6cf6' },

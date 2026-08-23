@@ -10,7 +10,7 @@ import type { ComputedRef } from 'vue'
 import type { Context as ClientContext } from '@koishijs/client'
 import { getConfigWriter } from '../../shared/operations'
 import { formatShortname, isPluginPackage } from '../../market/utils'
-import { identityMap, pickDescription, resolveIdentity } from './package-utils'
+import { pickDescription, resolveIdentity } from './package-utils'
 import type { PackageCardState } from './use-package-card-state'
 
 export function usePackageCardMeta(
@@ -81,5 +81,3 @@ export function usePackageCardMeta(
     identity, identityText, identityIcon, cardStyle, summaryText, editToggleText,
   }
 }
-
-export { identityMap }

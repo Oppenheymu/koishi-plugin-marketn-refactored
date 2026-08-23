@@ -44,7 +44,7 @@ export function getInstalledText(name: string, t: (key: string, args?: any) => s
 }
 
 /** 成员对应版本的 registry 元数据(弃用标记等)。 */
-export function versionMeta(member: BundleInstallMember) {
+function versionMeta(member: BundleInstallMember) {
   return store.registry?.[member.package]?.[member.version]
 }
 

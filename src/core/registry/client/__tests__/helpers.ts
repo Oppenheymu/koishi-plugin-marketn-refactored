@@ -19,7 +19,6 @@ import type { RegistryHttpClient, RegistryRouteDeps } from "../route-fetch.js";
 export const PRIMARY_ENDPOINT = "https://primary.example.com";
 
 /** 测试用镜像端点(取源码镜像列表前两个,顺序敏感的断言用)。 */
-export const MIRROR_NPM = "https://registry.npmmirror.com";
 export const MIRROR_TENCENT = "https://mirrors.cloud.tencent.com/npm";
 
 /** 记录型日志 mock(debug/info/warn 均为 vi.fn,可直接断言)。 */
@@ -30,7 +29,7 @@ export function makeLog() {
 export type RecordingLog = ReturnType<typeof makeLog>;
 
 /** registry 域真实记分策略(与 node 层 wire.ts 的构造保持一致)。 */
-export function makeRegistryStatsPolicy(): StatsPolicy {
+function makeRegistryStatsPolicy(): StatsPolicy {
     return {
         fastThreshold: 800,
         successClamp: [-6, 3] as const,
@@ -94,7 +93,7 @@ export function httpError(status: number, message = `HTTP ${status}`) {
 }
 
 /** 与 node 层注入一致的 isHttpError 判定(带 response 字段即视为 HTTP 错误)。 */
-export function isHttpStatusError(error: unknown) {
+function isHttpStatusError(error: unknown) {
     return !!error && typeof error === "object" && "response" in error;
 }
 

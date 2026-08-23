@@ -11,7 +11,6 @@ import { markRaw, shallowRef } from 'vue'
 import type { MarketLookupResult } from '../../src/shared'
 import { collectServiceProviders } from '../../src/shared/lookup'
 import { normalizeLookupValues, type LookupInput } from './snapshot-utils'
-import { getCurrentSnapshotData } from './state'
 
 /** lookup 结果缓存:包名 → 市场对象(仅含按需请求过的条目)。 */
 const marketLookupData = shallowRef<Record<string, any>>({})
@@ -32,7 +31,7 @@ const requestedMarketServices = new Set<string>()
 
 /** 取单个市场对象:先查 lookup 缓存,再查当前快照全量数据。 */
 export function getMarketObject(name: string) {
-  return marketLookupData.value[name] ?? getCurrentSnapshotData()?.[name]
+  return marketLookupData.value[name] ?? store.market?.data?.[name]
 }
 
 /** 取实现某服务的包名列表(未查询过返回空数组)。 */
@@ -86,7 +85,7 @@ async function loadMarketLookup(request: LookupInput, force = false) {
   const services = normalizeLookupValues(request.services ?? [])
   if (!names.length && !services.length) return
 
-  const fullData = getCurrentSnapshotData()
+  const fullData = store.market?.data
   if (fullData && !force) {
     for (const name of names) {
       if (!fullData[name]) missingMarketObjects.add(name)

@@ -36,8 +36,8 @@ vi.mock("koishi", () => {
 
 // 子配置块与 i18n 文案与被测逻辑无关,mock 掉以收窄导入面。
 // biome-ignore lint/style/useNamingConvention: 键名须与被 mock 模块的导出名一致
-vi.mock("../market/index.js", () => ({ MarketProviderConfig: {} }));
-vi.mock("../locales/generated.js", () => ({ schemaZh: {}, schemaEn: {} }));
+vi.mock("../../market/index.js", () => ({ MarketProviderConfig: {} }));
+vi.mock("../../locales/generated.js", () => ({ schemaZh: {}, schemaEn: {} }));
 
 import { Config, configPatchKeys, configReloadKeys, normalizeMarketSilentRules } from "../index.js";
 

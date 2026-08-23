@@ -22,7 +22,7 @@ export interface LoggerMock {
     error: Mock;
 }
 
-export function createLoggerMock(): LoggerMock {
+function createLoggerMock(): LoggerMock {
     return {
         debug: vi.fn(),
         info: vi.fn(),
