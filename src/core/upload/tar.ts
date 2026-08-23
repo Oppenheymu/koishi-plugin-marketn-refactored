@@ -27,6 +27,11 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
     let entryCount = 0;
     let expandedSize = 0;
     let manifestFound = false;
+    // onReadEntry 由 tar 的事件循环触发,同步 throw 会逸出为 uncaughtException
+    // (await list() 的 try/catch 接不住)——违规一律记标志并把条目标记为
+    // ignore(list 会自动 resume,数据被丢弃、tar 正常走完),扫描结束后统一
+    // 抛错,错误才能经正常 reject 回到调用方。
+    let violation: string | undefined;
     const chunks: Buffer[] = [];
 
     try {
@@ -38,27 +43,46 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
             maxMetaEntrySize: 1024 * 1024,
             maxDecompressionRatio: 200,
             onReadEntry(entry) {
+                // 已命中违规后只消费剩余数据流,不再重复校验/收集
+                if (violation) return;
                 entryCount++;
                 expandedSize += Number(entry.size) || 0;
                 if (entryCount > MAX_ARCHIVE_ENTRIES || expandedSize > MAX_ARCHIVE_EXPANDED_SIZE) {
-                    throw new Error("本地插件归档解压后内容过大或文件数量过多。");
+                    violation = "本地插件归档解压后内容过大或文件数量过多。";
+                    entry.ignore = true;
+                    return;
                 }
-                validateArchiveEntry(entry.path, entry.type);
+                const invalid = validateArchiveEntry(entry.path, entry.type);
+                if (invalid) {
+                    violation = invalid;
+                    entry.ignore = true;
+                    return;
+                }
                 // 只认归档根部(npm pack 约定)的 package/package.json,其余条目跳过
                 if (entry.path.replace(/\\/g, "/") !== "package/package.json") return;
-                if (manifestFound) throw new Error("本地插件归档包含重复的 package.json。");
+                if (manifestFound) {
+                    violation = "本地插件归档包含重复的 package.json。";
+                    entry.ignore = true;
+                    return;
+                }
                 if (entry.size <= 0 || entry.size > MAX_PACKAGE_MANIFEST_SIZE) {
-                    throw new Error("本地插件 package.json 大小无效。");
+                    violation = "本地插件 package.json 大小无效。";
+                    entry.ignore = true;
+                    return;
                 }
                 manifestFound = true;
                 entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
             },
         });
     } catch (error) {
+        // 违规条目声明体积超出实际数据时,tar 会以读取错误提前中止;
+        // 此时 violation 已记录,优先抛出防护文案而不是包装成读取失败
+        if (violation) throw new Error(violation);
         const detail = error instanceof Error ? error.message : String(error);
         throw new Error(`无法读取本地插件归档：${detail}`);
     }
 
+    if (violation) throw new Error(violation);
     if (!manifestFound)
         throw new Error("本地插件归档中缺少 package/package.json。请使用 npm pack 生成 .tgz。");
     let manifest: PackageJson;
@@ -80,12 +104,13 @@ export async function inspectPackageArchive(path: string): Promise<PackageJson> 
 /**
  * 校验单个归档条目:必须位于 package/ 前缀下、不得包含 .. 或绝对路径
  * (防路径穿越),且类型只能是普通文件/目录(符号链接与设备节点一律拒绝)。
+ * 返回违规描述;合法时返回 undefined(不抛错——调用方在事件回调里,抛错会逸出)。
  */
-function validateArchiveEntry(value: string, type: string) {
+function validateArchiveEntry(value: string, type: string): string | undefined {
     const path = value.replace(/\\/g, "/");
     const parts = path.split("/").filter(Boolean);
     if (!path || path.startsWith("/") || parts[0] !== "package" || parts.includes("..")) {
-        throw new Error(`本地插件归档包含非法路径：${value}`);
+        return `本地插件归档包含非法路径：${value}`;
     }
     if (
         type === "SymbolicLink" ||
@@ -94,8 +119,9 @@ function validateArchiveEntry(value: string, type: string) {
         type === "BlockDevice" ||
         type === "FIFO"
     ) {
-        throw new Error(`本地插件归档包含不允许的条目类型：${type}`);
+        return `本地插件归档包含不允许的条目类型：${type}`;
     }
+    return undefined;
 }
 
 /** 生成 .yarn/local 下的规范归档文件名（含内容 hash 前缀）。 */

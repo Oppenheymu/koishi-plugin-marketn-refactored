@@ -32,40 +32,6 @@ async function pack(specs: TarEntrySpec[], filename = "demo-1.0.0.tgz") {
     return writeTgz(dir, filename, buildTarBuffer(specs));
 }
 
-/**
- * 断言 inspectPackageArchive 因 onReadEntry 内的同步校验失败而中止。
- *
- * 注:当前 node-tar 版本中 onReadEntry 内同步抛错不会拒绝 list() 的
- * promise,而是以 uncaughtException 形式逸出(调用方的 await 永久挂起)。
- * 这里注册进程级监听捕获该错误,并用 race 避免 await 挂死。
- */
-async function expectArchiveGuard(path: string, message: string) {
-    let caught: Error | undefined;
-    const handler = (error: Error) => {
-        caught = caught ?? error;
-    };
-    process.on("uncaughtException", handler);
-    try {
-        // 轮询等待错误逸出(上限 1.5s),与 inspect 的 settle 比赛,避免 await 挂死
-        const caughtSoon = new Promise<void>((resolve) => {
-            const poll = setInterval(() => {
-                if (caught) {
-                    clearInterval(poll);
-                    resolve();
-                }
-            }, 10);
-            setTimeout(() => {
-                clearInterval(poll);
-                resolve();
-            }, 1500);
-        });
-        await Promise.race([inspectPackageArchive(path).catch(() => {}), caughtSoon]);
-        expect(caught?.message).toContain(message);
-    } finally {
-        process.off("uncaughtException", handler);
-    }
-}
-
 describe("inspectPackageArchive", () => {
     it("解析合法归档的根部 manifest", async () => {
         const path = await pack([
@@ -161,7 +127,7 @@ describe("inspectPackageArchive", () => {
             { name: "package/package.json", content: DEMO_MANIFEST },
             { name, content: "x" },
         ]);
-        await expectArchiveGuard(path, "包含非法路径");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("包含非法路径");
     });
 
     it("符号链接条目触发类型防护", async () => {
@@ -169,7 +135,7 @@ describe("inspectPackageArchive", () => {
             { name: "package/package.json", content: DEMO_MANIFEST },
             { name: "package/link", typeflag: "2", linkname: "../../target" },
         ]);
-        await expectArchiveGuard(path, "不允许的条目类型");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("不允许的条目类型");
     });
 
     it("重复的根部 package.json 触发防护", async () => {
@@ -177,19 +143,19 @@ describe("inspectPackageArchive", () => {
             { name: "package/package.json", content: DEMO_MANIFEST },
             { name: "package/package.json", content: DEMO_MANIFEST },
         ]);
-        await expectArchiveGuard(path, "重复的 package.json");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("重复的 package.json");
     });
 
     it("零字节的 package.json 触发大小防护", async () => {
         const path = await pack([{ name: "package/package.json", content: "" }]);
-        await expectArchiveGuard(path, "package.json 大小无效");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("package.json 大小无效");
     });
 
     it("声明超过 1 MiB 的 package.json 触发大小防护", async () => {
         const path = await pack([
             { name: "package/package.json", content: DEMO_MANIFEST, declaredSize: 1024 * 1024 + 1 },
         ]);
-        await expectArchiveGuard(path, "package.json 大小无效");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("package.json 大小无效");
     });
 
     it("单个条目声明超大体积触发解压炸弹防护", async () => {
@@ -197,7 +163,7 @@ describe("inspectPackageArchive", () => {
             { name: "package/package.json", content: DEMO_MANIFEST },
             { name: "package/blob.bin", declaredSize: 256 * 1024 * 1024 + 1 },
         ]);
-        await expectArchiveGuard(path, "解压后内容过大或文件数量过多");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("解压后内容过大或文件数量过多");
     });
 
     it("海量条目触发数量上限防护", async () => {
@@ -205,7 +171,7 @@ describe("inspectPackageArchive", () => {
         const specs: TarEntrySpec[] = [{ name: "package/package.json", content: DEMO_MANIFEST }];
         for (let i = 0; i < 8192; i++) specs.push({ name: `package/f${i}`, content: "" });
         const path = await pack(specs);
-        await expectArchiveGuard(path, "解压后内容过大或文件数量过多");
+        await expect(inspectPackageArchive(path)).rejects.toThrow("解压后内容过大或文件数量过多");
     });
 });
 
