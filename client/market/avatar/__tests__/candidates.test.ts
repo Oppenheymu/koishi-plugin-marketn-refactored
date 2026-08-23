@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
  * 镜像族(自配源最优先且去重)→ npm 代理;无邮箱时无 gravatar 系候选。
  */
 
-import { getUserAvatarCandidates } from './candidates'
+import { getUserAvatarCandidates } from '../candidates'
 
 const EMAIL = 'Dev@Example.com'
 

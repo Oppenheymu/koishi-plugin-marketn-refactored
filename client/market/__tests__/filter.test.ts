@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
  * getSilentFiltered 的批量行为。
  */
 
-import { getFiltered, getSilentFiltered, getVisible, hasFilter, parseSilentFilters, validate, validateWord } from './filter'
+import { getFiltered, getSilentFiltered, getVisible, hasFilter, parseSilentFilters, validate, validateWord } from '../filter'
 
 /** 构造最小市场条目;默认无 manifest(走无 manifest 分支)。 */
 function makeEntry(overrides: Record<string, any> = {}) {

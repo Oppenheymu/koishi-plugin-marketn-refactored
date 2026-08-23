@@ -19,7 +19,7 @@ import {
   formatSource,
   formatTimingName,
   shortEndpoint,
-} from './debug-format'
+} from '../debug-format'
 
 const t = (key: string) => key
 

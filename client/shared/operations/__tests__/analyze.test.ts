@@ -23,7 +23,7 @@ vi.mock('@koishijs/client', () => ({
     },
 }))
 
-const { analyzeVersions, formatEndpoint } = await import('./analyze')
+const { analyzeVersions, formatEndpoint } = await import('../analyze')
 
 /** 便捷构造:单版本 registry 元数据。 */
 function registryWithVersion(peerDependencies: any, extra: any = {}) {

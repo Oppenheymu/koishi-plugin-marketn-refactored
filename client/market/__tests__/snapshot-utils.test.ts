@@ -13,7 +13,7 @@ import {
   isSnapshotSuperseded,
   normalizeLookupValues,
   resolveMarketSnapshot,
-} from './snapshot-utils'
+} from '../snapshot-utils'
 
 describe('getSummaryKey', () => {
     it('undefined 载荷返回空串', () => {

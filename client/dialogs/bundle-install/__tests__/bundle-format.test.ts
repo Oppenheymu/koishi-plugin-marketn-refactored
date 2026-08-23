@@ -22,7 +22,7 @@ vi.mock('@koishijs/client', () => ({
 
 const {
     formatConfig, getInstalledText, getPackageDescription, hasPreset, memberCategory, riskTags, sensitiveFields,
-} = await import('./bundle-format')
+} = await import('../bundle-format')
 
 const t = (key: string, args?: any) => (args ? `${key}:${JSON.stringify(args)}` : key)
 

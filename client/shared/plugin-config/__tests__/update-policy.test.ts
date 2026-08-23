@@ -18,7 +18,7 @@ vi.mock('@koishijs/client', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
 
-const { createUpdateIgnoreRule, getIgnoredUpdateVersion, getLatestVersion, hasUpdate, isUpdateIgnored } = await import('./update-policy')
+const { createUpdateIgnoreRule, getIgnoredUpdateVersion, getLatestVersion, hasUpdate, isUpdateIgnored } = await import('../update-policy')
 
 /** 便捷布置:registry 提供三个版本,已装 1.0.0,候选即 [2.0.0, 1.1.0]。 */
 function setupVersions(resolved = '1.0.0') {
