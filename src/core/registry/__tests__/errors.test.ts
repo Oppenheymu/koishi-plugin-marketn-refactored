@@ -55,6 +55,21 @@ describe("formatRegistryError", () => {
             "unknown",
         );
     });
+
+    it("空 message 的未知错误回退默认文案", () => {
+        expect(formatRegistryError(new Error(""), () => false)).toEqual({
+            reason: "unknown",
+            error: "npm 元数据请求失败。",
+        });
+    });
+
+    it("marketNextReason 挂在非 Error 对象上时消息取字符串化结果", () => {
+        const error = { marketNextReason: "timeout" } as { marketNextReason: string };
+        expect(formatRegistryError(error, () => false)).toEqual({
+            reason: "timeout",
+            error: String(error),
+        });
+    });
 });
 
 describe("attachRegistryAttemptReasons", () => {
