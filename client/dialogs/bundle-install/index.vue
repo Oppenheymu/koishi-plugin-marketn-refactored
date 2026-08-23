@@ -372,7 +372,7 @@ import {
   resetInstallFallbackState,
   type InstallOptions,
 } from '../../shared/operations'
-import { resolveCategory } from '../../market/utils'
+import { resolveCategory, formatShortname } from '../../market/utils'
 import MarketIcon from '../../market/icons'
 import { satisfies } from 'semver'
 import { getFrontendMode } from '../../shared/plugin-config'
@@ -431,17 +431,6 @@ function toggleAllOptional() {
 function memberCategory(name: string) {
   const data = getMarketObject(name)
   return resolveCategory(data?.category)
-}
-
-/** 包名缩短展示:市场短名 > 去官方/常规前缀 > 保留 scoped 相对形态 > 原名。 */
-function formatShortname(name: string) {
-  const shortname = getMarketObject(name)?.shortname
-  if (shortname && shortname !== name) return shortname
-  if (name.startsWith('@koishijs/plugin-')) return name.slice('@koishijs/plugin-'.length)
-  if (name.startsWith('koishi-plugin-')) return name.slice('koishi-plugin-'.length)
-  const scoped = name.match(/^@([^/]+)\/koishi-plugin-(.+)$/)
-  if (scoped) return `@${scoped[1]}/${scoped[2]}`
-  return name
 }
 /** diff"将安装"清单:合包自身@版本 + 各勾选成员@版本范围。 */
 const installList = computed(() => {

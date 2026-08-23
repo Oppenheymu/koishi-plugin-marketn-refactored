@@ -149,6 +149,7 @@ import MarketIcon from '../../market/icons'
 import { isBundlePackageName } from '../../../src/shared/bundle'
 import { shouldIncludeDiscoveredLocalPlugin } from '../../../src/shared/dependency-source'
 import { loadMarketObjects } from '../../market/state'
+import { isPluginPackage } from '../../market/utils'
 
 /** 过滤下拉的选项 key(与分组 key 基本同集,含 all)。 */
 type FilterKey = 'all' | 'pending' | 'bundle' | 'unconfigured' | 'updatable' | 'ignored' | 'check-disabled' | 'invalid' | 'error' | 'local' | 'manual'
@@ -292,11 +293,6 @@ function classify(name: string, configWriter?: ClientConfigWriter): ItemKind {
   if (isUpdateIgnored(name, getUpdatePolicy())) return 'ignored'
   if (hasUpdate(name, getUpdatePolicy())) return 'updatable'
   return 'installed'
-}
-
-/** 是否 Koishi 插件包名(官方 @koishijs/plugin-* 或常规 koishi-plugin-*)。 */
-function isPluginPackage(name: string) {
-  return /^@koishijs\/plugin-[0-9a-z-]+$/.test(name) || /(^|\/)koishi-plugin-[0-9a-z-]+$/.test(name)
 }
 
 /** 是否"未配置"状态:已加载的插件包但 koishi.yml 无配置节点(合包除外)。 */

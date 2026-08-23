@@ -271,7 +271,7 @@ import { isBundlePackageName, type PluginBundleRecord } from '../../../src/share
 import { isLocalDependency } from '../../../src/shared/dependency-source'
 import { createUpdateIgnoreRule, getBundleRecords, getFrontendMode, getIgnoredUpdateVersion, getLatestVersion, getMarketNextPolicy, getPendingOverrides, getWritableMarketNextPolicy, getUpdateIgnoreText, hasUpdate, isUpdateCheckDisabled, isUpdateIgnored, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
 import { activeBundle, analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, expandedDependency, getConfigWriter, getRegistryStatus, getRegistryStatusText, pendingBundleUninstalls } from '../../shared/operations'
-import { resolveCategory } from '../../market/utils'
+import { formatShortname, isPluginPackage, resolveCategory } from '../../market/utils'
 import MarketIcon from '../../market/icons'
 import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
@@ -318,7 +318,7 @@ const marketData = computed(() => getMarketObject(props.name))
 const bundleRecord = computed(() => getBundleRecords(config.value)[props.name] || createLocalBundleRecord(props.name))
 const bundleOrigin = computed(() => findBundleOrigin(props.name))
 
-const displayName = computed(() => formatPackageDisplayName(props.name))
+const displayName = computed(() => formatShortname(props.name))
 
 const data = computed(() => {
   if (localDependency.value || dep.value?.invalid) return
@@ -499,7 +499,7 @@ const configText = computed(() => {
 })
 
 const sourceText = computed(() => {
-  if (bundleOrigin.value) return t('dependencyCard.source.bundle', { name: bundleOrigin.value.label || formatPackageDisplayName(bundleOrigin.value.package) })
+  if (bundleOrigin.value) return t('dependencyCard.source.bundle', { name: bundleOrigin.value.label || formatShortname(bundleOrigin.value.package) })
   if (bundleRecord.value) return t('dependencyCard.source.bundleSelf')
   if (dep.value?.source) return t(`dependencyCard.source.${dep.value.source}`)
   if (localDependency.value) return local.value?.workspace
@@ -822,20 +822,6 @@ function removePackageFromIgnoredList(name: string) {
     .filter(Boolean)
     .filter(item => item.toLowerCase() !== name.toLowerCase())
   policy.updateIgnoredPackages = names.join('\n')
-}
-
-function isPluginPackage(name: string) {
-  return /^@koishijs\/plugin-[0-9a-z-]+$/.test(name) || /(^|\/)koishi-plugin-[0-9a-z-]+$/.test(name)
-}
-
-function formatPackageDisplayName(name: string) {
-  const shortname = getMarketObject(name)?.shortname
-  if (shortname && shortname !== name) return shortname
-  if (name.startsWith('@koishijs/plugin-')) return name.slice('@koishijs/plugin-'.length)
-  if (name.startsWith('koishi-plugin-')) return name.slice('koishi-plugin-'.length)
-  const scoped = name.match(/^@([^/]+)\/koishi-plugin-(.+)$/)
-  if (scoped) return `@${scoped[1]}/${scoped[2]}`
-  return name
 }
 
 function pickDescription(value: unknown) {

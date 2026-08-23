@@ -25,6 +25,7 @@ import type {
   MarketSnapshotResponse,
   MarketSnapshotTransfer,
 } from '../../src/shared'
+import { collectServiceProviders } from '../../src/shared/lookup'
 
 /** 快照的有效形态:服务端保证 data 非空(inline 或已解压完成)。 */
 type MarketSnapshot = MarketProvider.Payload & {
@@ -286,21 +287,6 @@ function normalizeLookupValues(values: Iterable<string>) {
     .filter(value => typeof value === 'string')
     .map(value => value.trim())
     .filter(Boolean)))
-}
-
-/** 在快照全量数据里扫出各服务的实现者包名,结果按包名排序保证展示稳定。 */
-function collectServiceProviders(data: MarketSnapshot['data'], services: string[]) {
-  const result = Object.fromEntries(services.map(name => [name, [] as string[]]))
-  const requested = new Set(services)
-  for (const object of Object.values(data)) {
-    const implemented = object?.manifest?.service?.implements
-    if (!Array.isArray(implemented)) continue
-    for (const service of implemented) {
-      if (requested.has(service)) result[service].push(object.package.name)
-    }
-  }
-  for (const service of services) result[service].sort()
-  return result
 }
 
 /**

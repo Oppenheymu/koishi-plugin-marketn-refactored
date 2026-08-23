@@ -22,7 +22,7 @@ import { gt } from 'semver'
 import { translate } from './i18n'
 import {
   getUpdateCandidates as getSharedUpdateCandidates,
-  isUpdateCheckDisabled as isSharedUpdateCheckDisabled,
+  isUpdateCheckDisabled,
   isUpdateVersionIgnored,
   normalizeUpdateIgnoreCount,
   normalizeUpdateIgnoreRule,
@@ -30,8 +30,17 @@ import {
   type UpdateIgnoreRule,
 } from '../../src/shared/update'
 import { isLocalDependency } from '../../src/shared/dependency-source'
+import type {
+  MarketSilentCustomRule,
+  MarketSilentDateRule,
+  MarketSilentRecentRule,
+  MarketSilentRule,
+  MarketSilentStatusRule,
+} from '../../src/shared/types'
 
 export type { IgnoredUpdates, UpdateIgnoreRule } from '../../src/shared/update'
+
+export { isUpdateCheckDisabled }
 
 /** 市场条目弹层当前打开的包名(空串表示关闭);安装开始前会被清空。 */
 export const active = ref('')
@@ -70,48 +79,6 @@ export type MarketNextConfig = MarketNextConfigPatch & {
     autoRoute?: boolean
     logLevel?: string
   }
-}
-
-/** 静音过滤规则之一:按状态标记(preview/insecure/bundle)整体隐藏。 */
-export interface MarketSilentStatusRule {
-  target?: 'preview' | 'insecure' | 'bundle'
-  note?: string
-  enabled?: boolean
-}
-
-/** 静音过滤规则之一:按创建/更新日期的先后关系隐藏。 */
-export interface MarketSilentDateRule {
-  field?: 'created' | 'updated'
-  relation?: 'before' | 'after'
-  date?: string
-  note?: string
-  enabled?: boolean
-}
-
-/** 静音过滤规则之一:按创建/更新时间在 N 天内隐藏。 */
-export interface MarketSilentRecentRule {
-  field?: 'created' | 'updated'
-  days?: number
-  note?: string
-  enabled?: boolean
-}
-
-/** 静音过滤规则之一:任意自定义查询词。 */
-export interface MarketSilentCustomRule {
-  query?: string
-  note?: string
-  enabled?: boolean
-}
-
-/** 扁平化的静音过滤规则(设置面板"高级"形态,可无损转成查询词)。 */
-export interface MarketSilentRule {
-  type?: 'custom' | 'preview' | 'insecure' | 'bundle' | 'created-before' | 'created-after' | 'updated-before' | 'updated-after' | 'created-within' | 'updated-within'
-  value?: string
-  date?: string
-  days?: number
-  query?: string
-  note?: string
-  enabled?: boolean
 }
 
 /** 创建忽略规则时的附加选项(覆盖策略里的默认时长/次数)。 */
@@ -481,11 +448,6 @@ export function hasUpdate(name: string, policy?: UpdatePolicy) {
   try {
     return gt(latest, local.resolved)
   } catch {}
-}
-
-/** 某包是否被用户显式禁用更新检查(updateIgnoredPackages 名单)。 */
-export function isUpdateCheckDisabled(name: string, policy?: UpdatePolicy) {
-  return isSharedUpdateCheckDisabled(name, policy)
 }
 
 /**
