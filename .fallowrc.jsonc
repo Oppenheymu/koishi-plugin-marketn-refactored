@@ -38,22 +38,31 @@
     "usedClassMembers": [
         {
             "extends": "DataService",
-            "members": ["get"]
+            "members": [
+                "get"
+            ]
         },
         {
             "extends": "BaseMarketProvider",
-            "members": ["get", "probeInBackground"]
+            "members": [
+                "get",
+                "probeInBackground"
+            ]
         }
     ],
     // node 层 provider 有意遮蔽 shared 层同名 provider，作为 Koishi 插件入口注册。
     "ignoreExports": [
         {
             "file": "src/node/market/index.ts",
-            "exports": ["MarketProvider"]
+            "exports": [
+                "MarketProvider"
+            ]
         },
         {
             "file": "src/shared/provider.ts",
-            "exports": ["MarketProvider"]
+            "exports": [
+                "MarketProvider"
+            ]
         }
     ],
     // 这些成员由安装器状态机或 Koishi 生命周期间接调用，调用点不以同名方法引用出现。
