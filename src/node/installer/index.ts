@@ -24,9 +24,6 @@ import { type Context, type Dict, type HTTP, Service, Time } from "koishi";
 import { detect } from "package-manager-detector";
 import type { DependencyResolver } from "../../core/deps/resolver.js";
 import type { EnvironmentSnapshotOps } from "../../core/install/environment.js";
-import { getInstallHistory, getInstallLogDetail } from "../../core/install/logs/reader.js";
-import type { InstallLogRetention } from "../../core/install/logs/retention.js";
-import type { InstallLogStore } from "../../core/install/logs/store.js";
 import type { InstallOrchestrator } from "../../core/install/pipeline/orchestrator.js";
 import type { InstallQueue } from "../../core/install/pipeline/queue.js";
 import { type PackageManagerAgent, runPackageManager } from "../../core/install/pipeline/runner.js";
@@ -35,27 +32,19 @@ import {
     snapshotPackageManifest,
     writeManifest,
 } from "../../core/install/sources/manifest-restore.js";
-import type { LocalPackageUploadService } from "../../core/install/sources/upload.js";
-import type { InstallLogger, InstallOptions } from "../../core/install/types.js";
-import type { RequestScope } from "../../core/racing/request-scope.js";
+import type { InstallOptions } from "../../core/install/types.js";
 import type { PackageCache, PackageVersions } from "../../core/registry/cache/index.js";
 import type { RegistryStatsStore } from "../../core/registry/cache/stats-file.js";
 import type { RegistryClient } from "../../core/registry/client/index.js";
 import { resolvePluginName } from "../../core/registry/manifest.js";
 import type { LocalPackageUploadStore } from "../../core/upload/session.js";
-import type {
-    LocalPackageUploadChunkRequest,
-    LocalPackageUploadCommitResult,
-    LocalPackageUploadFinishRequest,
-    LocalPackageUploadPreview,
-    LocalPackageUploadProgress,
-    LocalPackageUploadStartRequest,
-    LocalPackageUploadStartResult,
-} from "../../core/upload/types.js";
 import type { JsonStore } from "../../core/utils/json-store.js";
-import type { InstallFallbackCandidate, RegistryStatus } from "../../shared/types.js";
+import type { InstallFallbackCandidate } from "../../shared/types.js";
 import { refreshConsole } from "../console/refresh.js";
 import type { InstallerConfig, InstallerGetDepsOptions } from "./config.js";
+import { LogsMixin } from "./logs.js";
+import { RegistryStatusMixin } from "./registry-status.js";
+import { UploadsMixin } from "./uploads.js";
 import { createInstallerCore, createInstallLogger } from "./wire.js";
 
 /** 本插件自身的包名：安装请求包含它时视为“插件自更新”，需要走特殊的确认与重载流程。 */
@@ -64,17 +53,15 @@ export const SELF_PACKAGE = "koishi-plugin-marketn-refactored";
 /**
  * installer 服务门面：保持 ctx.installer 全部 public 方法签名不变，
  * 内部把 core 各「入口类」组装起来，并负责 koishi 通道的广播/刷新/生命周期。
+ * 上传 / 安装日志 / registry 状态管理按职责拆入 UploadsMixin / LogsMixin /
+ * RegistryStatusMixin，本类只保留核心转发与生命周期管理。
  */
-export class Installer extends Service {
+export class Installer extends RegistryStatusMixin(UploadsMixin(LogsMixin(Service))) {
     /** 宿主全局 HTTP 客户端（透传给需要裸 HTTP 的调用方）。 */
     public http: HTTP;
-    /** registry 状态表（registryStatus 通道的值）：包名 → 最新状态。 */
-    public registryStatus: Dict<RegistryStatus> = {};
     /** 插件级配置（endpoint/timeout/retry/concurrency 等，定义见 config.ts）。 */
     public override config: InstallerConfig;
 
-    /** registry 域共用的请求失效域：serial 递增 + 在途请求 abort。 */
-    private readonly scope: RequestScope;
     /** registry 路由学习数据的防抖落盘句柄（cache/market-next-registry-stats.json）。 */
     private readonly statsFile: JsonStore<RegistryStatsStore>;
     /** npm registry 元数据访问门面（多端点路由 / 重试 / 探测）。 */
@@ -85,28 +72,14 @@ export class Installer extends Service {
     private readonly resolver: DependencyResolver;
     /** 安装串行锁：同一时刻只允许一个安装 / 环境恢复在跑。 */
     private readonly queue: InstallQueue;
-    /** 活动安装会话日志（写盘 + market/install-log 广播）。 */
-    private readonly logs: InstallLogStore;
     /** 安装编排状态机（install / installLocked 主流程）。 */
     private readonly orchestrator: InstallOrchestrator;
     /** 环境快照列表 / 预览 / 恢复入口。 */
     private readonly envOps: EnvironmentSnapshotOps;
-    /** 安装日志过期清理（保留时长来自配置）。 */
-    private readonly retention: InstallLogRetention;
     /** 本地包分块上传会话存储（带 TTL 过期清理）。 */
     private readonly uploads: LocalPackageUploadStore;
-    /** 本地上传会话门面（start/append/finish/commit/cancel + 本地绑定）。 */
-    private readonly uploadService: LocalPackageUploadService;
-    /** 统一日志：core 的 InstallLogger 协议适配 koishi logger。 */
-    private readonly log: InstallLogger;
-    /** 以宿主 package.json 为基准创建的 require：供 isPackageLoaded 探测 require.cache。 */
-    private readonly require: NodeRequire;
     /** 包管理器信息（异步探测，默认 npm）；对象与 core runner 共享，探测完成后原地回填。 */
     private readonly agent: PackageManagerAgent = { name: "npm" };
-    /** 待广播的 registry 状态增量：由 drainRegistryStatus 取走并经节流广播清空。 */
-    private tempRegistryStatus: Dict<RegistryStatus> = {};
-    /** registryStatus 节流广播句柄（200ms，wire.ts 中构造）。 */
-    private readonly flushRegistryStatus: () => void;
 
     constructor(ctx: Context, config: InstallerConfig = {}) {
         super(ctx, "installer");
@@ -244,26 +217,6 @@ export class Installer extends Service {
         if (waitMetadata) await metadataTask;
     }
 
-    getInstallHistory(limit = 20) {
-        return getInstallHistory(limit, this.getInstallLogReaderDeps());
-    }
-
-    getInstallLogDetail(id: string) {
-        return getInstallLogDetail(id, this.getInstallLogReaderDeps());
-    }
-
-    /** 历史与详情必须共享活动日志状态，避免读取未完成的安装文件。 */
-    private getInstallLogReaderDeps() {
-        return {
-            cwd: this.cwd,
-            log: this.log,
-            activeFile: () => this.logs.activeFile,
-            waitForWrite: () => this.logs.waitForWrite(),
-            cleanup: () =>
-                this.retention.cleanup(this.logs.activeFile, this.logs.activeMetadataFile),
-        };
-    }
-
     getEnvironmentSnapshots() {
         return this.envOps.getEnvironmentSnapshots();
     }
@@ -296,72 +249,11 @@ export class Installer extends Service {
         return this.orchestrator.install(deps, forced, beforeReload, options);
     }
 
-    startLocalPackageUpload(
-        request: LocalPackageUploadStartRequest,
-    ): Promise<LocalPackageUploadStartResult> {
-        return this.uploadService.startLocalPackageUpload(request);
-    }
-
-    appendLocalPackageUpload(
-        request: LocalPackageUploadChunkRequest,
-    ): Promise<LocalPackageUploadProgress> {
-        return this.uploadService.appendLocalPackageUpload(request);
-    }
-
-    finishLocalPackageUpload(
-        request: LocalPackageUploadFinishRequest,
-    ): Promise<LocalPackageUploadPreview> {
-        return this.uploadService.finishLocalPackageUpload(request);
-    }
-
-    commitLocalPackageUpload(uploadId: string): Promise<LocalPackageUploadCommitResult> {
-        return this.uploadService.commitLocalPackageUpload(uploadId);
-    }
-
-    cancelLocalPackageUpload(uploadId: string) {
-        return this.uploadService.cancelLocalPackageUpload(uploadId);
-    }
-
-    prepareLocalBinding(name: string) {
-        return this.uploadService.prepareLocalBinding(name);
-    }
-
     applyEnvironmentSnapshot(id: string, options: InstallOptions = {}) {
         return this.envOps.applyEnvironmentSnapshot(id, options);
     }
 
     isSelfUpdate(deps: Dict<string>) {
         return Object.hasOwn(deps, SELF_PACKAGE);
-    }
-
-    private setRegistryStatus(name: string, status: Partial<RegistryStatus>, serial: number) {
-        if (this.scope.isStale(serial)) return;
-        const value: RegistryStatus = {
-            ...this.registryStatus[name],
-            ...status,
-            updatedAt: Date.now(),
-        };
-        this.registryStatus[name] = this.tempRegistryStatus[name] = value;
-        this.flushRegistryStatus();
-    }
-
-    private clearRegistryStatus() {
-        this.registryStatus = {};
-        this.tempRegistryStatus = {};
-        void this.ctx.get("console")?.broadcast("market/registry-status/clear", {});
-    }
-
-    private drainRegistryStatus(): Dict<RegistryStatus> {
-        const status = this.tempRegistryStatus;
-        this.tempRegistryStatus = {};
-        return status;
-    }
-
-    private isPackageLoaded(name: string) {
-        try {
-            return this.require.resolve(name) in this.require.cache;
-        } catch {
-            return true;
-        }
     }
 }
