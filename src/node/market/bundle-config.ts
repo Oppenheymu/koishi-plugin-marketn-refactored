@@ -223,8 +223,11 @@ function moveBundleMember(
     const shortname = member.plugin || getPluginShortname(member.package);
     const ident = getBundleMemberIdent(request.package, member);
     const fallbackKey = `~${shortname}:${ident}`;
-    const targetKey = existing.key in writer.group!.plugins ? fallbackKey : existing.key;
-    if (targetKey in writer.group!.plugins) {
+    // 用 Object.hasOwn 判定键占用,避免原型链属性误判
+    const targetKey = Object.hasOwn(writer.group!.plugins, existing.key)
+        ? fallbackKey
+        : existing.key;
+    if (Object.hasOwn(writer.group!.plugins, targetKey)) {
         writer.skipped.push(member.package);
         return false;
     }

@@ -54,8 +54,6 @@ function stubInstallTask(task: Promise<any>) {
 }
 
 describe("install 基础流程", () => {
-    // 源码现状:install 内部 `await runInstall()` 未 return,退出码被丢弃,
-    // 与 JSDoc 声称的返回值不符(疑似 bug,见汇报);本组测试按实际行为断言。
     it("成功:重置并展示面板、执行回调、弹成功 toast", async () => {
         stubInstallTask(Promise.resolve(0));
         const callback = vi.fn();
@@ -105,7 +103,7 @@ describe("install 基础流程", () => {
                       reason: "timeout",
                   }),
         );
-        expect(await install({ "pkg-a": "^1.0.0" })).toBeUndefined();
+        expect(await install({ "pkg-a": "^1.0.0" })).toBe(1);
         expect(installProgressState.fallbackCandidate?.endpoint).toBe("https://m.example.com");
         expect(installProgressState.retryFallback).toBeTypeOf("function");
         expect(installProgressState.logs.some(({ line }) => line.includes("fallbackLog"))).toBe(

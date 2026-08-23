@@ -23,12 +23,10 @@ function sigmoid(value: number, center: number, steepness: number) {
   return 1 / (1 + Math.exp(-(value - center) * steepness))
 }
 
+/** 新鲜度分:创建距今越久越低(单调递减的连续函数,避免分段在 180 天处反弹)。 */
 function getFreshnessScore(days: number) {
   if (!Number.isFinite(days)) return 0
-  if (days <= 30) return 1
-  if (days <= 90) return 0.75
-  if (days <= 180) return 0.45
-  return Math.exp(-days / 720)
+  return Math.exp(-days / 180)
 }
 
 function hasPackageLink(data: SearchObject) {

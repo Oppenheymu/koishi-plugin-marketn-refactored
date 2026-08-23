@@ -91,6 +91,12 @@ describe('getRecommendScore 六维', () => {
         expect(d400).toBeLessThan(d10)
     })
 
+    it('新鲜度全局单调:180 天后不反弹(181 天低于 180 天)', () => {
+        const d180 = score({}, { createdTimestamp: NOW - 86400000 * 180 })
+        const d181 = score({}, { createdTimestamp: NOW - 86400000 * 181 })
+        expect(d181).toBeLessThan(d180)
+    })
+
     it('信任分:verified/portable/包链接逐项加分', () => {
         const base = score()
         const verified = score({ verified: true })

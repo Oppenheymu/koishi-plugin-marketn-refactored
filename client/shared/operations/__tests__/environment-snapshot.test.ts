@@ -53,8 +53,6 @@ function stubApplyTask(task: Promise<any>) {
 }
 
 describe("applyEnvironmentSnapshot 基础流程", () => {
-    // 源码现状:applyEnvironmentSnapshot 内部 `await runRestore()` 未 return,
-    // 退出码被丢弃(疑似 bug,见汇报);成败以面板状态与 toast 断言。
     it("成功:展示回滚面板、收起快照对话框、弹成功 toast", async () => {
         stubApplyTask(Promise.resolve(0));
         await applyEnvironmentSnapshot("snap-1");
@@ -88,7 +86,7 @@ describe("applyEnvironmentSnapshot 基础流程", () => {
                       reason: "timeout",
                   }),
         );
-        expect(await applyEnvironmentSnapshot("snap-1")).toBeUndefined();
+        expect(await applyEnvironmentSnapshot("snap-1")).toBe(1);
         expect(installProgressState.status).toBe("error");
         expect(message.error).toHaveBeenCalledWith("operations.progress.environmentError");
         expect(installProgressState.retryFallback).toBeTypeOf("function");

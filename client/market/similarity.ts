@@ -73,13 +73,10 @@ export function getSimilarityByIndex(index: MarketSearchIndex, word: string) {
   if (tokens.includes(word)) return 0.5
   if (shortname.startsWith(word)) return 0.4
   if (tokens.some(t => t.startsWith(word))) return 0.3
+  // 任何"某 token 包含 word"的情形必然被 shortname.includes(word) 抢先命中,
+  // 此处不再设独立档位(原 0.2 档为不可达分支,已移除)
   if (shortname.includes(word)) return 0.25
-  if (tokens.some(t => t.includes(word))) return 0.2
   return index.searchTexts.some(keyword => keyword.includes(word)) ? 0.05 : 0
-}
-
-function getSimilarity(data: SearchObject, word: string) {
-  return getSimilarityByIndex(getSearchIndex(data), normalizePackageName(word))
 }
 
 function getUpdatedScore(index: MarketSearchIndex, now = Date.now()) {

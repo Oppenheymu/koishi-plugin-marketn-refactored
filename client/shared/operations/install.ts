@@ -179,7 +179,7 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
   try {
     // 收起市场条目弹层,避免安装期间残留过期的版本信息
     active.value = ''
-    await runInstall()
+    return await runInstall()
   } catch (err) {
     console.error(err)
     installProgressState.status = 'error'
@@ -192,6 +192,10 @@ export async function install(override: Dict<string>, callback?: () => Awaitable
  * 调用的是 market/environment-snapshot-apply;environmentRestore 标记为 true
  * 让进度面板展示回滚专属文案;任何断连(除自更新)都按失败处理,不提供
  * allowDisconnectSuccess 逃生门。
+ *
+ * @param id 环境快照 id
+ * @param selfUpdate 是否自更新(自更新断连按已提交处理)
+ * @returns 成功返回 0,失败返回退出码,请求失败/断连返回 undefined
  */
 export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
   beginProgress({
@@ -237,7 +241,7 @@ export async function applyEnvironmentSnapshot(id: string, selfUpdate = false) {
   }
 
   try {
-    await runRestore()
+    return await runRestore()
   } catch (error) {
     console.error(error)
     installProgressState.status = 'error'
