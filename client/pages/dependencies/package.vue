@@ -265,17 +265,19 @@
 <script lang="ts" setup>
 
 import { computed, ref } from 'vue'
-import { message, send, store, useConfig, useContext } from '@koishijs/client'
+import { useConfig, useContext } from '@koishijs/client'
 import type { SearchObject } from '@koishijs/registry'
-import { isBundlePackageName, type PluginBundleRecord } from '../../../src/shared/bundle'
-import { isLocalDependency } from '../../../src/shared/dependency-source'
-import { createUpdateIgnoreRule, getBundleRecords, getFrontendMode, getIgnoredUpdateVersion, getLatestVersion, getMarketNextPolicy, getPendingOverrides, getWritableMarketNextPolicy, getUpdateIgnoreText, hasUpdate, isUpdateCheckDisabled, isUpdateIgnored, patchMarketNextConfig, patchMarketNextData } from '../../shared/plugin-config'
-import { activeBundle, analyzeVersions, createLocalBundleRecord, ensureInstalledConfig, expandedDependency, getConfigWriter, getRegistryStatus, getRegistryStatusText, pendingBundleUninstalls } from '../../shared/operations'
-import { formatShortname, isPluginPackage, resolveCategory } from '../../market/utils'
+import { getFrontendMode, getPendingOverrides } from '../../shared/plugin-config'
+import { activeBundle, ensureInstalledConfig, expandedDependency, pendingBundleUninstalls } from '../../shared/operations'
 import MarketIcon from '../../market/icons'
 import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
-import { getMarketObject } from '../../market/state'
+import { useIgnoreUpdate } from './use-ignore-update'
+import { useLocalBinding } from './use-local-binding'
+import { usePackageCardMeta } from './use-package-card-meta'
+import { usePackageCardState } from './use-package-card-state'
+import { usePackageCardStatus } from './use-package-card-status'
+import { usePackageVisibility } from './use-package-visibility'
 
 type ItemKind = 'pending' | 'bundle' | 'unconfigured' | 'updatable' | 'ignored' | 'check-disabled' | 'invalid' | 'error' | 'local' | 'manual' | 'installed'
 
@@ -286,7 +288,6 @@ const props = defineProps<{
 }>()
 
 const removeValue = '__market_next_remove__'
-const day = 24 * 60 * 60 * 1000
 const config = useConfig()
 const ctx = useContext()
 const { t, locale } = useMarketNextI18n()
@@ -294,74 +295,54 @@ const frontendMode = computed(() => getFrontendMode(config.value))
 const modeClass = computed(() => `market-mode-${frontendMode.value}`)
 const versionPopperClass = computed(() => `market-version-popper ${modeClass.value}`)
 const configuring = ref(false)
+const showBundleUninstallDialog = ref(false)
 const editing = computed({
   get: () => expandedDependency.value === props.name,
   set: (value: boolean) => expandedDependency.value = value ? props.name : '',
 })
-const showIgnoreDialog = ref(false)
-const showBundleUninstallDialog = ref(false)
-const showLocalBindingDialog = ref(false)
-const bindingLocal = ref(false)
-const ignoreDurationPreset = ref<'forever' | '1d' | '7d' | '30d' | 'custom'>('forever')
-const ignoreCustomDays = ref(7)
-const ignoreCount = ref(1)
-const ignorePackagePermanently = ref(false)
-const ignoreSaving = ref(false)
 
-const dep = computed(() => store.dependencies?.[props.name])
-const local = computed(() => store.packages?.[props.name])
-const localDependency = computed(() => {
-  return isLocalDependency(dep.value)
-    || props.kind === 'local' && !dep.value && !!local.value
+const state = usePackageCardState(props, config, ctx)
+const status = usePackageCardStatus(state, t, editing)
+const meta = usePackageCardMeta(state, t, locale, editing, ctx, status.statusClass, props.listMode)
+const visibility = usePackageVisibility({
+  state,
+  t,
+  statusClass: status.statusClass,
+  configText: meta.configText,
+  sourceText: meta.sourceText,
+  statusIcon: status.statusIcon,
+  identityIcon: meta.identityIcon,
+  detailText: status.detailText,
+  editing,
+  listMode: props.listMode,
 })
-const marketData = computed(() => getMarketObject(props.name))
-const bundleRecord = computed(() => getBundleRecords(config.value)[props.name] || createLocalBundleRecord(props.name))
-const bundleOrigin = computed(() => findBundleOrigin(props.name))
+const ignore = useIgnoreUpdate(state, config, t)
+const binding = useLocalBinding(props.name, t)
 
-const displayName = computed(() => formatShortname(props.name))
-
-const data = computed(() => {
-  if (localDependency.value || dep.value?.invalid) return
-  return analyzeVersions(props.name, (name) => getPendingOverrides()[name])
-})
-
-function getUpdatePolicy() {
-  return getMarketNextPolicy(config.value)
-}
-
-function getUpdateIgnored() {
-  const policy = getWritableMarketNextPolicy(config.value)
-  policy.updateIgnored ||= {}
-  return policy.updateIgnored
-}
-
-const status = computed(() => getRegistryStatus(props.name))
-
-const latestVersion = computed(() => {
-  const latest = getLatestVersion(props.name, getUpdatePolicy())
-  if (latest) return latest
-  const ignored = getIgnoredUpdateVersion(props.name, getUpdatePolicy())
-  if (ignored) return ignored
-  return dep.value?.latest ?? local.value?.package.version
-})
-
-const overrideValue = computed(() => {
-  const override = getPendingOverrides()
-  if (!Object.prototype.hasOwnProperty.call(override, props.name)) return
-  return override[props.name]
-})
-
-const pending = computed(() => overrideValue.value !== undefined)
-const pendingRemove = computed(() => pending.value && !overrideValue.value)
-const updateCheckDisabled = computed(() => isUpdateCheckDisabled(props.name, getUpdatePolicy()))
-const ignoredUpdate = computed(() => updateCheckDisabled.value || isUpdateIgnored(props.name, getUpdatePolicy()))
-const updatable = computed(() => !!hasUpdate(props.name, getUpdatePolicy()))
-const bundlePackage = computed(() => !!bundleRecord.value)
-const unconfigured = computed(() => {
-  if (bundlePackage.value) return false
-  const configWriter = getConfigWriter(ctx)
-  return !!configWriter && !!local.value && isPluginPackage(props.name) && !configWriter.get(props.name)?.length
-})
+// 模板按名消费,此处平铺解构(script setup 的绑定要求)
+const {
+  dep, local, localDependency, marketData, bundleRecord, displayName, data,
+  latestVersion, pending, pendingRemove, updatable, bundlePackage, unconfigured, overrideValue,
+} = state
+const {
+  statusClass, statusLabel, badgeIcon, currentText, targetText, targetLabel,
+  detailText, compactStatusText, versionSourceText,
+} = status
+const {
+  configText, sourceText, removeButtonText, requestText, identityIcon,
+  identityText, cardStyle, summaryText, editToggleText,
+} = meta
+const {
+  markIcon, showIdentityPill, showIdentityMeta, showStatusBadge, showConfigMeta, showSourceMeta,
+  showTargetMeta, showDetailText, showVersionControl, showEditToggle, canExpandCard,
+  showQuickUpdate, showInlineIgnoreUpdate, showRestoreUpdate, showConfigure, showBindLocal,
+  showRemoveDependency, showCardActions, floatingActions,
+} = visibility
+const {
+  showIgnoreDialog, ignoreDurationPreset, ignoreCustomDays, ignoreCount,
+  ignorePackagePermanently, ignoreSaving, openIgnoreDialog, confirmIgnoreUpdate, restoreUpdate,
+} = ignore
+const { showLocalBindingDialog, bindingLocal, openLocalBinding, confirmLocalBinding } = binding
 
 const selectedVersion = computed({
   get() {
@@ -370,263 +351,16 @@ const selectedVersion = computed({
     return dep.value?.resolved ?? latestVersion.value ?? ''
   },
   set(value: string) {
+    const override = getPendingOverrides()
     if (value === removeValue) {
-      getPendingOverrides()[props.name] = ''
+      override[props.name] = ''
     } else if (value === dep.value?.resolved || !value && !dep.value) {
-      delete getPendingOverrides()[props.name]
+      delete override[props.name]
     } else {
-      getPendingOverrides()[props.name] = value
+      override[props.name] = value
     }
-    void patchMarketNextData({ override: { ...getPendingOverrides() } })
+    state.setOverride(override)
   },
-})
-
-const statusClass = computed<ItemKind>(() => {
-  if (pending.value) return 'pending'
-  if (localDependency.value) return 'local'
-  if (dep.value?.invalid) return 'invalid'
-  if (bundlePackage.value && (dep.value || local.value)) return 'bundle'
-  if (unconfigured.value) return 'unconfigured'
-  if (status.value?.error) return 'error'
-  if (!dep.value && !local.value) return 'manual'
-  if (updateCheckDisabled.value) return 'check-disabled'
-  if (ignoredUpdate.value) return 'ignored'
-  if (updatable.value) return 'updatable'
-  return props.kind ?? 'installed'
-})
-
-const statusLabel = computed(() => {
-  if (pendingRemove.value) return t('dependencyCard.status.pendingRemove')
-  if (pending.value && dep.value) return t('dependencyCard.status.pendingApply')
-  if (pending.value) return t('dependencyCard.status.pendingInstall')
-  if (localDependency.value) return t('dependencyCard.status.local')
-  if (dep.value?.invalid) return t('dependencyCard.status.unsupported')
-  if (bundlePackage.value && (dep.value || local.value)) return t('dependencyCard.status.bundle')
-  if (unconfigured.value) return t('dependencyCard.status.unconfigured')
-  if (status.value?.error) return t('dependencyCard.status.versionError')
-  if (!dep.value && !local.value) return t('dependencyCard.status.manual')
-  if (updateCheckDisabled.value) return t('dependencyCard.status.checkDisabled')
-  if (ignoredUpdate.value) return t('dependencyCard.status.ignored')
-  if (updatable.value) return t('dependencyCard.status.updatable')
-  return t('dependencyCard.status.installed')
-})
-
-const statusIcon = computed(() => {
-  if (pendingRemove.value) return 'close'
-  if (pending.value) return 'tag'
-  if (bundlePackage.value && (dep.value || local.value)) return 'file-archive'
-  if (unconfigured.value) return 'preview'
-  if (dep.value?.invalid) return 'insecure'
-  if (status.value?.error) return 'insecure'
-  if (localDependency.value) return 'file-archive'
-  if (!dep.value) return 'search'
-  if (updateCheckDisabled.value) return 'installed'
-  if (ignoredUpdate.value) return 'installed'
-  if (updatable.value) return 'asc'
-  return 'installed'
-})
-
-const badgeIcon = computed(() => statusIcon.value)
-
-const markIcon = computed(() => {
-  if (statusClass.value === 'installed') return identityIcon.value
-  return statusIcon.value
-})
-
-const currentText = computed(() => {
-  if (!dep.value) return local.value?.package.version ?? t('dependencyCard.current.notInstalled')
-  if (localDependency.value) return dep.value.resolved ? `${dep.value.resolved} / ${t('dependencyCard.current.local')}` : t('dependencyCard.current.local')
-  return dep.value.resolved ?? t('dependencyCard.current.installError')
-})
-
-const targetText = computed(() => {
-  if (pendingRemove.value) return t('dependencyCard.target.remove')
-  if (overrideValue.value) return overrideValue.value
-  if (updatable.value && latestVersion.value) return latestVersion.value
-  if (ignoredUpdate.value && latestVersion.value) return latestVersion.value
-  if (localDependency.value) return t('dependencyCard.target.keepLocal')
-  if (statusClass.value === 'installed' && dep.value && !dep.value.local && !dep.value.workspace) {
-    if (dep.value.latest) return dep.value.latest
-    if (status.value?.loading) return t('dependencyCard.target.loading')
-  }
-  if (latestVersion.value) return latestVersion.value
-  return dep.value || local.value ? t('dependencyCard.target.waitingData') : t('dependencyCard.target.waitingInstall')
-})
-
-const targetLabel = computed(() => {
-  if (pending.value) return t('dependencyCard.label.pending')
-  if (updatable.value) return t('dependencyCard.label.latest')
-  if (ignoredUpdate.value) return t('dependencyCard.label.ignored')
-  if (dep.value || local.value) return t('dependencyCard.label.latest')
-  return t('dependencyCard.label.target')
-})
-
-const detailText = computed(() => {
-  if (pendingRemove.value) return t('dependencyCard.detail.pendingRemove')
-  if (pending.value && dep.value) return t('dependencyCard.detail.pendingApply')
-  if (pending.value) return t('dependencyCard.detail.pendingInstall')
-  if (localDependency.value) {
-    if (!dep.value) return t('dependencyCard.detail.localDiscovered')
-    return dep.value.bound === false
-      ? t('dependencyCard.detail.localUnbound')
-      : t('dependencyCard.detail.local')
-  }
-  if (dep.value?.invalid) return t('dependencyCard.detail.unsupported')
-  if (bundlePackage.value && (dep.value || local.value)) return t('dependencyCard.detail.bundle')
-  if (unconfigured.value) return t('dependencyCard.detail.unconfigured')
-  if (status.value?.error) return getRegistryStatusText(props.name)
-  if (!data.value && !localDependency.value) return getRegistryStatusText(props.name)
-  if (updateCheckDisabled.value) return t('dependencyCard.detail.checkDisabled')
-  if (ignoredUpdate.value) return getUpdateIgnoreText(props.name, getUpdatePolicy()) || t('dependencyCard.detail.ignored')
-  if (updatable.value && latestVersion.value) return t('dependencyCard.detail.foundUpdate', { version: latestVersion.value })
-  return ''
-})
-
-const compactStatusText = computed(() => {
-  if (localDependency.value) return dep.value?.bound === false
-    ? t('dependencyCard.detail.localUnboundShort')
-    : t('dependencyCard.detail.localShort')
-  if (dep.value?.invalid) return t('dependencyCard.detail.unsupportedShort')
-  return status.value?.loading || !status.value ? t('dependencyCard.detail.fetching') : t('dependencyCard.detail.noData')
-})
-
-const configText = computed(() => {
-  if (bundlePackage.value) return t('dependencyCard.config.notNeeded')
-  if (!isPluginPackage(props.name)) return t('dependencyCard.config.notPlugin')
-  if (!getConfigWriter(ctx)) return t('dependencyCard.config.unknown')
-  if (!local.value) return pending.value ? t('dependencyCard.config.pending') : t('dependencyCard.config.notLoaded')
-  return unconfigured.value ? t('dependencyCard.config.unconfigured') : t('dependencyCard.config.configured')
-})
-
-const sourceText = computed(() => {
-  if (bundleOrigin.value) return t('dependencyCard.source.bundle', { name: bundleOrigin.value.label || formatShortname(bundleOrigin.value.package) })
-  if (bundleRecord.value) return t('dependencyCard.source.bundleSelf')
-  if (dep.value?.source) return t(`dependencyCard.source.${dep.value.source}`)
-  if (localDependency.value) return local.value?.workspace
-    ? t('dependencyCard.source.workspace')
-    : t('dependencyCard.source.local')
-  if (dep.value?.workspace || local.value?.workspace) return t('dependencyCard.source.workspace')
-  if (pending.value && !dep.value) return t('dependencyCard.source.pending')
-  if (!dep.value && local.value) return t('dependencyCard.source.local')
-  if (!dep.value) return t('dependencyCard.source.manual')
-  return t('dependencyCard.source.packageJson')
-})
-
-const removeButtonText = computed(() => bundleRecord.value ? t('dependencyCard.actions.uninstallBundle') : t('dependencyCard.actions.uninstall'))
-
-const requestText = computed(() => {
-  if (!dep.value?.request) return ''
-  if (dep.value.request === dep.value.resolved) return ''
-  return dep.value.request
-})
-
-const versionSourceText = computed(() => {
-  if (statusClass.value === 'installed' && !editing.value) return ''
-  if (localDependency.value) return ''
-  if (status.value?.endpoint) return formatEndpoint(status.value.endpoint)
-  if (status.value?.loading) return t('dependencyCard.target.loading')
-  if (!data.value && dep.value) return t('dependencyCard.target.waiting')
-  return ''
-})
-
-const identity = computed(() => resolveIdentity(props.name))
-
-const identityText = computed(() => t(identity.value.label))
-const identityIcon = computed(() => identity.value.icon)
-
-const cardStyle = computed(() => {
-  if (statusClass.value !== 'installed') return {}
-  return {
-    '--dep-accent': identity.value.color,
-  }
-})
-
-const showIdentityPill = computed(() => statusClass.value === 'installed')
-
-const showIdentityMeta = computed(() => statusClass.value !== 'installed')
-
-const showStatusBadge = computed(() => statusClass.value !== 'installed')
-
-const showConfigMeta = computed(() => statusClass.value !== 'installed' || configText.value !== t('dependencyCard.config.configured'))
-
-const showSourceMeta = computed(() => statusClass.value !== 'installed' || sourceText.value !== t('dependencyCard.source.packageJson'))
-
-const summaryText = computed(() => {
-  if (statusClass.value !== 'installed') return ''
-  return pickDescription(marketData.value?.manifest?.description)
-    || pickDescription(marketData.value?.package?.description)
-    || pickDescription(local.value?.package?.description)
-})
-
-const showTargetMeta = computed(() => {
-  if (pending.value || updatable.value || ignoredUpdate.value) return true
-  if (statusClass.value === 'manual' || statusClass.value === 'error') return true
-  return !!(dep.value || local.value) && !localDependency.value
-})
-
-const showDetailText = computed(() => {
-  return !!detailText.value && statusClass.value !== 'installed'
-})
-
-const showVersionControl = computed(() => {
-  if (localDependency.value) return false
-  if (!data.value && !status.value?.error) return false
-  return editing.value || pending.value || updatable.value || statusClass.value === 'error' || statusClass.value === 'manual'
-})
-
-const editToggleText = computed(() => {
-  if (bundlePackage.value) return t('dependencyCard.actions.manage')
-  if (editing.value) return t('dependencyCard.actions.collapse')
-  return data.value ? (props.listMode ? t('dependencyCard.actions.versions') : t('dependencyCard.actions.edit')) : t('dependencyCard.actions.operate')
-})
-
-const showEditToggle = computed(() => {
-  if (bundlePackage.value && (dep.value || local.value)) return !pending.value
-  return canExpandCard.value && !updatable.value
-})
-
-const canExpandCard = computed(() => {
-  if (bundlePackage.value && (dep.value || local.value)) return !pending.value
-  if (pending.value || statusClass.value === 'error' || statusClass.value === 'manual') return false
-  if (localDependency.value) return false
-  if (data.value) return true
-  return !!dep.value && !dep.value.workspace && !dep.value.invalid
-})
-
-const showQuickUpdate = computed(() => {
-  return !pending.value && !unconfigured.value && updatable.value && !!latestVersion.value && !localDependency.value
-})
-
-const showInlineIgnoreUpdate = computed(() => {
-  return showQuickUpdate.value
-})
-
-const showRestoreUpdate = computed(() => {
-  return !pending.value && !localDependency.value && ignoredUpdate.value
-})
-
-const showConfigure = computed(() => {
-  return !pending.value && unconfigured.value
-})
-
-const showBindLocal = computed(() => {
-  return !pending.value && dep.value?.source === 'unbound' && dep.value?.bound === false
-})
-
-const showRemoveDependency = computed(() => {
-  return (props.listMode || editing.value || statusClass.value !== 'installed')
-    && !pending.value
-    && !!dep.value
-    && !dep.value.workspace
-    && !dep.value.invalid
-})
-
-const showCardActions = computed(() => {
-  return showVersionControl.value || showQuickUpdate.value || showRestoreUpdate.value || showConfigure.value || showBindLocal.value || showRemoveDependency.value || pending.value
-})
-
-const floatingActions = computed(() => {
-  return editing.value && statusClass.value === 'installed'
 })
 
 function toggleCardActions() {
@@ -647,9 +381,9 @@ function toggleEdit() {
 }
 
 function openBundlePanel() {
-  const data = marketData.value
-  if (data) {
-    activeBundle.value = data
+  const entry = marketData.value
+  if (entry) {
+    activeBundle.value = entry
     return
   }
   activeBundle.value = {
@@ -669,7 +403,7 @@ function clearOverride() {
   for (const member of pendingBundle?.members ?? []) {
     delete override[member]
   }
-  void patchMarketNextData({ override: { ...override } })
+  state.setOverride(override)
   delete pendingBundleUninstalls.value[props.name]
 }
 
@@ -679,210 +413,6 @@ function removeDependency() {
     return
   }
   selectedVersion.value = removeValue
-}
-
-function openLocalBinding() {
-  showLocalBindingDialog.value = true
-}
-
-async function confirmLocalBinding() {
-  if (bindingLocal.value) return
-  bindingLocal.value = true
-  try {
-    const result = await send('market/prepare-local-binding', props.name)
-    if (!result?.request) throw new Error('invalid local binding result')
-    getPendingOverrides()[props.name] = result.request
-    const saved = await patchMarketNextData({ override: { ...getPendingOverrides() } })
-    if (!saved) {
-      delete getPendingOverrides()[props.name]
-      throw new Error('failed to save local binding override')
-    }
-    showLocalBindingDialog.value = false
-    message.success(t('dependencyCard.localBinding.prepared'))
-  } catch (error) {
-    console.error(error)
-    message.error(t('dependencyCard.localBinding.failed'))
-  } finally {
-    bindingLocal.value = false
-  }
-}
-
-function openIgnoreDialog() {
-  const duration = Math.max(0, getUpdatePolicy().updateIgnoreDuration ?? 0)
-  const days = Math.max(1, Math.ceil(duration / day))
-  ignoreDurationPreset.value = duration ? getDurationPreset(duration) : 'forever'
-  ignoreCustomDays.value = days
-  ignoreCount.value = normalizeDialogCount(getUpdatePolicy().updateIgnoreVersions)
-  ignorePackagePermanently.value = false
-  showIgnoreDialog.value = true
-}
-
-async function confirmIgnoreUpdate() {
-  if (ignoreSaving.value) return
-  ignoreSaving.value = true
-  if (ignorePackagePermanently.value) {
-    addPackageToIgnoredList(props.name)
-    delete getUpdateIgnored()[props.name]
-    const saved = await persistUpdatePolicy()
-    ignoreSaving.value = false
-    if (!saved) {
-      message.error(t('common.messages.saveFailed'))
-      return
-    }
-    showIgnoreDialog.value = false
-    message.success(t('dependencyCard.ignore.addedToDisabled'))
-    return
-  }
-  const rule = createUpdateIgnoreRule(props.name, getUpdatePolicy(), {
-    duration: getDialogDuration(),
-    count: ignoreCount.value,
-  })
-  if (!rule) {
-    ignoreSaving.value = false
-    return
-  }
-  getUpdateIgnored()[props.name] = rule
-  const saved = await persistUpdatePolicy()
-  ignoreSaving.value = false
-  if (!saved) {
-    message.error(t('common.messages.saveFailed'))
-    return
-  }
-  showIgnoreDialog.value = false
-  message.success(t('dependencyCard.ignore.saved'))
-}
-
-function getDurationPreset(duration: number) {
-  if (duration === day) return '1d'
-  if (duration === 7 * day) return '7d'
-  if (duration === 30 * day) return '30d'
-  return 'custom'
-}
-
-function getDialogDuration() {
-  switch (ignoreDurationPreset.value) {
-    case '1d': return day
-    case '7d': return 7 * day
-    case '30d': return 30 * day
-    case 'custom': return normalizeDialogCount(ignoreCustomDays.value, 3650) * day
-    default: return 0
-  }
-}
-
-function normalizeDialogCount(value?: number, max = 20) {
-  if (!Number.isFinite(value)) return 1
-  return Math.max(1, Math.min(max, Math.floor(value)))
-}
-
-function addPackageToIgnoredList(name: string) {
-  const policy = getWritableMarketNextPolicy(config.value)
-  const names = (policy.updateIgnoredPackages ?? '')
-    .split(/[\s,，;；]+/g)
-    .map(item => item.trim())
-    .filter(Boolean)
-  if (!names.some(item => item.toLowerCase() === name.toLowerCase())) {
-    names.push(name)
-  }
-  policy.updateIgnoredPackages = names.join('\n')
-}
-
-async function restoreUpdate() {
-  delete getUpdateIgnored()[props.name]
-  removePackageFromIgnoredList(props.name)
-  const saved = await persistUpdatePolicy()
-  if (!saved) message.error(t('common.messages.saveFailed'))
-}
-
-async function persistUpdatePolicy() {
-  const policy = getUpdatePolicy()
-  const configSaved = await patchMarketNextConfig({
-    updateIgnoredPackages: policy.updateIgnoredPackages,
-    updateIgnoreDuration: policy.updateIgnoreDuration,
-    updateIgnoreVersions: policy.updateIgnoreVersions,
-    updateIgnorePrerelease: policy.updateIgnorePrerelease,
-  })
-  const dataSaved = await patchMarketNextData({
-    updateIgnored: policy.updateIgnored,
-  })
-  return configSaved && dataSaved
-}
-
-function findBundleOrigin(name: string): PluginBundleRecord | undefined {
-  const records = getBundleRecords(config.value)
-  return Object.values(records).find(record => {
-    return record?.members?.some(member => member.package === name)
-  })
-}
-
-function removePackageFromIgnoredList(name: string) {
-  const policy = getWritableMarketNextPolicy(config.value)
-  const names = (policy.updateIgnoredPackages ?? '')
-    .split(/[\s,，;；]+/g)
-    .map(item => item.trim())
-    .filter(Boolean)
-    .filter(item => item.toLowerCase() !== name.toLowerCase())
-  policy.updateIgnoredPackages = names.join('\n')
-}
-
-function pickDescription(value: unknown) {
-  if (typeof value === 'string') return value.trim()
-  if (!value || typeof value !== 'object') return ''
-  const object = value as Record<string, unknown>
-  const preferred = locale.value.toLowerCase().startsWith('zh')
-    ? ['zh-CN', 'zh', 'en-US', 'en']
-    : ['en-US', 'en', 'zh-CN', 'zh']
-  for (const key of preferred) {
-    const text = object[key]
-    if (typeof text === 'string' && text.trim()) return text.trim()
-  }
-  const fallback = Object.values(object).find(item => typeof item === 'string' && item.trim())
-  return typeof fallback === 'string' ? fallback.trim() : ''
-}
-
-function resolveIdentity(name: string) {
-  if (isBundlePackageName(name)) return identityMap.bundle
-  const data = getMarketObject(name)
-  const category = resolveCategory(data?.category)
-  const normalized = name.toLowerCase()
-  if (/adapter[-/]/.test(normalized) || normalized.includes('adapter-')) return identityMap.adapter
-  if (/database|sqlite|mysql|mongo|postgres|redis/.test(normalized)) return identityMap.database
-  if (/console|config|insight|market|status|telemetry/.test(normalized)) return identityMap.webui
-  if (/loader|server|koishi$|core|sandbox/.test(normalized)) return identityMap.core
-  if (/command|schedule|cron|help|echo|logger|locales/.test(normalized)) return identityMap.general
-  if (/chatluna|openai|ai|llm|gpt|claude|gemini/.test(normalized)) return identityMap.ai
-  if (/image|canvas|puppeteer|screenshot/.test(normalized)) return identityMap.image
-  if (/rss|media|music|video|bilibili|news/.test(normalized)) return identityMap.media
-  if (/game|chess|mahjong/.test(normalized)) return identityMap.game
-  return identityMap[category] ?? identityMap.other
-}
-
-const identityMap: Record<string, { label: string, icon: string, color: string }> = {
-  adapter: { label: 'dependencyCard.identity.adapter', icon: 'solid:adapter', color: '#4d8df7' },
-  database: { label: 'dependencyCard.identity.database', icon: 'solid:tool', color: '#21a67a' },
-  webui: { label: 'dependencyCard.identity.webui', icon: 'solid:webui', color: '#8b6cf6' },
-  core: { label: 'dependencyCard.identity.core', icon: 'solid:core', color: '#d89b32' },
-  general: { label: 'dependencyCard.identity.general', icon: 'solid:general', color: '#6b8cff' },
-  extension: { label: 'dependencyCard.identity.extension', icon: 'solid:extension', color: '#5c9ded' },
-  manage: { label: 'dependencyCard.identity.manage', icon: 'solid:manage', color: '#26a0a7' },
-  preset: { label: 'dependencyCard.identity.preset', icon: 'solid:preset', color: '#9b74df' },
-  image: { label: 'dependencyCard.identity.image', icon: 'solid:image', color: '#d66aa8' },
-  media: { label: 'dependencyCard.identity.media', icon: 'solid:media', color: '#3e9fbb' },
-  tool: { label: 'dependencyCard.identity.tool', icon: 'solid:tool', color: '#54966f' },
-  life: { label: 'dependencyCard.identity.life', icon: 'solid:life', color: '#8da44b' },
-  ai: { label: 'dependencyCard.identity.ai', icon: 'solid:ai', color: '#b66be8' },
-  meme: { label: 'dependencyCard.identity.meme', icon: 'solid:meme', color: '#d98445' },
-  game: { label: 'dependencyCard.identity.game', icon: 'solid:game', color: '#df6b5f' },
-  gametool: { label: 'dependencyCard.identity.gametool', icon: 'solid:gametool', color: '#c77745' },
-  bundle: { label: 'dependencyCard.identity.bundle', icon: 'file-archive', color: '#9b74df' },
-  other: { label: 'dependencyCard.identity.other', icon: 'solid:other', color: '#778294' },
-}
-
-function formatEndpoint(endpoint: string) {
-  try {
-    return new URL(endpoint).host
-  } catch {
-    return endpoint
-  }
 }
 
 async function configure() {
