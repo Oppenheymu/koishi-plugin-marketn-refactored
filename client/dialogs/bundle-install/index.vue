@@ -595,22 +595,6 @@ function getPackageDescription(name: string) {
   }
 }
 
-/** npm author/maintainer 字段的宽容格式化(字符串或对象均可)。 */
-function formatUser(user: any) {
-  if (!user) return ''
-  if (typeof user === 'string') return user
-  return user.name || user.username || user.email || ''
-}
-
-/** 成员作者(getAuthor/getMaintainer 目前模板未直接使用,保留作展示辅助)。 */
-function getAuthor(name: string) {
-  return formatUser(memberInfo(name)?.package?.author)
-}
-
-function getMaintainer(name: string) {
-  return formatUser(memberInfo(name)?.package?.maintainers?.[0])
-}
-
 /** 成员安装状态文案:依赖表已解析为"已安装",仅 packages 有为"已加载",否则"未安装"。 */
 function getInstalledText(name: string) {
   const dep = store.dependencies?.[name]
