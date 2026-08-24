@@ -132,6 +132,8 @@ let observedList: HTMLElement | undefined
 let observedHeader: HTMLElement | undefined
 /** 虚拟滚动更新的 rAF 句柄。 */
 let frame = 0
+/** 尺寸测量的 rAF 句柄,合并同一批 ResizeObserver 通知。 */
+let measureFrame = 0
 /** 过滤管线的 rAF 句柄。 */
 let filterFrame = 0
 /** settled 延迟定时器句柄。 */
@@ -227,8 +229,10 @@ onMounted(() => {
     if (entries.some(entry => entry.isIntersecting)) loadMore()
   }, { rootMargin: '240px 0px' })
   resizeObserver = new ResizeObserver(() => {
-    measureLayout()
-    scheduleVirtual()
+    cancelAnimationFrame(measureFrame)
+    measureFrame = requestAnimationFrame(() => {
+      if (measureLayout()) scheduleVirtual()
+    })
   })
   resetVisible(false)
 })
@@ -238,6 +242,7 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   removeScrollListener()
   cancelAnimationFrame(frame)
+  cancelAnimationFrame(measureFrame)
   cancelAnimationFrame(filterFrame)
   clearTimeout(settledTimer)
 })
@@ -301,7 +306,7 @@ function removeScrollListener() {
 
 /** 实测布局参数:列数(卡片宽 336 + gap)、行高(首卡高 + gap)、列表顶部偏移。 */
 function measureLayout() {
-  if (!list.value) return
+  if (!list.value) return false
   const style = getComputedStyle(list.value)
   const gap = parseFloat(style.columnGap) || parseFloat(style.gap) || 16
   const width = list.value.clientWidth
@@ -309,9 +314,11 @@ function measureLayout() {
   const card = list.value.querySelector<HTMLElement>('.market-package')
   const nextRowHeight = (card?.offsetHeight || 202) + gap
   const nextListTop = getListTop()
+  const changed = columns.value !== nextColumns || rowHeight.value !== nextRowHeight || listTop !== nextListTop
   if (columns.value !== nextColumns) columns.value = nextColumns
   if (rowHeight.value !== nextRowHeight) rowHeight.value = nextRowHeight
   if (listTop !== nextListTop) listTop = nextListTop
+  return changed
 }
 
 /** 列表顶相对滚动容器的绝对偏移(窗口起点换算用)。 */
