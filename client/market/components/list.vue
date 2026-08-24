@@ -9,6 +9,7 @@
       <div v-if="topSpacer" class="virtual-spacer" :style="{ height: topSpacer + 'px' }"></div>
       <market-package
         v-for="data in renderedPackages"
+        v-memo="[data.package.name, gravatar]"
         :key="data.package.name"
         class="k-card"
         :data="data"
