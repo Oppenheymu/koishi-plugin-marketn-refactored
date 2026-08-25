@@ -12,24 +12,32 @@
  * - 校验失败即销毁会话,避免残留可被继续 commit 的半成品状态。
  *
  * 架构位置:core 领域层,由 node/installer(wire.ts 组装)与
- * core/install/sources/upload 消费;文件系统直接经 node:fs 访问
- * (core 允许使用 node 内置模块,禁止 koishi 运行时)。
+ * core/install/sources/upload 消费;会话状态形状与会话级工具函数拆至
+ * session-utils.ts;文件系统直接经 node:fs 访问(core 允许使用 node
+ * 内置模块,禁止 koishi 运行时)。
  */
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fsp } from "node:fs";
-import { type FileHandle, open } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { PackageJson } from "@koishijs/registry";
 import { createLocalBindingRequest, MAX_LOCAL_BINDING_PACK_SIZE } from "./local-binding.js";
 import {
-    decodeBase64Chunk,
     formatUploadBytes,
     LOCAL_UPLOAD_CHUNK_SIZE,
     placeUploadArchive,
     sweepTemporaryUploads,
     validateUploadFilename,
 } from "./session-io.js";
-import { createCanonicalLocalPackageFilename, inspectPackageArchive } from "./tar.js";
+import {
+    closeLocalUploadHandle,
+    getLocalUploadSession,
+    inspectValidatedLocalPackage,
+    LOCAL_UPLOAD_TTL,
+    type LocalUploadSession,
+    prepareAppendChunk,
+    removeLocalUploadSession,
+    type ValidatedLocalPackage,
+} from "./session-utils.js";
 import type {
     LocalPackageUploadChunkRequest,
     LocalPackageUploadCommitResult,
@@ -38,42 +46,6 @@ import type {
     LocalPackageUploadStartRequest,
     LocalPackageUploadStartResult,
 } from "./types.js";
-
-/** 会话空闲超时:超过 15 分钟无活动即清理(分块上传中断后不能永久占盘)。 */
-const LOCAL_UPLOAD_TTL = 15 * 60 * 1000;
-
-/** finish/commit 校验通过后缓存的归档信息(重复 finish 幂等复用)。 */
-interface ValidatedLocalPackage {
-    /** 归档内解析出的 package.json */
-    manifest: PackageJson;
-    /** 全量内容的 sha256(hex) */
-    hash: string;
-    /** 规范化的目标文件名(含 hash 后缀) */
-    targetFilename: string;
-}
-
-/** 单个进行中的上传会话(临时 .part 文件 + 写入进度 + 流式哈希)。 */
-interface LocalUploadSession {
-    id: string;
-    /** client 声明的原始文件名(仅展示用,落盘用规范名) */
-    originalFilename: string;
-    /** 临时 .part 文件绝对路径 */
-    path: string;
-    /** 声明的总字节数 */
-    size: number;
-    /** 已写字节数(同时是下一块的写入偏移) */
-    received: number;
-    /** 下一个合法分块序号(强顺序约束) */
-    nextIndex: number;
-    /** 最后活动时间(TTL 判定) */
-    touchedAt: number;
-    /** 打开的文件句柄(finish 后关闭) */
-    handle?: FileHandle | undefined;
-    /** 流式 sha256(每块 update,finish 时 digest) */
-    hash: ReturnType<typeof createHash>;
-    /** finish 校验结果(未校验时 undefined) */
-    validated?: ValidatedLocalPackage | undefined;
-}
 
 /** 本地 .tgz 分块上传会话：分片写入、解包校验、原子落位 .yarn/local。 */
 export class LocalPackageUploadStore {
@@ -130,26 +102,12 @@ export class LocalPackageUploadStore {
     }
 
     /**
-     * 追加一个分块:校验会话状态、序号顺序与块大小(不得超约定上限、
-     * 不得超剩余空间),按 received 偏移写入并流式更新哈希。
-     * 已 finish(校验完成)的会话拒绝继续写入。
+     * 追加一个分块:前置校验(序号顺序、块大小)通过后,按 received
+     * 偏移写入并流式更新哈希。已 finish(校验完成)的会话拒绝继续写入。
      */
     async append(request: LocalPackageUploadChunkRequest): Promise<LocalPackageUploadProgress> {
-        const session = this.getSession(request?.uploadId);
-        if (session.validated) throw new Error("本地插件归档已经完成校验。");
-        // 严格顺序:序号必须等于 nextIndex,杜绝乱序/重放导致的字节错位
-        if (!Number.isSafeInteger(request?.index) || request.index !== session.nextIndex) {
-            throw new Error("本地插件上传分块顺序无效，请重新上传。");
-        }
-        const buffer = decodeBase64Chunk(request?.data);
-        const remaining = session.size - session.received;
-        if (
-            !buffer.length ||
-            buffer.length > LOCAL_UPLOAD_CHUNK_SIZE ||
-            buffer.length > remaining
-        ) {
-            throw new Error("本地插件上传分块大小无效，请重新上传。");
-        }
+        const session = getLocalUploadSession(this.sessions, request?.uploadId);
+        const buffer = prepareAppendChunk(session, request);
         if (!session.handle) throw new Error("本地插件上传会话已经关闭。");
 
         const { bytesWritten } = await session.handle.write(
@@ -174,7 +132,7 @@ export class LocalPackageUploadStore {
     async finish(
         request: LocalPackageUploadFinishRequest,
     ): Promise<ValidatedLocalPackage & { uploadId: string; filename: string; size: number }> {
-        const session = this.getSession(request?.uploadId);
+        const session = getLocalUploadSession(this.sessions, request?.uploadId);
         if (session.validated) {
             // 幂等分支:client 网络重试等场景下重复 finish 不应报错
             return {
@@ -189,17 +147,10 @@ export class LocalPackageUploadStore {
                 `本地插件归档尚未上传完成（${formatUploadBytes(session.received)} / ${formatUploadBytes(session.size)}）。`,
             );
         }
-        await this.closeHandle(session);
+        await closeLocalUploadHandle(session);
 
         try {
-            const hash = session.hash.digest("hex");
-            const manifest = await inspectPackageArchive(session.path);
-            const targetFilename = createCanonicalLocalPackageFilename(
-                manifest.name,
-                manifest.version,
-                hash,
-            );
-            session.validated = { manifest, hash, targetFilename };
+            session.validated = await inspectValidatedLocalPackage(session);
             session.touchedAt = Date.now();
             return {
                 ...session.validated,
@@ -209,7 +160,7 @@ export class LocalPackageUploadStore {
             };
         } catch (error) {
             // 校验失败会话不可再用:清掉临时文件,避免残留"差一步就能落盘"的状态
-            await this.removeSession(session);
+            await removeLocalUploadSession(this.sessions, session);
             throw error;
         }
     }
@@ -219,9 +170,9 @@ export class LocalPackageUploadStore {
      * 销毁会话并返回可写入 package.json 的 file: 依赖串。
      */
     async commit(uploadId: string): Promise<LocalPackageUploadCommitResult> {
-        const session = this.getSession(uploadId);
+        const session = getLocalUploadSession(this.sessions, uploadId);
         if (!session.validated) throw new Error("请先完成本地插件归档校验。");
-        await this.closeHandle(session);
+        await closeLocalUploadHandle(session);
         await fsp.mkdir(this.root, { recursive: true });
         await placeUploadArchive(
             this.root,
@@ -245,7 +196,7 @@ export class LocalPackageUploadStore {
     async cancel(uploadId: string) {
         const session = this.sessions.get(uploadId);
         if (!session) return false;
-        await this.removeSession(session);
+        await removeLocalUploadSession(this.sessions, session);
         return true;
     }
 
@@ -259,7 +210,7 @@ export class LocalPackageUploadStore {
         );
         await Promise.all(
             expired.map((session) =>
-                this.removeSession(session).catch((error) => {
+                removeLocalUploadSession(this.sessions, session).catch((error) => {
                     this.warn(
                         `failed to clean expired local upload ${session.id}: ${error instanceof Error ? error.message : error}`,
                     );
@@ -274,36 +225,12 @@ export class LocalPackageUploadStore {
     async dispose() {
         await Promise.all(
             [...this.sessions.values()].map((session) =>
-                this.removeSession(session).catch((error) => {
+                removeLocalUploadSession(this.sessions, session).catch((error) => {
                     this.warn(
                         `failed to dispose local upload ${session.id}: ${error instanceof Error ? error.message : error}`,
                     );
                 }),
             ),
         );
-    }
-
-    /** 取会话并做基本合法性校验(uploadId 须为 UUID 形态且会话仍存活)。 */
-    private getSession(uploadId: string) {
-        if (typeof uploadId !== "string" || !/^[0-9a-f-]{36}$/i.test(uploadId)) {
-            throw new Error("本地插件上传会话无效。");
-        }
-        const session = this.sessions.get(uploadId);
-        if (!session) throw new Error("本地插件上传已过期，请重新选择文件。");
-        return session;
-    }
-
-    /** 关闭会话文件句柄(置空后关闭,重复调用安全)。 */
-    private async closeHandle(session: LocalUploadSession) {
-        const handle = session.handle;
-        session.handle = undefined;
-        await handle?.close();
-    }
-
-    /** 彻底移除会话:出表 → 关句柄(失败忽略)→ 删临时文件。 */
-    private async removeSession(session: LocalUploadSession) {
-        this.sessions.delete(session.id);
-        await this.closeHandle(session).catch(() => {});
-        await fsp.rm(session.path, { force: true });
     }
 }
