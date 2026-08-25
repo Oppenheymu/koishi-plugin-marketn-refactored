@@ -5,6 +5,7 @@
  * 探测负载与当前请求匹配时直接复用(省一次请求);否则按 retryEndpoints
  * 的顺序逐轮竞速拉取,失败按 300ms*(轮次+1) 线性退避重试;最终失败时
  * 汇总各轮失败归因(marketNextReason(s) 挂到异常上)并上报状态后上抛。
+ * loading/失败状态的上报辅助(report 系列)位于 fetch-report.ts。
  *
  * 架构位置:被 RegistryClient.getRegistry 调用,通过 RegistryFetchHost
  * (RegistryClient 实现)访问路由/状态/日志等宿主能力。
@@ -14,8 +15,8 @@ import type { RegistryStatus } from "../../../shared/types.js";
 import type { RaceAttempt } from "../../racing/race.js";
 import { sleep } from "../../utils/async.js";
 import type { RegistryErrorDetail, RegistryReason } from "../errors.js";
-import { mergeFailureDetail } from "../errors.js";
 import type { Registry } from "../manifest.js";
+import { reportFetchFailure, reportLoadingStatus } from "./fetch-report.js";
 import type { RouteProbeResult } from "./probe.js";
 
 /** 获取主循环所需的宿主能力面(RegistryClient 的结构性视图)。 */
@@ -40,28 +41,6 @@ export interface RegistryFetchHost {
         serial: number,
         onAttempt?: (endpoint: string, attempts: number) => void,
     ): Promise<RaceAttempt<Registry>>;
-}
-
-/** 上报 loading 状态。 */
-function reportLoadingStatus(
-    name: string,
-    endpoint: string,
-    attempts: number,
-    serial: number,
-    host: RegistryFetchHost,
-) {
-    host.statusSink(
-        name,
-        {
-            loading: true,
-            error: undefined,
-            reason: undefined,
-            endpoint,
-            attempts,
-            elapsed: undefined,
-        },
-        serial,
-    );
 }
 
 /** 路由探测负载匹配当前请求时直接复用，避免重复请求。 */
@@ -216,45 +195,4 @@ export async function fetchRegistryWithRetry(
     }
     reportFetchFailure(name, lastError, failureReasons, lastEndpoint, attempts, start, host);
     throw lastError ?? new Error(`failed to fetch registry metadata for ${name}`);
-}
-
-/**
- * 最终失败收口:合并全部失败归因上报状态,并把汇总的 reason(s)
- * 以不可枚举属性挂到异常对象上,供上层(deps/resolver 的 404 归类等)
- * 读取而不用改异常类型。
- */
-function reportFetchFailure(
-    name: string,
-    lastError: unknown,
-    failureReasons: RegistryReason[],
-    lastEndpoint: string,
-    attempts: number,
-    start: number,
-    host: RegistryFetchHost,
-) {
-    const detail = host.formatError(lastError);
-    const finalDetail = mergeFailureDetail(detail, failureReasons);
-    host.statusSink(
-        name,
-        {
-            loading: false,
-            reason: finalDetail.reason,
-            error: finalDetail.error,
-            endpoint: lastEndpoint,
-            attempts,
-            elapsed: Date.now() - start,
-        },
-        host.scope.current,
-    );
-    host.log.warn(`failed to fetch registry metadata for ${name}: ${detail.error}`);
-    if (lastError && typeof lastError === "object") {
-        Object.defineProperty(lastError, "marketNextReason", {
-            value: finalDetail.reason,
-            configurable: true,
-        });
-        Object.defineProperty(lastError, "marketNextReasons", {
-            value: failureReasons,
-            configurable: true,
-        });
-    }
 }

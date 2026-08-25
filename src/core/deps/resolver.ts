@@ -2,10 +2,11 @@
  * @file 依赖解析器:宿主 package.json 依赖快照与 latest 元数据刷新(core/deps 域)。
  *
  * 模块职责:
- * - `getLocalDepsSnapshot`:读取宿主 package.json,逐包 loadManifest 解析已装版本与
- *   workspace 标记,并做来源分类(local/bound/invalid),全程只碰本地磁盘;
+ * - `getLocalDepsSnapshot`:读取宿主 package.json,逐包解析已装版本与
+ *   workspace 标记,并做来源分类(local/bound/invalid),全程只碰本地磁盘
+ *   (逐包解析纯函数位于 snapshot.ts);
  * - `refreshDependencyMetadata`:p-map 并发拉取各依赖的 registry 元数据填充 latest,
- *   全路由 404 的条目归类为"未绑定本地插件";
+ *   全路由 404 的条目归类为"未绑定本地插件"(单包协程位于 metadata-refresh.ts);
  * - 两档重建:`reload()`(轻量,安装回滚后)与 `resetForRefresh()`(全量,刷新入口)。
  *
  * 关键设计:
@@ -18,12 +19,7 @@
  */
 import type { Dict } from "koishi";
 import pMap from "p-map";
-import { valid } from "semver";
-import {
-    classifyDependencySource,
-    classifyRegistryNotFoundDependency,
-    reuseConfirmedDependencySource,
-} from "../../shared/dependency-source.js";
+import { classifyRegistryNotFoundDependency } from "../../shared/dependency-source.js";
 import type { RequestScope } from "../racing/request-scope.js";
 import type { PackageCache } from "../registry/cache/index.js";
 import type { RegistryErrorDetail } from "../registry/errors.js";
@@ -33,10 +29,9 @@ import {
     pickMetadataProbe,
     Scanner,
 } from "../registry/manifest.js";
+import { refreshDependencyLatest } from "./metadata-refresh.js";
+import { collectDependencyRequests, resolveLocalDependency } from "./snapshot.js";
 import type { Dependency } from "./types.js";
-
-/** 404 负缓存的可信窗口:notFoundAt 距今 5 分钟内可直接复用上一轮的归类结果。 */
-const MINUTE = 60_000;
 
 /** DependencyResolver 的构造注入面:core 层禁直接 I/O,全部外部能力从这里进。 */
 export interface DependencyResolverDeps {
@@ -82,68 +77,21 @@ export class DependencyResolver {
      * 构建宿主依赖的本地快照:以 manifest 请求范围为底,逐包 loadManifest 补已装
      * 版本与 workspace 标记,叠加来源分类,并尽量复用上一轮缓存的已确认来源与
      * latest。纯本地磁盘读取、不发网络请求;返回全新对象,不回写 depCache
-     * (由调用方决定赋值时机)。
+     * (由调用方决定赋值时机)。逐包解析见 snapshot.ts 的 resolveLocalDependency。
      */
     getLocalDepsSnapshot(): Dict<Dependency> {
         const start = Date.now();
         this.manifest ??= loadManifest(this.deps.cwd());
         const manifest = this.manifest;
-        const result: Dict<Dependency> = {};
-        for (const [name, request] of Object.entries(manifest.dependencies ?? {})) {
-            // 剥掉 ^/~ 前缀:后续 valid() 判定与 latest 比较都按精确版本语义进行
-            result[name] = { request: request.replace(/^[~^]/, "") };
-        }
+        const result = collectDependencyRequests(manifest);
         const names = Object.keys(result);
         for (const name of names) {
-            const dep = result[name]!;
-            try {
-                // 已装版本读 node_modules 内的 package.json;未安装/读取失败留空,
-                // 由后续 registry 元数据刷新补齐
-                const meta = loadManifest(name, this.deps.cwd());
-                dep.resolved = meta.version;
-                dep.workspace = meta.$workspace;
-                this.deps.log.debug(
-                    `local dependency resolved: ${name}@${meta.version}, workspace=${!!meta.$workspace}, request=${dep.request}`,
-                );
-            } catch {
-                this.deps.log.debug(
-                    `local dependency not found before metadata fetch: ${name}, request=${dep.request}`,
-                );
-            }
-
-            const source = classifyDependencySource(dep.request, {
-                workspace: dep.workspace,
-                installed: !!dep.resolved,
+            resolveLocalDependency(name, result[name]!, {
+                cwd: this.deps.cwd(),
+                cache: this.deps.cache,
+                log: this.deps.log,
+                previous: this.depCache[name],
             });
-            Object.assign(dep, source);
-
-            if (!dep.local && !valid(dep.request)) {
-                // 非精确 semver 的请求(如 git/url 串之外的怪异写法)标记 invalid:
-                // 这类条目不参与 latest 刷新,前端也据此降级展示
-                dep.invalid = true;
-                this.deps.log.debug(
-                    `dependency request is not exact semver: ${name}, request=${dep.request}`,
-                );
-            }
-
-            // 复用上一轮已确认的来源分类:404 归类结果有 5 分钟负缓存窗口背书,
-            // 避免每次快照重建都把"未绑定本地插件"闪回成普通 registry 依赖
-            const previous = this.depCache?.[name];
-            const notFoundAt = this.deps.cache.notFoundAt(name);
-            const preserved = reuseConfirmedDependencySource(
-                previous,
-                dep,
-                !!notFoundAt && Date.now() - notFoundAt < 5 * MINUTE,
-            );
-            if (preserved) Object.assign(dep, preserved);
-            if (
-                previous?.latest &&
-                previous.request === dep.request &&
-                previous.resolved === dep.resolved
-            ) {
-                // 请求与已装版本都没变时沿用上一轮 latest,省一次 registry 往返
-                dep.latest = previous.latest;
-            }
         }
         const installed = Object.values(result).filter((dep) => dep.resolved).length;
         const invalid = Object.values(result).filter((dep) => dep.invalid).length;
@@ -180,43 +128,15 @@ export class DependencyResolver {
         this.deps.log.debug(`refresh dependency metadata route ready: probe=${probeName ?? "-"}`);
         await pMap(
             targets,
-            async (name) => {
-                if (this.deps.scope.isStale(serial)) return;
-                try {
-                    const versions = await this.deps.cache.getPackage(name);
-                    if (this.deps.scope.isStale(serial)) return;
-                    if (versions) {
-                        result[name]!.latest = Object.keys(versions)[0];
-                        this.deps.log.debug(
-                            `dependency latest resolved: ${name}, resolved=${result[name]!.resolved ?? "-"}, latest=${result[name]!.latest}, versions=${Object.keys(versions).length}`,
-                        );
-                    } else if (
-                        this.deps.cache.isNotFoundCached(name) &&
-                        this.markRegistryNotFoundDependency(name, result[name])
-                    ) {
-                        this.deps.log.debug(
-                            `dependency npm not-found result reused from cache: ${name}`,
-                        );
-                    } else {
-                        this.deps.log.debug(
-                            `dependency latest unresolved: ${name}, resolved=${result[name]!.resolved ?? "-"}, request=${result[name]!.request}`,
-                        );
-                    }
-                } catch (error) {
-                    if (this.deps.scope.isStale(serial)) return;
-                    const detail = this.deps.formatError(error);
-                    if (
-                        detail.reason === "not-found" &&
-                        this.markRegistryNotFoundDependency(name, result[name])
-                    ) {
-                        // 全路由 404 可确认：已安装、registry 形态命名的插件实为本地包
-                    } else {
-                        this.deps.log.debug(
-                            `dependency metadata refresh skipped after error: ${name}, reason=${detail.reason}, error=${detail.error}`,
-                        );
-                    }
-                }
-            },
+            (name) =>
+                refreshDependencyLatest({
+                    name,
+                    entry: result[name]!,
+                    serial,
+                    deps: this.deps,
+                    markNotFound: (dependency) =>
+                        this.markRegistryNotFoundDependency(name, dependency),
+                }),
             { concurrency: this.deps.concurrency() ?? 4 },
         );
         this.deps.log.info(

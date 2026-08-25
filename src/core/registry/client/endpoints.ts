@@ -140,3 +140,30 @@ export function installFallbackCandidate(options: {
         reason: candidate.stats?.lastSuccess ? "最近可用的备用 npm 源" : "备用 npm 源",
     };
 }
+
+/**
+ * 重试轮次的端点顺序:首选端点(当前元数据端点降级判定后)+
+ * 按评分排序的探测候选,去重保序。成块移植自 RegistryClient.retryEndpoints。
+ */
+export function registryRetryEndpoints(options: {
+    config: RegistryClientConfig;
+    endpoint: string;
+    metadataEndpoint: string;
+    stats: RouteStatsBook;
+    score: RouteScoreFn;
+    log: { debug(message: string): void };
+}) {
+    return [
+        preferredMetadataEndpoint({
+            endpoint: options.endpoint,
+            metadataEndpoint: options.metadataEndpoint,
+            stats: options.stats,
+            score: options.score,
+            log: options.log,
+        }),
+        ...sortRouteProbeEndpoints(options.config, options.endpoint, options.score),
+    ].filter(
+        (endpoint, index, array): endpoint is string =>
+            !!endpoint && array.indexOf(endpoint) === index,
+    );
+}
