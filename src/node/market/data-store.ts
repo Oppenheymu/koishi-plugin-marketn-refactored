@@ -1,26 +1,18 @@
 /**
  * @file marketData 通道与 market-next.json 数据文件的持久化存储(market 域)。
  *
- * 模块职责:
- * - MarketDataStore(DataService 子类):向 console 广播 override(覆盖安装
- *   版本)、updateIgnored(更新忽略)、bundleRecords(合包安装记录)、
- *   collapsedGroups(分组折叠状态)四类数据,并持久化到
- *   baseDir/data/market-next.json;
- * - readMarketDataStore:纯只读入口(升级命令等没有 DataService 实例的
- *   场景兜底);
- * - migrateFromConfig:把旧版本存在 koishi.yml 里的上述数据一次性迁入。
+ * 模块职责:MarketDataStore(DataService 子类)向 console 广播并持久化
+ * override/updateIgnored/bundleRecords/collapsedGroups 四类数据到
+ * baseDir/data/market-next.json;readMarketDataStore 是纯只读兜底入口;
+ * migrateFromConfig 把旧版本存在 koishi.yml 里的数据一次性迁入(patch
+ * 计算是纯函数,出仓 migrate.ts;内容归一化出仓 normalize.ts)。
  *
- * 关键设计:
- * - 该文件是这些数据的唯一权威存储:迁出 koishi.yml 是为了改配置不再触发
- *   插件 reload;
- * - 写盘合并为微任务(setTimeout 0)防抖,写任务串行化并在完成时重放
- *   pending 标记,保证最终一致且不交错;析构时强制落盘一次;
- * - 读取全部经 normalizeStore/normalizeDict 防御:文件损坏时回退空存储
- *   而非抛错。
+ * 关键设计:该文件是这些数据的唯一权威存储(迁出 koishi.yml 是为了改配置
+ * 不再触发插件 reload);写盘合并为微任务防抖、写任务串行化并在完成时重放
+ * pending 标记;读取全部经 normalize 防御,文件损坏时回退空存储而非抛错。
  *
- * 架构位置:node 适配层 market 模块,声明为 console 服务 marketData
- * (authority 4),被 listeners(market/update-data)、bundle.ts、
- * commands.ts 消费。
+ * 架构位置:声明为 console 服务 marketData(authority 4),被 listeners、
+ * bundle.ts、commands.ts 消费。
  */
 import { promises as fsp } from "node:fs";
 import { resolve } from "node:path";
@@ -29,9 +21,8 @@ import type { Context, Dict } from "koishi";
 import { writeJsonAtomic } from "../../core/utils/atomic-write.js";
 import type { PluginBundleRecord } from "../../shared/bundle.js";
 import type { UpdateIgnoreRule } from "../../shared/update.js";
-
-/** collapsedGroups 迁移版本号:>= 1 表示已删除废弃的 "installed" 折叠键。 */
-const COLLAPSED_GROUPS_VERSION = 1;
+import { buildMigrationPatch, type MarketMigrationConfig } from "./migrate.js";
+import { normalizeDict, normalizeStore } from "./normalize.js";
 
 /** market-next.json 的完整负载形态(也是 marketData 通道的下发形态)。 */
 export interface MarketDataStorePayload {
@@ -84,7 +75,7 @@ export class MarketDataStore extends DataService<MarketDataStorePayload> {
     private writePending = false;
     /** 文件里是否出现过 collapsedGroups 键(区分"没这状态"与"空状态")。 */
     private hasCollapsedGroupsState = false;
-    /** collapsedGroups 迁移版本号(见 COLLAPSED_GROUPS_VERSION)。 */
+    /** collapsedGroups 迁移版本号(见 migrate.ts 的 COLLAPSED_GROUPS_VERSION)。 */
     private collapsedGroupsVersion = 0;
 
     constructor(ctx: Context) {
@@ -113,12 +104,8 @@ export class MarketDataStore extends DataService<MarketDataStorePayload> {
     override async patch(patch: Partial<MarketDataStorePayload>) {
         await this.ready;
         let changed = false;
-        for (const key of [
-            "override",
-            "updateIgnored",
-            "bundleRecords",
-            "collapsedGroups",
-        ] as const) {
+        const keys = ["override", "updateIgnored", "bundleRecords", "collapsedGroups"] as const;
+        for (const key of keys) {
             if (!Object.hasOwn(patch, key)) continue;
             this.data[key] = normalizeDict(patch[key]);
             if (key === "collapsedGroups") this.hasCollapsedGroupsState = true;
@@ -145,43 +132,25 @@ export class MarketDataStore extends DataService<MarketDataStorePayload> {
     }
 
     /**
-     * 从 koishi.yml 旧配置一次性迁入数据:每类数据只在"文件里还没有"时
-     * 迁移(不覆盖已有内容);collapsedGroups 额外按版本号做一次键清理
-     * (删除废弃的 "installed" 键),迁移版本持久化到文件防止重复执行。
+     * 从 koishi.yml 旧配置一次性迁入数据:patch 计算是纯函数(buildMigrationPatch,
+     * 见 migrate.ts);版本号清理执行后先回写再应用 patch,最后立即落盘防止
+     * 重复执行。
      */
-    async migrateFromConfig(config: {
-        updateIgnored?: Dict<string | UpdateIgnoreRule>;
-        bundleRecords?: Dict<PluginBundleRecord>;
-        collapsedGroups?: Dict<boolean>;
-    }) {
+    async migrateFromConfig(config: MarketMigrationConfig) {
         await this.ready;
-        const patch: Partial<MarketDataStorePayload> = {};
-        const migrateCollapsedGroups = this.collapsedGroupsVersion < COLLAPSED_GROUPS_VERSION;
-        if (
-            !Object.keys(this.data.updateIgnored).length &&
-            Object.keys(config.updateIgnored ?? {}).length
-        ) {
-            patch.updateIgnored = config.updateIgnored ?? {};
-        }
-        if (
-            !Object.keys(this.data.bundleRecords).length &&
-            Object.keys(config.bundleRecords ?? {}).length
-        ) {
-            patch.bundleRecords = config.bundleRecords ?? {};
-        }
-        if (!this.hasCollapsedGroupsState) {
-            patch.collapsedGroups = config.collapsedGroups ?? {};
-        }
-        if (migrateCollapsedGroups) {
-            const collapsedGroups = normalizeDict<boolean>(
-                patch.collapsedGroups ?? this.data.collapsedGroups,
-            );
-            delete collapsedGroups["installed"];
-            patch.collapsedGroups = collapsedGroups;
-            this.collapsedGroupsVersion = COLLAPSED_GROUPS_VERSION;
-        }
+        const { patch, migratedVersion } = buildMigrationPatch(
+            {
+                updateIgnored: this.data.updateIgnored,
+                bundleRecords: this.data.bundleRecords,
+                collapsedGroups: this.data.collapsedGroups,
+                hasCollapsedGroupsState: this.hasCollapsedGroupsState,
+                collapsedGroupsVersion: this.collapsedGroupsVersion,
+            },
+            config,
+        );
+        if (migratedVersion !== undefined) this.collapsedGroupsVersion = migratedVersion;
         if (Object.keys(patch).length) await this.patch(patch);
-        if (migrateCollapsedGroups) await this.flushWriteNow();
+        if (migratedVersion !== undefined) await this.flushWriteNow();
     }
 
     /** 深浅拷贝快照:每个 dict 单独浅拷贝,广播出去的对象与内部状态隔离。 */
@@ -277,26 +246,4 @@ export class MarketDataStore extends DataService<MarketDataStorePayload> {
                 );
         }
     }
-}
-
-/** 防御性归一化文件内容:非对象或缺字段一律回退空 dict,损坏数据不进内存。 */
-function normalizeStore(value: unknown): MarketDataStorePayload {
-    const record = isRecord(value) ? value : {};
-    return {
-        override: normalizeDict(record["override"]),
-        updateIgnored: normalizeDict(record["updateIgnored"]),
-        bundleRecords: normalizeDict(record["bundleRecords"]),
-        collapsedGroups: normalizeDict<boolean>(record["collapsedGroups"]),
-    };
-}
-
-/** dict 归一化:非对象回退空 dict,对象则浅拷贝(与外部引用脱钩)。 */
-function normalizeDict<T = unknown>(value: unknown): Dict<T> {
-    if (!isRecord(value)) return {};
-    return { ...(value as Dict<T>) };
-}
-
-/** 纯对象判定(null、数组都排除)。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === "object" && !Array.isArray(value);
 }

@@ -1,22 +1,20 @@
 /**
  * @file 聊天侧命令:plugin.install / uninstall / upgrade / clear-avatar-cache。
  *
- * 模块职责:
- * - registerCommands:注册四个 authority 4 的机器人命令,把命令行操作
- *   桥接到 installer(与 console RPC 走同一套 core 编排,保证行为一致);
- * - 升级命令的完整流程:刷新元数据 -> 按更新忽略策略筛选目标 -> 展示
- *   清单并等待确认 -> envData.message 定向回执安装结果。
+ * 模块职责:注册四个 authority 4 的机器人命令,把命令行操作桥接到
+ * installer(与 console RPC 走同一套 core 编排,保证行为一致);升级命令
+ * 完整流程为刷新元数据 -> 按更新忽略策略筛选目标 -> 展示清单并等待
+ * 确认 -> envData.message 定向回执安装结果。
  *
- * 关键设计:
- * - 安装/升级前把 session 信息写进 loader.envData.message:fullReload 后
- *   新进程能回到原频道回报结果(finally 里务必清空,避免污染后续 reload);
- * - 升级目标计算与 console 侧共用 shared/update 策略(updateIgnored/
- *   prerelease/force),命令只是另一个入口;
- * - 卸载直接传 { name: null } 给 install:core 编排里 null 版本即删除。
+ * 关键设计:安装/升级前把 session 信息写进 loader.envData.message,
+ * fullReload 后新进程据此回到原频道回报结果(finally 里务必清空);
+ * 升级目标计算与 console 侧共用 shared/update 策略;卸载直接传
+ * { name: null } 给 install:core 编排里 null 版本即删除。
  *
  * 架构位置:node 适配层 console 模块,由 setup.ts 在插件 apply 时调用。
  */
 import { type Context, type Dict, pick, type Session } from "koishi";
+import type { Dependency } from "../../core/deps/types.js";
 import {
     getLatestAllowedUpdate,
     getUpdateCandidates,
@@ -42,11 +40,30 @@ interface UpgradeTarget {
     target: string;
 }
 
+/** 计算单个依赖的升级目标:无更高版本时返回空数组。 */
+function resolveUpgradeTarget(
+    ctx: Context,
+    name: string,
+    dep: Dependency,
+    resolved: string,
+    force: boolean,
+    policy: UpdateIgnorePolicy,
+    now: number,
+): UpgradeTarget[] {
+    const versions = Object.keys(ctx.installer.fullCache[name] ?? {});
+    // 缓存还没灌满时至少用 dep.latest 兜底,避免漏掉可升级项
+    if (!versions.length && dep.latest) versions.push(dep.latest);
+    const target = force
+        ? getUpdateCandidates(versions, resolved)[0]
+        : getLatestAllowedUpdate(name, versions, resolved, policy, now);
+    return target ? [{ name, resolved, target }] : [];
+}
+
 /** 依据更新策略计算可升级的依赖列表（update ignore 策略 + force 覆盖）。 */
 async function collectUpgradeTargets(
     ctx: Context,
     config: Config,
-    deps: Dict<import("../../core/deps/types.js").Dependency>,
+    deps: Dict<Dependency>,
     requested: string[],
     force: boolean,
     getDataStore: () => MarketDataStore | undefined,
@@ -64,13 +81,7 @@ async function collectUpgradeTargets(
         // 本地/workspace/invalid 依赖不参与升级:它们不走 registry 版本语义
         const dep = deps[name];
         if (!dep?.resolved || dep.local || dep.workspace || dep.invalid) return [];
-        const versions = Object.keys(ctx.installer.fullCache[name] ?? {});
-        // 缓存还没灌满时至少用 dep.latest 兜底,避免漏掉可升级项
-        if (!versions.length && dep.latest) versions.push(dep.latest);
-        const target = force
-            ? getUpdateCandidates(versions, dep.resolved)[0]
-            : getLatestAllowedUpdate(name, versions, dep.resolved, policy, now);
-        return target ? [{ name, resolved: dep.resolved, target }] : [];
+        return resolveUpgradeTarget(ctx, name, dep, dep.resolved, force, policy, now);
     });
 }
 
@@ -113,6 +124,86 @@ async function performUpgrade(
     }
 }
 
+/** plugin.install 命令体:校验入参 → 查已装 → 解析版本 → 安装并定向回执。 */
+async function runInstallCommand(
+    ctx: Context,
+    session: Session | undefined,
+    name: string | undefined,
+) {
+    if (!session) return;
+    if (!name) return session.text(".expect-name");
+    const installed = await findInstalledName(ctx, name);
+    if (installed) return session.text(".already-installed");
+
+    const result = await ctx.installer.findVersion(ctx.installer.resolveName(name));
+    if (!result) return session.text(".not-found");
+
+    ctx.loader.envData.message = {
+        // 同 performUpgrade:reload 后回到本会话回执
+        ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
+        content: session.text(".success"),
+    };
+    try {
+        await ctx.installer.install(result, undefined, () =>
+            ensurePluginConfigs(ctx, Object.keys(result)),
+        );
+        // beforeReload 回调之外再补一次:覆盖安装未触发 reload 的场景
+        await ensurePluginConfigs(ctx, Object.keys(result));
+        return session.text(".success");
+    } finally {
+        // 同 performUpgrade:无论成败都清空定向回执
+        ctx.loader.envData.message = null;
+    }
+}
+
+/** 解析升级请求名单:显式名匹配已装依赖,缺省取全部;--koishi 追加自身。 */
+function resolveRequestedNames(
+    ctx: Context,
+    deps: Dict<Dependency>,
+    names: string[],
+    includeSelf: boolean,
+): string[] {
+    const requested: string[] = names.length
+        ? names
+              .map((name) => ctx.installer.resolveName(name).find((candidate) => deps[candidate]))
+              .filter((name): name is string => !!name)
+        : Object.keys(deps);
+    if (includeSelf && !requested.includes("koishi")) requested.push("koishi");
+    return requested;
+}
+
+/** plugin.upgrade 命令体:刷新元数据 → 计算目标 → 确认 → 执行升级。 */
+async function runUpgradeCommand(
+    ctx: Context,
+    config: Config,
+    session: Session | undefined,
+    options: { self?: boolean; force?: boolean } | undefined,
+    names: string[],
+    getDataStore: () => MarketDataStore | undefined,
+) {
+    if (!session) return;
+    options ||= {};
+    // 先全量刷新元数据:升级目标判定依赖最新的 registry 缓存
+    await ctx.installer.refresh(true, true);
+    const deps = (await ctx.installer.getDeps({ background: false })) ?? {};
+    const requested = resolveRequestedNames(ctx, deps, names, !!options.self);
+
+    const updates = await collectUpgradeTargets(
+        ctx,
+        config,
+        deps,
+        requested,
+        !!options.force,
+        getDataStore,
+        Date.now(),
+    );
+    if (!updates.length) return session.text(".all-updated");
+    if (!(await confirmUpgrade(session, updates))) return session.text(".cancelled");
+    const code = await performUpgrade(ctx, session, updates);
+    if (code) return session.text(".failed", [code]);
+    return session.text(".success");
+}
+
 /** 注册 plugin.install / plugin.uninstall / plugin.upgrade / plugin.clear-avatar-cache 四个命令。 */
 export function registerCommands(
     ctx: Context,
@@ -124,32 +215,7 @@ export function registerCommands(
 
     ctx.command("plugin.install <name>", { authority: 4 })
         .alias(".i")
-        .action(async ({ session }, name) => {
-            if (!session) return;
-            if (!name) return session.text(".expect-name");
-            const installed = await findInstalledName(ctx, name);
-            if (installed) return session.text(".already-installed");
-
-            const result = await ctx.installer.findVersion(ctx.installer.resolveName(name));
-            if (!result) return session.text(".not-found");
-
-            ctx.loader.envData.message = {
-                // 同 performUpgrade:reload 后回到本会话回执
-                ...pick(session, ["sid", "channelId", "guildId", "isDirect"]),
-                content: session.text(".success"),
-            };
-            try {
-                await ctx.installer.install(result, undefined, () =>
-                    ensurePluginConfigs(ctx, Object.keys(result)),
-                );
-                // beforeReload 回调之外再补一次:覆盖安装未触发 reload 的场景
-                await ensurePluginConfigs(ctx, Object.keys(result));
-                return session.text(".success");
-            } finally {
-                // 同 performUpgrade:无论成败都清空定向回执
-                ctx.loader.envData.message = null;
-            }
-        });
+        .action(async ({ session }, name) => runInstallCommand(ctx, session, name));
 
     ctx.command("plugin.uninstall <name>", { authority: 4 })
         .alias(".r")
@@ -168,36 +234,9 @@ export function registerCommands(
         .alias(".update", ".up")
         .option("self", "-s, --koishi")
         .option("force", "-f, --force")
-        .action(async ({ session, options }, ...names) => {
-            if (!session) return;
-            options ||= {};
-            // 先全量刷新元数据:升级目标判定依赖最新的 registry 缓存
-            await ctx.installer.refresh(true, true);
-            const deps = (await ctx.installer.getDeps({ background: false })) ?? {};
-            const requested: string[] = names.length
-                ? names
-                      .map((name) =>
-                          ctx.installer.resolveName(name).find((candidate) => deps[candidate]),
-                      )
-                      .filter((name): name is string => !!name)
-                : Object.keys(deps);
-            if (options.self && !requested.includes("koishi")) requested.push("koishi");
-
-            const updates = await collectUpgradeTargets(
-                ctx,
-                config,
-                deps,
-                requested,
-                !!options.force,
-                getDataStore,
-                Date.now(),
-            );
-            if (!updates.length) return session.text(".all-updated");
-            if (!(await confirmUpgrade(session, updates))) return session.text(".cancelled");
-            const code = await performUpgrade(ctx, session, updates);
-            if (code) return session.text(".failed", [code]);
-            return session.text(".success");
-        });
+        .action(async ({ session, options }, ...names) =>
+            runUpgradeCommand(ctx, config, session, options, names, getDataStore),
+        );
 
     ctx.command("plugin.clear-avatar-cache", { authority: 4 }).action(async ({ session }) => {
         if (!session) return;
