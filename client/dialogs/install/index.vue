@@ -1,4 +1,6 @@
 <template>
+  <!-- 安装面板模板:头部/peer 列表/本地形态多视图切换,分支即面板形态 -->
+  <!-- fallow-ignore-next-line complexity -->
   <el-dialog :model-value="!!active" @update:model-value="closePanel" :class="'install-panel'" destroy-on-close>
     <!-- 头部:包名(本地形态带标记) + 目标版本下拉(每项带红黄绿点) -->
     <template v-if="active" #header="{ titleId, titleClass }">

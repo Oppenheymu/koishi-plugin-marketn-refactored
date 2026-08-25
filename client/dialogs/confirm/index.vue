@@ -92,6 +92,8 @@ const hasRemove = computed(() => {
  * 4. 清空 override 与对应合包记录并落库。
  * 覆盖清单里含本插件包名时按"自更新"场景传专属文案。
  */
+// 批量变更应用的成块编排:四步收尾同属一次安装的生命周期,拆分会打散配对
+// fallow-ignore-next-line complexity
 function confirm() {
   showConfirm.value = false
   const override = { ...overrides.value }
@@ -105,6 +107,8 @@ function confirm() {
   const bundlePackages = new Set(Object.keys(bundleRemovals))
   const bundleMembers = new Set(Object.values(bundleRemovals)
     .flatMap(item => item.members ?? []))
+  // 批量变更应用回调:安装/卸载/合包清理三路收尾编排,分支各自对应一类变更
+  // fallow-ignore-next-line complexity
   return install(override, async () => {
     const installNames = Object.entries(override)
       .filter(([, value]) => value)

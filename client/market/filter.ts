@@ -71,78 +71,111 @@ export function validateWord(word: string) {
   return operators.includes(key)
 }
 
+/** 日期/时间窗词的分派规则(前缀须保持原判定顺序:within 与 <=/>= 在 < / > 之前)。 */
+interface DateFilterRule {
+  prefix: string
+  field: 'created' | 'updated'
+  op: 'within' | '<' | '<=' | '>' | '>='
+}
+
+const dateFilterRules: DateFilterRule[] = [
+  { prefix: 'updated:within:', field: 'updated', op: 'within' },
+  { prefix: 'created:within:', field: 'created', op: 'within' },
+  { prefix: 'updated:<=', field: 'updated', op: '<=' },
+  { prefix: 'updated:>=', field: 'updated', op: '>=' },
+  { prefix: 'updated:<', field: 'updated', op: '<' },
+  { prefix: 'updated:>', field: 'updated', op: '>' },
+  { prefix: 'created:<=', field: 'created', op: '<=' },
+  { prefix: 'created:>=', field: 'created', op: '>=' },
+  { prefix: 'created:<', field: 'created', op: '<' },
+  { prefix: 'created:>', field: 'created', op: '>' },
+]
+
+/** 判定日期/时间窗查询词;非日期词返回 undefined 交回主流程。 */
+function validateDateFilter(index: MarketSearchIndex, word: string): boolean | undefined {
+  const rule = dateFilterRules.find(rule => word.startsWith(rule.prefix))
+  if (!rule) return undefined
+  const query = word.slice(rule.prefix.length)
+  const isCreated = rule.field === 'created'
+  if (rule.op === 'within') {
+    return withinDays(isCreated ? index.createdTimestamp : index.updatedTimestamp, query)
+  }
+  return compareDate(
+    isCreated ? index.createdAt : index.updatedAt,
+    isCreated ? index.createdTimestamp : index.updatedTimestamp,
+    rule.op,
+    query,
+  )
+}
+
+/** 解析 is:/not: 的状态键;无 manifest 时仅 installed/bundle,未知键返回 undefined。 */
+function resolveStatusFlag(
+  data: SearchObject,
+  index: MarketSearchIndex,
+  config: ValidateConfig,
+  key: string,
+  manifest: SearchObject['manifest'],
+): boolean | undefined {
+  if (key === 'installed') return !!config.installed?.(data)
+  if (key === 'bundle') return index.bundle
+  if (!manifest) return undefined
+  if (key === 'verified') return data.verified
+  if (key === 'insecure') return data.insecure
+  if (key === 'portable') return data.portable
+  if (key === 'preview') return !!manifest.preview
+  return undefined
+}
+
+/** is:/not: 状态词判定:未识别的状态 is 一律否决、not 一律放行。 */
+function validateStatusWord(data: SearchObject, index: MarketSearchIndex, config: ValidateConfig, word: string) {
+  const negate = word.startsWith('not:')
+  const flag = resolveStatusFlag(data, index, config, word.slice(negate ? 4 : 3), data.manifest)
+  if (flag === undefined) return negate
+  return negate ? !flag : flag
+}
+
+/** 判定 impl/locale/using/category/email 元数据词;非元数据词返回 undefined。 */
+function validateManifestWord(
+  data: SearchObject,
+  index: MarketSearchIndex,
+  config: ValidateConfig,
+  word: string,
+  manifest: NonNullable<SearchObject['manifest']>,
+): boolean | undefined {
+  const { locales, service } = manifest
+  if (word.startsWith('impl:')) {
+    return service.implements.includes(word.slice(5))
+  }
+  if (word.startsWith('locale:')) {
+    return locales.includes(word.slice(7))
+  }
+  if (word.startsWith('using:')) {
+    const name = word.slice(6)
+    return service.required.includes(name) || service.optional.includes(name)
+  }
+  if (word.startsWith('category:')) {
+    return index.category === word.slice(9)
+  }
+  if (word.startsWith('email:')) {
+    const users = config.users ?? getUsers(data)
+    const target = word.slice(6)
+    return users.some(({ email }) => email?.toLowerCase() === target)
+  }
+  return undefined
+}
+
 export function validate(data: SearchObject, word: string, config: ValidateConfig = {}) {
   const index = config.index ?? getSearchIndex(data)
-  if (word.startsWith('updated:within:')) {
-    return withinDays(index.updatedTimestamp, word.slice(15))
-  } else if (word.startsWith('created:within:')) {
-    return withinDays(index.createdTimestamp, word.slice(15))
-  } else if (word.startsWith('updated:<=')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '<=', word.slice(10))
-  } else if (word.startsWith('updated:>=')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '>=', word.slice(10))
-  } else if (word.startsWith('updated:<')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '<', word.slice(9))
-  } else if (word.startsWith('updated:>')) {
-    return compareDate(index.updatedAt, index.updatedTimestamp, '>', word.slice(9))
-  } else if (word.startsWith('created:<=')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '<=', word.slice(10))
-  } else if (word.startsWith('created:>=')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '>=', word.slice(10))
-  } else if (word.startsWith('created:<')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '<', word.slice(9))
-  } else if (word.startsWith('created:>')) {
-    return compareDate(index.createdAt, index.createdTimestamp, '>', word.slice(9))
+  const dateResult = validateDateFilter(index, word)
+  if (dateResult !== undefined) return dateResult
+  if (word.startsWith('is:') || word.startsWith('not:')) {
+    return validateStatusWord(data, index, config, word)
   }
-
   if (data.manifest) {
-    const { locales, service } = data.manifest
-    if (word.startsWith('impl:')) {
-      return service.implements.includes(word.slice(5))
-    } else if (word.startsWith('locale:')) {
-      return locales.includes(word.slice(7))
-    } else if (word.startsWith('using:')) {
-      const name = word.slice(6)
-      return service.required.includes(name) || service.optional.includes(name)
-    } else if (word.startsWith('category:')) {
-      return index.category === word.slice(9)
-    } else if (word.startsWith('email:')) {
-      const users = config.users ?? getUsers(data)
-      const target = word.slice(6)
-      return users.some(({ email }) => email?.toLowerCase() === target)
-    } else if (word.startsWith('is:')) {
-      if (word === 'is:verified') return data.verified
-      if (word === 'is:insecure') return data.insecure
-      if (word === 'is:portable') return data.portable
-      if (word === 'is:preview') return !!data.manifest.preview
-      if (word === 'is:installed') return !!config.installed?.(data)
-      if (word === 'is:bundle') return index.bundle
-      return false
-    } else if (word.startsWith('not:')) {
-      if (word === 'not:verified') return !data.verified
-      if (word === 'not:insecure') return !data.insecure
-      if (word === 'not:portable') return !data.portable
-      if (word === 'not:preview') return !data.manifest.preview
-      if (word === 'not:installed') return !config.installed?.(data)
-      if (word === 'not:bundle') return !index.bundle
-      return true
-    } else if (word.includes(':')) {
-      return true
-    }
-  } else {
-    if (word.startsWith('is:')) {
-      if (word === 'is:installed') return !!config.installed?.(data)
-      if (word === 'is:bundle') return index.bundle
-      return false
-    } else if (word.startsWith('not:')) {
-      if (word === 'not:installed') return !config.installed?.(data)
-      if (word === 'not:bundle') return !index.bundle
-      return true
-    } else if (word.includes(':')) {
-      return true
-    }
+    const metaResult = validateManifestWord(data, index, config, word, data.manifest)
+    if (metaResult !== undefined) return metaResult
   }
-
+  if (word.includes(':')) return true
   return getSimilarityByIndex(index, normalizePackageName(word)) > 0
 }
 

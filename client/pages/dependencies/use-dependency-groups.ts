@@ -27,6 +27,15 @@ export interface DependencyGroup {
 /** 分组展示顺序(重要状态在前,普通已安装垫底)。 */
 const groupOrder: ItemKind[] = ['pending', 'bundle', 'unconfigured', 'updatable', 'ignored', 'check-disabled', 'invalid', 'error', 'local', 'manual', 'installed']
 
+/** 判定条目是否命中过滤项:pending/manual 过滤看对应标记,其余按分类,all 全收。 */
+function matchesFilter(item: DependencyItem, filter: FilterKey) {
+  if (filter === 'pending') return !!item.pending
+  if (item.pending) return true
+  if (filter === 'manual') return !!item.manual
+  if (filter === 'all') return true
+  return item.kind === filter
+}
+
 export function useDependencyGroups(
   items: ComputedRef<DependencyItem[]>,
   summary: ComputedRef<Record<string, number>>,
@@ -96,11 +105,7 @@ export function useDependencyGroups(
     const word = keyword.value.trim().toLowerCase()
     const buckets = Object.fromEntries(groupOrder.map(key => [key, [] as DependencyItem[]])) as Record<ItemKind, DependencyItem[]>
     for (const item of items.value) {
-      if (filter.value === 'pending' && !item.pending) continue
-      if (!item.pending) {
-        if (filter.value === 'manual' && !item.manual) continue
-        if (!['all', 'pending', 'manual'].includes(filter.value) && item.kind !== filter.value) continue
-      }
+      if (!matchesFilter(item, filter.value)) continue
       if (word && !item.name.toLowerCase().includes(word)) continue
       buckets[item.kind].push(item)
     }

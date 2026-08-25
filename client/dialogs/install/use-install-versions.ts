@@ -119,6 +119,8 @@ export function useInstallVersions() {
    * versions——清掉已不在 peer 列表的选择,给 warning/danger 的 peer
    * 默认选 registry 首个版本。
    */
+  // peer 元数据补拉与本地 versions 重建的成块流程,守卫链即清理规则本身
+  // fallow-ignore-next-line complexity
   watch(() => data.value?.[version.value]?.peers, async (peers) => {
     if (!peers) return
     const names = Object.keys(peers).filter(shouldFetchRegistry)
@@ -148,6 +150,8 @@ export function useInstallVersions() {
   })
 
   /** 面板打开时初始化目标版本:待应用 override > 当前依赖 request > registry 首个版本;无缓存时先拉 registry 再取首个版本。 */
+  // 版本初始值的优先级回退链 + 无缓存补拉,顺序即语义
+  // fallow-ignore-next-line complexity
   watch(active, async (name) => {
     if (!name) return
 

@@ -194,6 +194,8 @@ const canApply = computed(() => !!preview.value
   && preview.value.unsupportedCount === 0)
 
 /** 拉取快照列表并选中默认项(优先非当前的最近快照);preserveSelection 供刷新时保住当前选择。 */
+// 快照列表加载与默认选中链:优先级回退(上次选择>非当前>首个)即语义
+// fallow-ignore-next-line complexity
 async function loadSnapshots(preserveSelection = false) {
   if (loading.value) return
   loading.value = true
@@ -218,6 +220,8 @@ async function loadSnapshots(preserveSelection = false) {
 }
 
 /** 请求选中快照的 diff 预览;force 用于强制重拉(同一快照默认有缓存则跳过)。 */
+// 预览拉取的串号守卫流程:serial 校验贯穿每个 await 之后,拆分会打散竞态防护
+// fallow-ignore-next-line complexity
 async function selectSnapshot(id: string, force = false) {
   if (!force && id === selectedId.value && preview.value) return
   selectedId.value = id

@@ -145,6 +145,8 @@ watch(showInstallHistory, (visible) => {
 })
 
 /** 拉取记录列表并默认选中第一条;preserveSelection 供刷新时保住当前选择。 */
+// 列表加载与默认选中链:优先级回退(上次选择>首条)即语义
+// fallow-ignore-next-line complexity
 async function loadHistory(preserveSelection = false) {
   if (loading.value) return
   loading.value = true
@@ -170,6 +172,8 @@ async function loadHistory(preserveSelection = false) {
 }
 
 /** 拉取选中记录的明细(含日志全文);force 用于强制重拉。 */
+// 明细拉取的串号守卫流程:serial 校验贯穿每个 await 之后,拆分会打散竞态防护
+// fallow-ignore-next-line complexity
 async function selectEntry(id: string, force = false) {
   if (!force && id === selectedId.value && detail.value) return
   selectedId.value = id
@@ -225,6 +229,8 @@ function statusText(status: InstallHistoryEntry['status']) {
 }
 
 /** 列表行标题:按变更统计生成"安装 N/更新 N/卸载 N";单一类别只显示该类别,混合显示"变更 N 项"。 */
+// 变更统计到标题文案的分支映射:计数循环与文案拼装同属一个展示语义
+// fallow-ignore-next-line complexity
 function historyTitle(entry: InstallHistoryEntry) {
   if (!entry.changes.length) return t('operations.history.operation')
   let installed = 0

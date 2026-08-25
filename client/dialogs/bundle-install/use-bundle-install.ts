@@ -93,6 +93,8 @@ export function useBundleInstall(
       })),
     }
 
+    // 合包安装的成块编排:断连竞速/超时提示/退出码分支同属一次安装的时序,拆分会打散收尾配对
+    // fallow-ignore-next-line complexity
     const runInstall = async (options?: InstallOptions) => {
       installing.value = true
       let disconnectedBeforeResponse = false

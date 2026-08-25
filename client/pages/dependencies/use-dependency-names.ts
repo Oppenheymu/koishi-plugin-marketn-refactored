@@ -8,12 +8,38 @@
 
 import { computed, watch, type WatchStopHandle } from 'vue'
 import { store, type Context } from '@koishijs/client'
-import { addManual, getConfigWriter } from '../../shared/operations'
+import { addManual, getConfigWriter, type ClientConfigWriter } from '../../shared/operations'
 import { getPendingOverrides } from '../../shared/plugin-config'
 import { shouldIncludeDiscoveredLocalPlugin } from '../../../src/shared/dependency-source'
 import { isPluginPackage } from '../../market/utils'
 import { loadMarketObjects } from '../../market/state'
 import { isManageableBundle, isUnconfigured } from './dependency-helpers'
+
+/** store.packages 里的本地包条目(可能缺省)。 */
+type LocalPackageEntry = (typeof store.packages)[string] | undefined
+
+/** 汇总本地包的发现规则输入(是否已在依赖表/已配置/运行中/workspace)。 */
+function resolveDiscoveredInput(name: string, pkg: LocalPackageEntry, configWriter: ClientConfigWriter | undefined) {
+  return {
+    declared: !!store.dependencies?.[name],
+    configured: !!configWriter?.get(name)?.length,
+    running: !!pkg?.runtime?.id,
+    workspace: !!pkg?.workspace,
+  }
+}
+
+/** 判定本地包是否应进入页面全集:未配置、可管理合包、或通过发现规则的本地插件。 */
+function shouldIncludeLocalPackage(
+  name: string,
+  pkg: LocalPackageEntry,
+  ctx: Context,
+  config: unknown,
+  configWriter: ClientConfigWriter | undefined,
+) {
+  return isUnconfigured(name, ctx, config, configWriter)
+    || isManageableBundle(name, config)
+    || isPluginPackage(name) && shouldIncludeDiscoveredLocalPlugin(resolveDiscoveredInput(name, pkg, configWriter))
+}
 
 export function useDependencyNames(ctx: Context, config: { value: unknown }) {
   /**
@@ -27,15 +53,7 @@ export function useDependencyNames(ctx: Context, config: { value: unknown }) {
       ...getPendingOverrides(),
     }
     for (const name of Object.keys(store.packages ?? {})) {
-      const pkg = store.packages?.[name]
-      if (isUnconfigured(name, ctx, config.value, configWriter)
-        || isManageableBundle(name, config.value)
-        || isPluginPackage(name) && shouldIncludeDiscoveredLocalPlugin({
-          declared: !!store.dependencies?.[name],
-          configured: !!configWriter?.get(name)?.length,
-          running: !!pkg?.runtime?.id,
-          workspace: !!pkg?.workspace,
-        })) {
+      if (shouldIncludeLocalPackage(name, store.packages?.[name], ctx, config.value, configWriter)) {
         explicit[name] = true
       }
     }

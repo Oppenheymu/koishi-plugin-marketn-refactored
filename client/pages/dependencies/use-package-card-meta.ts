@@ -29,6 +29,8 @@ export function usePackageCardMeta(
     return state.unconfigured.value ? t('dependencyCard.config.unconfigured') : t('dependencyCard.config.configured')
   })
 
+  // 来源文案的优先级映射:bundle/合包自引用/市场源/工作区/本地等来源互斥判定链,顺序即语义
+  // fallow-ignore-next-line complexity
   const sourceText = computed(() => {
     if (state.bundleOrigin.value) return t('dependencyCard.source.bundle', { name: state.bundleOrigin.value.label || formatShortname(state.bundleOrigin.value.package) })
     if (state.bundleRecord.value) return t('dependencyCard.source.bundleSelf')

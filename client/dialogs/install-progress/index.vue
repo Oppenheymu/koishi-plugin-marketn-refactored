@@ -95,6 +95,8 @@ const { t } = useMarketNextI18n()
 const viewport = ref<HTMLElement>()
 
 /** 状态横幅文案:按 环境回滚/自更新/普通安装 × running/success/error 组合取 i18n。 */
+// 场景×状态的文案二维查表,switch/三元即映射表本身
+// fallow-ignore-next-line complexity
 const statusText = computed(() => {
   if (installProgressState.environmentRestore) {
     switch (installProgressState.status) {

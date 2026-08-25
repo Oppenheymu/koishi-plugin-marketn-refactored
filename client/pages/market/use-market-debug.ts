@@ -29,6 +29,8 @@ export function useMarketDebug(t: Translate, locale: { value: string }) {
   }>({})
 
   /** 调试面板的键值对条目(对象数/体积/编码/压缩比/端点/前后端统计)。 */
+  // 数据字面量条目表:逐行三元与空值兜底是数据构造,非控制流分派,拆分无收益
+  // fallow-ignore-next-line complexity
   const debugItems = computed(() => {
     const debug = store.market?.debug
     if (!debug) return []

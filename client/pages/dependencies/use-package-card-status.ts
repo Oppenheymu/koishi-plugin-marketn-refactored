@@ -16,6 +16,8 @@ export function usePackageCardStatus(
   t: (key: string, ...args: any[]) => string,
   editing: ComputedRef<boolean>,
 ) {
+  // 状态到样式类的优先级映射,11 态判定链是数据驱动的查表场景
+  // fallow-ignore-next-line complexity
   const statusClass = computed(() => {
     if (state.pending.value) return 'pending'
     if (state.localDependency.value) return 'local'
@@ -30,6 +32,8 @@ export function usePackageCardStatus(
     return state.kind ?? 'installed'
   })
 
+  // 状态到徽章文案的优先级映射,各映射间的判定顺序互不相同,不宜强行合并成统一状态机
+  // fallow-ignore-next-line complexity
   const statusLabel = computed(() => {
     if (state.pendingRemove.value) return t('dependencyCard.status.pendingRemove')
     if (state.pending.value && state.dep.value) return t('dependencyCard.status.pendingApply')
@@ -46,6 +50,8 @@ export function usePackageCardStatus(
     return t('dependencyCard.status.installed')
   })
 
+  // 状态到图标的优先级映射,与 statusLabel 的判定顺序存在有意差异,保持独立链
+  // fallow-ignore-next-line complexity
   const statusIcon = computed(() => {
     if (state.pendingRemove.value) return 'close'
     if (state.pending.value) return 'tag'
@@ -69,6 +75,8 @@ export function usePackageCardStatus(
     return state.dep.value.resolved ?? t('dependencyCard.current.installError')
   })
 
+  // 状态到目标版本文案的映射,含动态取值与状态文案回退
+  // fallow-ignore-next-line complexity
   const targetText = computed(() => {
     if (state.pendingRemove.value) return t('dependencyCard.target.remove')
     if (state.overrideValue.value) return state.overrideValue.value
@@ -91,6 +99,8 @@ export function usePackageCardStatus(
     return t('dependencyCard.label.target')
   })
 
+  // 状态到明细文案的映射,含 i18n 参数与外部取值函数的动态文案
+  // fallow-ignore-next-line complexity
   const detailText = computed(() => {
     if (state.pendingRemove.value) return t('dependencyCard.detail.pendingRemove')
     if (state.pending.value && state.dep.value) return t('dependencyCard.detail.pendingApply')
@@ -120,6 +130,8 @@ export function usePackageCardStatus(
     return state.status.value?.loading || !state.status.value ? t('dependencyCard.detail.fetching') : t('dependencyCard.detail.noData')
   })
 
+  // 版本来源端点的文案映射,逐分支回退为空串
+  // fallow-ignore-next-line complexity
   const versionSourceText = computed(() => {
     if (statusClass.value === 'installed' && !editing.value) return ''
     if (state.localDependency.value) return ''

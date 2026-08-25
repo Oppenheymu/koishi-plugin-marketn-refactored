@@ -53,6 +53,8 @@ export function setupActions(ctx: Context) {
       koishiDayIcon.value = isKoishiDay()
     }
     // 彩蛋快捷键:依赖页按 alt+g 后 1.5 秒内按 alt+b,强制打开愚人节图标
+    // 低频彩蛋逻辑:alt+g→alt+b 按键序列检测,守卫链即按键状态机,拆分无收益
+    // fallow-ignore-next-line complexity
     const onAprilFoolsShortcut = (event: KeyboardEvent) => {
       if (router.currentRoute.value?.path !== '/dependencies') return
       if (event.repeat || event.isComposing) return

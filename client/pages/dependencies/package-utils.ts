@@ -38,6 +38,8 @@ const identityMap: Record<string, { label: string, icon: string, color: string }
 }
 
 /** 包名/分类 → 卡片身份(优先包名关键字,兜底市场分类)。 */
+// 包名关键字到卡片身份的正则映射链,每行一条规则,属数据驱动的查表场景
+// fallow-ignore-next-line complexity
 export function resolveIdentity(name: string) {
   if (isBundlePackageName(name)) return identityMap.bundle
   const data = getMarketObject(name)

@@ -7,15 +7,85 @@
  */
 
 import { computed, reactive, ref, watch } from 'vue'
-import { send, store, useContext } from '@koishijs/client'
+import { send, store, useContext, type Context } from '@koishijs/client'
 import type { Registry } from '@koishijs/registry'
-import type { BundleInstallMember, PluginBundleManifest } from '../../../src/shared/bundle'
+import type { BundleInstallMember, PluginBundleManifest, PluginBundleMember } from '../../../src/shared/bundle'
 import { parseBundleManifest } from '../../../src/shared/bundle'
 import { getBundleGroupIdent } from '../../../src/shared/bundle-idents'
 import { activeBundle, getBundleMemberConfigState } from '../../shared/operations'
 import { loadMarketObjects } from '../../market/state'
 import { satisfies } from 'semver'
 import { hasPreset } from './bundle-format'
+
+/** 从 registry 版本表里取目标版本条目;目标缺失时退回首个条目。 */
+function resolveRemoteEntry(data: Registry, version: string) {
+    if (data.versions?.[version]) {
+        return [version, data.versions[version]] as const
+    }
+    return Object.entries(data.versions ?? {})[0]
+}
+
+/** 拉取合包 registry 并解析目标版本(缺则首个)的清单;失败时返回错误文案。 */
+async function fetchBundleManifest(
+    t: (key: string, args?: any) => string,
+    packageName: string,
+    version: string,
+): Promise<{ error: string, data?: Registry } | { data: Registry, version: string, parsed: PluginBundleManifest }> {
+    const data = await send('market/package', packageName) as Registry
+    if (!data?.versions) {
+        return { error: t('bundle.messages.noMetadata') }
+    }
+    const remoteEntry = resolveRemoteEntry(data, version)
+    if (!remoteEntry) {
+        return { error: t('bundle.messages.noMetadata'), data }
+    }
+    // registry 版本条目的 koishi.bundle 字段不在官方窄化类型里,保持原样 cast
+    const parsed = parseBundleManifest((remoteEntry[1] as any)?.koishi?.bundle)
+    if (!parsed) {
+        return { error: t('bundle.messages.noManifest'), data }
+    }
+    return { data, version: remoteEntry[0], parsed }
+}
+
+/** 由成员在 koishi.yml 的配置分布推导冲突类别(组内 > 组外,均无则 undefined)。 */
+function pickConflictType(state: ReturnType<typeof getBundleMemberConfigState>): BundleInstallMember['conflict'] {
+    if (state.group.length) return 'same-group'
+    if (state.external.length) return 'other-config'
+    return undefined
+}
+
+/** 汇总成员的本地现状:依赖记录、是否已有配置、已装版本是否不满足范围、冲突类别。 */
+function analyzeMemberLocalState(ctx: Context, member: PluginBundleMember, groupKey: string) {
+    const conflictType = pickConflictType(getBundleMemberConfigState(ctx, member, groupKey))
+    const dep = store.dependencies?.[member.package]
+    const isMismatch = dep?.resolved && !satisfies(dep.resolved, member.version, { includePrerelease: true })
+    const conflict: BundleInstallMember['conflict'] = conflictType || (isMismatch ? 'package-mismatch' : undefined)
+    return {
+        dep,
+        isMismatch,
+        hasConfig: conflictType !== undefined,
+        conflict,
+    }
+}
+
+/** 计算单个成员的初始勾选/建配置/用预置三件套与冲突标记。 */
+function resolveMemberInitState(ctx: Context, member: PluginBundleMember, groupKey: string) {
+    const { dep, isMismatch, hasConfig, conflict } = analyzeMemberLocalState(ctx, member, groupKey)
+    return {
+        selected: !!member.required || (!!dep && !isMismatch),
+        createConfig: !hasConfig && conflict !== 'same-group',
+        usePreset: !hasConfig && !!member.config && Object.keys(member.config).length > 0,
+        conflict,
+    }
+}
+
+/** 补拉本地缺失的成员 registry 元数据(失败静默,结果并回 store.registry)。 */
+async function loadMissingMemberRegistries(parsed: PluginBundleManifest) {
+    const names = parsed.members.map(member => member.package).filter(name => !store.registry?.[name])
+    if (!names.length) return
+    const result = await (send('market/registry', names) ?? Promise.resolve(undefined)).catch(() => undefined)
+    if (result) store.registry = { ...store.registry, ...result }
+}
 
 export function useBundleMembers(t: (key: string, args?: any) => string) {
   const ctx = useContext()
@@ -89,76 +159,55 @@ export function useBundleMembers(t: (key: string, args?: any) => string) {
     }
   }
 
-  /**
-   * 打开/切换合包时的加载流程:清空旧状态 → 拉取 registry → 取条目版本对应
-   * (缺则首个)的 koishi.bundle 清单 → 并行拉成员的市场元数据 → 逐成员计算
-   * 与本地现状的冲突并生成初始勾选,最后补拉缺失成员的 registry 元数据。
-   */
-  watch(activeBundle, async (value) => {
-    error.value = ''
-    registry.value = undefined
-    bundle.value = undefined
-    resolvedBundleVersion.value = ''
-    members.splice(0)
-    Object.keys(memberJsonErrors).forEach(key => delete memberJsonErrors[key])
-    if (!value) return
-    loading.value = true
-    try {
-      const data = await send('market/package', value.package.name) as Registry
-      if (!data?.versions) {
-        error.value = t('bundle.messages.noMetadata')
-        return
-      }
-      registry.value = data
-      const remoteEntry = data.versions?.[value.package.version]
-        ? [value.package.version, data.versions[value.package.version]] as const
-        : Object.entries(data.versions ?? {})[0]
-      if (!remoteEntry) {
-        error.value = t('bundle.messages.noMetadata')
-        return
-      }
-      const [remoteVersion, remote] = remoteEntry
-      // registry 版本条目的 koishi.bundle 字段不在官方窄化类型里,保持原样 cast
-      const parsed = parseBundleManifest((remote as any)?.koishi?.bundle)
-      if (!parsed) {
-        error.value = t('bundle.messages.noManifest')
-        return
-      }
-      resolvedBundleVersion.value = remoteVersion
-      bundle.value = parsed
-      void loadMarketObjects(parsed.members.map(member => member.package)).catch(err => {
-        console.error('[market-next] failed to load bundle member metadata', err)
-      })
-      const groupKey = `group:${getBundleGroupIdent(value.package.name)}`
-      for (const member of parsed.members) {
-        const state = getBundleMemberConfigState(ctx, member, groupKey)
-        const hasConfig = !!(state.group.length || state.external.length)
-        const conflictType = state.group.length ? 'same-group' : state.external.length ? 'other-config' : undefined
-
-        const dep = store.dependencies?.[member.package]
-        const isMismatch = dep?.resolved && !satisfies(dep.resolved, member.version, { includePrerelease: true })
-
-        members.push({
-          ...member,
-          selected: !!member.required || (!!dep && !isMismatch),
-          createConfig: !hasConfig && conflictType !== 'same-group',
-          usePreset: !hasConfig && !!member.config && Object.keys(member.config).length > 0,
-          move: false,
-          conflict: conflictType || (isMismatch ? 'package-mismatch' : undefined),
-        })
-      }
-      const names = parsed.members.map(member => member.package).filter(name => !store.registry?.[name])
-      if (names.length) {
-        const result = await (send('market/registry', names) ?? Promise.resolve(undefined)).catch(() => undefined)
-        if (result) store.registry = { ...store.registry, ...result }
-      }
-    } catch (err) {
-      console.error(err)
-      error.value = err instanceof Error ? err.message : t('bundle.messages.loadFailed')
-    } finally {
-      loading.value = false
+    /** 清空上一次合包的加载状态(关闭或切换合包时先回到空白)。 */
+    function resetBundleState() {
+        error.value = ''
+        registry.value = undefined
+        bundle.value = undefined
+        resolvedBundleVersion.value = ''
+        members.splice(0)
+        Object.keys(memberJsonErrors).forEach(key => delete memberJsonErrors[key])
     }
-  }, { immediate: true })
+
+    /**
+     * 打开/切换合包时的加载流程:清空旧状态 → 拉取 registry → 取条目版本对应
+     * (缺则首个)的 koishi.bundle 清单 → 并行拉成员的市场元数据 → 逐成员计算
+     * 与本地现状的冲突并生成初始勾选,最后补拉缺失成员的 registry 元数据。
+     */
+    watch(activeBundle, async (value) => {
+        resetBundleState()
+        if (!value) return
+        loading.value = true
+        try {
+            const result = await fetchBundleManifest(t, value.package.name, value.package.version)
+            if ('error' in result) {
+                // 拉到 registry 的失败分支仍保留元数据供版本列表展示
+                if (result.data) registry.value = result.data
+                error.value = result.error
+                return
+            }
+            registry.value = result.data
+            resolvedBundleVersion.value = result.version
+            bundle.value = result.parsed
+            void loadMarketObjects(result.parsed.members.map(member => member.package)).catch(err => {
+                console.error('[market-next] failed to load bundle member metadata', err)
+            })
+            const groupKey = `group:${getBundleGroupIdent(value.package.name)}`
+            for (const member of result.parsed.members) {
+                members.push({
+                    ...member,
+                    ...resolveMemberInitState(ctx, member, groupKey),
+                    move: false,
+                })
+            }
+            await loadMissingMemberRegistries(result.parsed)
+        } catch (err) {
+            console.error(err)
+            error.value = err instanceof Error ? err.message : t('bundle.messages.loadFailed')
+        } finally {
+            loading.value = false
+        }
+    }, { immediate: true })
 
   return {
     loading, error, registry, bundle, resolvedBundleVersion, members, memberJsonErrors,

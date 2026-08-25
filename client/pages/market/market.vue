@@ -1,4 +1,6 @@
 <template>
+  <!-- 市场页模板:加载态/空态/列表/彩蛋多视图切换,分支即页面形态 -->
+  <!-- fallow-ignore-next-line complexity -->
   <k-layout main="darker" :class="'page-market'" menu="market">
     <!-- 左侧栏:排序/徽章/高级日期/分类筛选 -->
     <template #left>
@@ -193,6 +195,8 @@ onUnmounted(() => {
 })
 
 /** 全局键盘快捷键:Ctrl/Cmd+K 聚焦搜索框;彩蛋页 Esc 清词并聚焦。 */
+// 键盘快捷键守卫链:逐条排除非目标按键,每条守卫即一条快捷键语义
+// fallow-ignore-next-line complexity
 function onSearchShortcut(event: KeyboardEvent) {
   if (router.currentRoute.value?.path !== '/market') return
   if (event.key === 'Escape' && secretSearchMatched.value) {

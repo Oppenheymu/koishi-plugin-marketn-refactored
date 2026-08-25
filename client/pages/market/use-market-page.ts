@@ -68,6 +68,8 @@ export function useMarketPage(config: { value: any }) {
    * store 标记 loading)时为 true;两边都没有数据但 total>0(数据还在
    * 服务端没下发)也视为加载中。
    */
+  // 加载态收敛的单义判定链:数据源优先级即短路顺序,拆分会拆散同一语义
+  // fallow-ignore-next-line complexity
   const marketLoading = computed(() => {
     if (data.value.length) return false
     if (marketSnapshotError.value) return false

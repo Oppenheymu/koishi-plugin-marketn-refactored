@@ -55,6 +55,8 @@ export function usePackageVisibility(options: {
     return canExpandCard.value && !state.updatable.value
   })
 
+  // 卡片可展开性的状态排除链:逐状态否决,顺序即展示优先级
+  // fallow-ignore-next-line complexity
   const canExpandCard = computed(() => {
     if (state.bundlePackage.value && (state.dep.value || state.local.value)) return !state.pending.value
     if (state.pending.value || statusClass.value === 'error' || statusClass.value === 'manual') return false

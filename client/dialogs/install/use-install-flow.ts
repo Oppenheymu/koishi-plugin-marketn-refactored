@@ -62,57 +62,68 @@ export function useInstallFlow(
   function installDep(version: string, checkConfig = false, removeConfig = false) {
     const target = active.value
     if (!target) return
-
-    // workspace packages don't need to be installed
-    if (bulkMode.value && !workspace.value) {
-      const override = getPendingOverrides()
-      if (dep.value?.resolved === version || !version && !dep.value) {
-        delete override[target]
-      } else {
-        override[target] = version
-      }
-      void patchMarketNextData({ override: { ...override } })
-      active.value = ''
+    if (applyBulkOverride(target, version)) return
+    const resolved = resolveRemoveConfig(target, checkConfig, removeConfig)
+    if (resolved === 'ask') {
+      showRemoveDialog.value = true
       return
     }
+    persistRemoveChoice(resolved)
+    versions[target] = version
+    return install(versions, () => applyInstallResult(target, version, resolved))
+  }
 
+  /** 批量模式只写共享 override(与现状一致时删除该项支持撤销);返回 true 表示已处理完。 */
+  function applyBulkOverride(target: string, version: string) {
+    // workspace packages don't need to be installed
+    if (!bulkMode.value || workspace.value) return false
+    const override = getPendingOverrides()
+    if (dep.value?.resolved === version || !version && !dep.value) {
+      delete override[target]
+    } else {
+      override[target] = version
+    }
+    void patchMarketNextData({ override: { ...override } })
+    active.value = ''
+    return true
+  }
+
+  /** 卸载前解析"移除配置"偏好:有配置节点且未保存偏好时返回 'ask' 要求弹窗。 */
+  function resolveRemoveConfig(target: string, checkConfig: boolean, removeConfig: boolean): boolean | 'ask' {
     // 1. The plugin is to be removed.
     // 2. The plugin has config entries.
-    // 3. `removeConfig` is not set.
-    if (checkConfig && getConfigWriter(ctx)?.get(target)?.length) {
-      const savedRemoveConfig = getRemoveConfig(config.value)
-      if (typeof savedRemoveConfig !== 'boolean') {
-        showRemoveDialog.value = true
-        return
-      } else {
-        removeConfig = savedRemoveConfig
-      }
-    }
+    if (!checkConfig || !getConfigWriter(ctx)?.get(target)?.length) return removeConfig
+    const saved = getRemoveConfig(config.value)
+    if (typeof saved !== 'boolean') return 'ask'
+    return saved
+  }
 
+  /** 按"记住我的选择"勾选持久化 removeConfig 偏好,并复位两个弹窗状态。 */
+  function persistRemoveChoice(removeConfig: boolean) {
     if (saveChoice.value) {
       if (config.value.market) config.value.market.removeConfig = removeConfig
       void patchMarketNextConfig({ removeConfig })
     }
     saveChoice.value = false
     showRemoveDialog.value = false
+  }
 
-    versions[target] = version
-    return install(versions, async () => {
-      if (workspace.value) return
-      if (version) {
-        for (const key in versions) {
-          await ensureInstalledConfig(ctx, key, key !== target)
-        }
-      } else if (removeConfig) {
-        getConfigWriter(ctx)?.remove(target)
+  /** install() 成功后的收尾:为新装包补配置节点、按选择移除配置、卸载顺带清合包记录。 */
+  async function applyInstallResult(target: string, version: string, removeConfig: boolean) {
+    if (workspace.value) return
+    if (version) {
+      for (const key in versions) {
+        await ensureInstalledConfig(ctx, key, key !== target)
       }
-      if (!version) {
-        const records = getWritableBundleRecords(config.value)
-        delete records[target]
-        const saved = await patchMarketNextData({ bundleRecords: records })
-        if (!saved) message.warning(t('operations.confirm.saveBundleFailed'))
-      }
-    })
+    } else if (removeConfig) {
+      getConfigWriter(ctx)?.remove(target)
+    }
+    if (!version) {
+      const records = getWritableBundleRecords(config.value)
+      delete records[target]
+      const saved = await patchMarketNextData({ bundleRecords: records })
+      if (!saved) message.warning(t('operations.confirm.saveBundleFailed'))
+    }
   }
 
   /**

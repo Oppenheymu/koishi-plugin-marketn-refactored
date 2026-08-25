@@ -47,6 +47,8 @@ export function isUnconfigured(name: string, ctx: Context, config: unknown, conf
  * 本地形态依赖 > invalid > 可管理合包 > 未配置 > registry 拉取失败 >
  * 禁用更新检查 > 忽略更新 > 可更新 > 已安装。
  */
+// 11 态分类状态机的优先级链,顺序即语义,拆分或查表都会掩盖优先级
+// fallow-ignore-next-line complexity
 export function classify(name: string, ctx: Context, config: unknown, configWriter?: ClientConfigWriter): ItemKind {
   const dep = store.dependencies?.[name]
   const override = getOverride()

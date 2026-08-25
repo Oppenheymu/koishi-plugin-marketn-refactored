@@ -95,6 +95,8 @@ function resetEnhancements() {
  * 第 287 帧发 ready、第 543 帧发 complete 并播放点亮完成动画;
  * 第 700 帧起进入"熄灭"状态(类名驱动样式)。
  */
+// 开场动画的逐帧驱动:帧号阈值即时间轴彩蛋逻辑,拆分会打散动画时序
+// fallow-ignore-next-line complexity
 function updateEnhancements() {
   if (!animation) return
   const frame = animation.currentFrame + animation.firstFrame

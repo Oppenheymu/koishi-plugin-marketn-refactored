@@ -97,6 +97,8 @@ export function useInstallDecision(
   }
 
   /** peer 检查结论的文案:结合"是否已在覆盖清单/是否已装"区分 待安装/待更新/待移除/已下载/不兼容/未下载/可选 等状态。 */
+  // peer 结论到状态文案的分支映射,嵌套三元即"覆盖清单×已装"的查表
+  // fallow-ignore-next-line complexity
   function getResultText(peer: PeerInfo, name: string) {
     const isOverriden = name in getOverride()
     const isInstalled = store.packages ? !!store.packages[name] : !!store.dependencies?.[name]

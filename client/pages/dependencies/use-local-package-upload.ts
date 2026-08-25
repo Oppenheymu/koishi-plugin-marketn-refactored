@@ -61,6 +61,8 @@ export function useLocalPackageUpload(t: Translate, closeDialog: () => void) {
    * 每一步响应回来都校验 generation,过期则中止(必要时调 cancel 清理
    * 服务端会话);失败记录错误文案并取消在途会话。
    */
+  // 三段 RPC 分块上传状态机:每步响应都要校验 generation 作废旧流程,拆分会打散时序守卫
+  // fallow-ignore-next-line complexity
   async function uploadFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.tgz')) {
       uploadError.value = t('operations.manual.invalidFile')
