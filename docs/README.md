@@ -12,8 +12,9 @@
 | P2 | core 建设：utils → racing → registry → market → deps → install → upload → environment | ✅ |
 | P3 | node 适配层：contracts / installer / market / providers / listeners / commands / avatar / bundle | ✅ |
 | P4 | client 移植拆分：feature-first 重组 + 样式出仓 + 门禁全绿 | ✅ |
-| P5 | 宿主联调：构建 lib+dist → 宿主 koishi.yml → dev 冒烟 → prod 复验 | ⏳ 进行中 |
-| P6 | 收尾：契约核对 → 删旧码 → README 定稿 → 最终 commit | ⏳ |
+| P5 | 宿主联调：构建 lib+dist → 宿主 koishi.yml → dev 冒烟 → prod 复验 | ✅（已归档至 archive/） |
+| P6 | 收尾：契约核对 → 删旧码 → README 定稿 → 最终 commit | ✅（已归档至 archive/） |
+| 重构 | 复杂度治理 + 大文件拆分（B+C 特化） | ⏳ 待执行 |
 
 ## 有效文档链（按阅读顺序）
 
@@ -22,12 +23,13 @@
 | [DEVELOPMENT.md](DEVELOPMENT.md) | **开发依据**：环境、门禁命令、编码约定、已知坑、fallow 用法 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 分层架构、依赖方向规则、契约冻结清单 |
 | [CORE-MODULES.md](CORE-MODULES.md) | `src/shared` + `src/core` 模块职责、关键导出、构造 deps 签名 |
-| [P5-P6-联调验收与收尾.md](P5-P6-联调验收与收尾.md) | **当前唯一待执行计划**：宿主联调冒烟清单 + 契约冻结核对表 |
+| [复杂度与大文件重构计划书.md](复杂度与大文件重构计划书.md) | **当前待执行计划**：17 个大文件拆分 + fallow 复杂度治理（B+C 特化） |
+| [archive/](archive/) | 已完成阶段的归档计划书（P5-P6 联调验收、覆盖率攻坚、市场页渲染性能优化、fallow 清理） |
 | [reference/前后端调用契约.md](reference/前后端调用契约.md) | **验收基线**：对外契约面全量清单（DataService / RPC / 广播 / HTTP / 命令） |
 | [reference/构建与宿主接线.md](reference/构建与宿主接线.md) | 旧代码构建/加载链路考据（P5 联调的操作依据） |
 | [reference/client端全量结构.md](reference/client端全量结构.md) | 旧 client 逐文件职责底册（P6 删旧码后的备份参照） |
 
-> **关于 docs/ 的纪律**：除上表外，`docs/` 下不应出现其他文档。新文档仅在确有长期维护价值时创建；阶段性设计/交接记录直接写进提交信息或本目录的 `P5-P6` 计划，不再单独立档。
+> **关于 docs/ 的纪律**：除上表外，`docs/` 下不应出现其他文档。新文档仅在确有长期维护价值时创建（当前待执行计划书即为有效文档）；阶段性设计/交接记录直接写进提交信息，不再单独立档。
 
 ## 架构摘要（详见 ARCHITECTURE.md 与代码）
 
