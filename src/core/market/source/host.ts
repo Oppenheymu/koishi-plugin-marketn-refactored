@@ -1,12 +1,14 @@
 /**
- * @file 端点结果转换与快照宿主适配(core/market/source 域)。
+ * @file 端点结果转换、性能调试合并与快照宿主适配(core/market/source 域)。
  *
  * 职责:performanceFrom 把 EndpointResult 转成对外展示的性能快照;
- * createSourceSnapshotHost 把 MarketIndexSource 的公开状态适配为
- * snapshot.ts 需要的 SnapshotHost 接口(原 source.host()),
- * 让快照组装逻辑不依赖具体源实现。
+ * mergeMarketPerformance/exportMarketPerformance 是源侧
+ * updateDebugInfo/exportedDebug 的纯计算主体;createSourceSnapshotHost
+ * 把 MarketIndexSource 的公开状态适配为 snapshot.ts 需要的
+ * SnapshotHost 接口(原 source.host())。
  */
-import type { MarketPerformanceSnapshot } from "../../../shared/types.js";
+import type { Dict } from "koishi";
+import type { MarketPerformance, MarketPerformanceSnapshot } from "../../../shared/types.js";
 import { shortHash } from "../../utils/format.js";
 import { assemblePayload, type SnapshotHost } from "../snapshot.js";
 import type { EndpointResult } from "../types.js";
@@ -34,6 +36,38 @@ export function performanceFrom(
         validatedAt: result.validatedAt,
         timings: result.timings,
     };
+}
+
+/**
+ * 合并更新性能调试信息:timings 按阶段浅合并,phase 归档快照。
+ * (MarketIndexSource.updateDebugInfo 的计算主体)
+ */
+export function mergeMarketPerformance(
+    current: MarketPerformance | undefined,
+    info: MarketPerformanceSnapshot,
+    phase?: "initial" | "refresh",
+): MarketPerformance {
+    const next: MarketPerformance = {
+        ...current,
+        ...info,
+        timings: { ...current?.timings, ...info.timings },
+    };
+    if (phase) next[phase] = { ...info };
+    return next;
+}
+
+/**
+ * logLevel=debug 时才对外暴露 debug 信息,timings 可追加覆盖。
+ * (MarketIndexSource.exportedDebug 的计算主体)
+ */
+export function exportMarketPerformance(
+    logLevel: string | undefined,
+    current: MarketPerformance | undefined,
+    timings?: Dict<number>,
+): MarketPerformance | undefined {
+    if (logLevel !== "debug") return undefined;
+    if (!timings) return current;
+    return { ...current, timings: { ...current?.timings, ...timings } };
 }
 
 /** 把 MarketIndexSource 适配为 getSnapshot 所需的 SnapshotHost（原 source.host()）。 */

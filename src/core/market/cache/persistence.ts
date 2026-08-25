@@ -48,6 +48,7 @@ export async function readCacheStore(deps: CacheReadDeps) {
  * 合并出新响应与历史缓存的元数据:响应没带 etag/last-modified(典型如
  * 304)且端点未变时沿用旧值,hash/size/wireSize/contentEncoding 同样
  * "新值优先、旧值兜底",保证条件请求与展示字段不因 304 而丢失。
+ * 字段读取按"条件类/统计类"归口到下方两个小函数。
  */
 export function buildCacheMeta(
     result: EndpointResult,
@@ -59,13 +60,30 @@ export function buildCacheMeta(
         endpoint: result.endpoint,
         fetchedAt: getFetchedAt(result, cached, previous),
         validatedAt: result.validatedAt,
-        etag: result.etag ?? (sameEndpoint ? previous?.etag : undefined),
-        lastModified: result.lastModified ?? (sameEndpoint ? previous?.lastModified : undefined),
-        hash: result.hash ?? previous?.hash,
-        size: result.size ?? previous?.size,
-        wireSize: result.wireSize ?? previous?.wireSize,
-        contentEncoding: result.contentEncoding ?? previous?.contentEncoding,
+        etag: pickConditional(result.etag, previous?.etag, sameEndpoint),
+        lastModified: pickConditional(result.lastModified, previous?.lastModified, sameEndpoint),
+        hash: pickStat(result.hash, previous?.hash),
+        size: pickStat(result.size, previous?.size),
+        wireSize: pickStat(result.wireSize, previous?.wireSize),
+        contentEncoding: pickStat(result.contentEncoding, previous?.contentEncoding),
     };
+}
+
+/**
+ * 条件请求字段(etag/last-modified)的读取:新值优先,仅当端点未变时
+ * 才兜底旧值 —— 换端点后不得沿用别的端点的条件元数据。
+ */
+function pickConditional<T>(
+    fresh: T | undefined,
+    previous: T | undefined,
+    sameEndpoint: boolean,
+): T | undefined {
+    return fresh ?? (sameEndpoint ? previous : undefined);
+}
+
+/** 统计字段(hash/size 等)的读取:新值优先、旧值兜底,与端点无关。 */
+function pickStat<T>(fresh: T | undefined, previous: T | undefined): T | undefined {
+    return fresh ?? previous;
 }
 
 /**
