@@ -75,6 +75,8 @@ const namespaceByFile: Record<string, string> = {
     "environment.yml": "environment",
 };
 
+// 本地开发门禁工具脚本（非运行时产物）：逐文件核对 locale 注册与占位符一致性的守卫链，分支均为独立报告项
+// fallow-ignore-next-line complexity
 async function checkClientLocales(): Promise<void> {
     const zhDir = resolve(root, "client/shared/locales/zh-CN");
     const enDir = resolve(root, "client/shared/locales/en-US");

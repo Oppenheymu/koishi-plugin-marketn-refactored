@@ -109,6 +109,34 @@
             ]
         }
     ],
+    // 复杂度豁免天花板（health.thresholdOverrides）：2026-08-25 重构计划收尾登记。
+    // 三个 .vue 模板的报点锚点在多行标签的属性行中间，代码内 <!-- fallow-ignore --> 注释
+    // 无法合法插入标签内部，故按函数名在配置里登记天花板（保持 findings 可见，仅放宽阈值）。
+    // 模板复杂度属 dialog/页面多视图展示分支，计划书 §3.2 判定为登记豁免，不拆子组件。
+    "health": {
+        "thresholdOverrides": [
+            {
+                "files": ["client/dialogs/bundle-install/index.vue"],
+                "functions": ["<template>"],
+                "maxCyclomatic": 72,
+                "maxCognitive": 210,
+                "reason": "合包安装对话框模板:必装/可选成员两段对称展示,分支密度来自成员状态与冲突展示"
+            },
+            {
+                "files": ["client/pages/dependencies/package.vue"],
+                "functions": ["<template>"],
+                "maxCyclomatic": 32,
+                "maxCognitive": 45,
+                "reason": "依赖卡片模板:11 态卡片的展示分支,状态密度来自依赖状态机"
+            },
+            {
+                "files": ["client/dialogs/bundle-uninstall/index.vue"],
+                "functions": ["<template>"],
+                "maxCognitive": 45,
+                "reason": "合包卸载对话框模板:按成员分组展示与勾选,分支即成员状态"
+            }
+        ]
+    },
     // 这些成员由安装器状态机或 Koishi 生命周期间接调用，调用点不以同名方法引用出现。
     "overrides": [
         {
