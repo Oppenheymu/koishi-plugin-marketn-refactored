@@ -2,8 +2,9 @@
  * @file "忽略此更新"对话框与忽略策略持久化 composable(dependencies 域)。
  *
  * 对话框支持永久禁检(包名进 updateIgnoredPackages)与按时长/次数忽略
- * (规则进数据仓 updateIgnored);确认后双写插件配置与数据仓,恢复更新
- * 则同时清规则与禁检名单。
+ * (规则进数据仓 updateIgnored);确认后双写插件配置与数据仓。
+ * restoreIgnoreUpdate 是独立导出的"恢复更新"动作,卡片上的恢复按钮
+ * 直接调用,无需挂载整套对话框 composable。
  */
 
 import { ref } from 'vue'
@@ -23,6 +24,59 @@ export interface IgnoreUpdateTarget {
   name: string
   getUpdatePolicy(): UpdatePolicy
   getUpdateIgnored(): IgnoredUpdates
+}
+
+/**
+ * "恢复更新"动作的独立入口:卡片上的恢复按钮直接调用,
+ * 不必为这一个动作挂载整套对话框 composable。
+ */
+export async function restoreIgnoreUpdate(
+  target: IgnoreUpdateTarget,
+  config: { value: unknown },
+  t: (key: string, ...args: any[]) => string,
+) {
+  delete target.getUpdateIgnored()[target.name]
+  removePackageFromIgnoredList(target.name, config)
+  const saved = await persistUpdatePolicy(target, config)
+  if (!saved) message.error(t('common.messages.saveFailed'))
+}
+
+/** 忽略策略双写:全局开关进插件配置,逐包规则进数据仓。 */
+async function persistUpdatePolicy(target: IgnoreUpdateTarget, config: { value: unknown }) {
+  const policy = target.getUpdatePolicy()
+  const configSaved = await patchMarketNextConfig({
+    updateIgnoredPackages: policy.updateIgnoredPackages,
+    updateIgnoreDuration: policy.updateIgnoreDuration,
+    updateIgnoreVersions: policy.updateIgnoreVersions,
+    updateIgnorePrerelease: policy.updateIgnorePrerelease,
+  })
+  const dataSaved = await patchMarketNextData({
+    updateIgnored: policy.updateIgnored,
+  })
+  return configSaved && dataSaved
+}
+
+function addPackageToIgnoredList(name: string, config: { value: unknown }) {
+  const policy = getWritableMarketNextPolicy(config.value as any)
+  const names = splitIgnoredPackages(policy.updateIgnoredPackages)
+  if (!names.some(item => item.toLowerCase() === name.toLowerCase())) {
+    names.push(name)
+  }
+  policy.updateIgnoredPackages = names.join('\n')
+}
+
+function removePackageFromIgnoredList(name: string, config: { value: unknown }) {
+  const policy = getWritableMarketNextPolicy(config.value as any)
+  const names = splitIgnoredPackages(policy.updateIgnoredPackages)
+    .filter(item => item.toLowerCase() !== name.toLowerCase())
+  policy.updateIgnoredPackages = names.join('\n')
+}
+
+function splitIgnoredPackages(value?: string) {
+  return (value ?? '')
+    .split(/[\s,，;；]+/g)
+    .map(item => item.trim())
+    .filter(Boolean)
 }
 
 export function useIgnoreUpdate(
@@ -51,9 +105,9 @@ export function useIgnoreUpdate(
     if (ignoreSaving.value) return
     ignoreSaving.value = true
     if (ignorePackagePermanently.value) {
-      addPackageToIgnoredList(target.name)
+      addPackageToIgnoredList(target.name, config)
       delete target.getUpdateIgnored()[target.name]
-      const saved = await persistUpdatePolicy()
+      const saved = await persistUpdatePolicy(target, config)
       ignoreSaving.value = false
       if (!saved) {
         message.error(t('common.messages.saveFailed'))
@@ -72,7 +126,7 @@ export function useIgnoreUpdate(
       return
     }
     target.getUpdateIgnored()[target.name] = rule
-    const saved = await persistUpdatePolicy()
+    const saved = await persistUpdatePolicy(target, config)
     ignoreSaving.value = false
     if (!saved) {
       message.error(t('common.messages.saveFailed'))
@@ -82,53 +136,8 @@ export function useIgnoreUpdate(
     message.success(t('dependencyCard.ignore.saved'))
   }
 
-  async function restoreUpdate() {
-    delete target.getUpdateIgnored()[target.name]
-    removePackageFromIgnoredList(target.name)
-    const saved = await persistUpdatePolicy()
-    if (!saved) message.error(t('common.messages.saveFailed'))
-  }
-
-  /** 忽略策略双写:全局开关进插件配置,逐包规则进数据仓。 */
-  async function persistUpdatePolicy() {
-    const policy = target.getUpdatePolicy()
-    const configSaved = await patchMarketNextConfig({
-      updateIgnoredPackages: policy.updateIgnoredPackages,
-      updateIgnoreDuration: policy.updateIgnoreDuration,
-      updateIgnoreVersions: policy.updateIgnoreVersions,
-      updateIgnorePrerelease: policy.updateIgnorePrerelease,
-    })
-    const dataSaved = await patchMarketNextData({
-      updateIgnored: policy.updateIgnored,
-    })
-    return configSaved && dataSaved
-  }
-
-  function addPackageToIgnoredList(name: string) {
-    const policy = getWritableMarketNextPolicy(config.value as any)
-    const names = splitIgnoredPackages(policy.updateIgnoredPackages)
-    if (!names.some(item => item.toLowerCase() === name.toLowerCase())) {
-      names.push(name)
-    }
-    policy.updateIgnoredPackages = names.join('\n')
-  }
-
-  function removePackageFromIgnoredList(name: string) {
-    const policy = getWritableMarketNextPolicy(config.value as any)
-    const names = splitIgnoredPackages(policy.updateIgnoredPackages)
-      .filter(item => item.toLowerCase() !== name.toLowerCase())
-    policy.updateIgnoredPackages = names.join('\n')
-  }
-
-  function splitIgnoredPackages(value?: string) {
-    return (value ?? '')
-      .split(/[\s,，;；]+/g)
-      .map(item => item.trim())
-      .filter(Boolean)
-  }
-
   return {
     showIgnoreDialog, ignoreDurationPreset, ignoreCustomDays, ignoreCount,
-    ignorePackagePermanently, ignoreSaving, openIgnoreDialog, confirmIgnoreUpdate, restoreUpdate,
+    ignorePackagePermanently, ignoreSaving, openIgnoreDialog, confirmIgnoreUpdate,
   }
 }

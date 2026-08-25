@@ -11,6 +11,10 @@
   padding: 0.58rem 0.72rem 0.62rem 3.32rem;
   background: var(--k-card-bg);
   overflow: hidden;
+  // 性能:卡片墙全量渲染,视口外的卡片跳过 layout/paint(auto 记忆已渲染过的
+  // 实际高度,首次滚过时高度由估算值收敛,之后滚动条稳定)
+  content-visibility: auto;
+  contain-intrinsic-size: auto 13rem;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 
   &:hover {

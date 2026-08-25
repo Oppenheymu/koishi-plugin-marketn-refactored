@@ -9,11 +9,14 @@
       <div class="main flex flex-col justify-around overflow-hidden">
         <h2 class="top">
           <span class="title truncate" :title="data.shortname">{{ data.shortname }}</span>
-          <el-tooltip v-if="badge" placement="right" :content="t(`badge.${badge.type}`)">
-            <span :class="['icon', badge.type]" @click.stop.prevent="$emit('query', badge.query)">
-              <market-icon :name="badge.icon || badge.type"></market-icon>
-            </span>
-          </el-tooltip>
+          <span
+            v-if="badge"
+            :class="['icon', badge.type]"
+            :title="t(`badge.${badge.type}`)"
+            @click.stop.prevent="$emit('query', badge.query)"
+          >
+            <market-icon :name="badge.icon || badge.type"></market-icon>
+          </span>
         </h2>
         <div class="bottom">
           <span class="updated-meta" :style="updatedMetaStyle">
@@ -25,15 +28,13 @@
         <slot name="action"></slot>
       </div>
     </div>
-    <!-- 描述:manifest.description 经 i18n 文本翻译后内联渲染 -->
-    <k-markdown inline class="desc" :source="tt(data.manifest?.description) ?? ''"></k-markdown>
+    <!-- 描述:manifest.description 经 i18n 文本翻译后纯文本渲染(markdown 解析成本高,滚动挂载会掉帧) -->
+    <div class="desc" :title="descriptionText">{{ descriptionText }}</div>
     <!-- 底部:版本/体积/下载量(或 license 兜底)与作者头像组 -->
     <div class="footer">
-      <el-tooltip :content="timeAgo(data.updatedAt)" placement="top">
-        <a class="truncate" target="_blank" :href="data.package.links.npm">
-          <market-icon name="tag"></market-icon>{{ data.package.version }}
-        </a>
-      </el-tooltip>
+      <a class="truncate" target="_blank" :href="data.package.links.npm" :title="timeAgo(data.updatedAt)">
+        <market-icon name="tag"></market-icon>{{ data.package.version }}
+      </a>
       <template v-if="data.installSize">
         <span class="spacer"></span>
         <a class="truncate" target="_blank" :href="data.package.links.size">
@@ -56,24 +57,25 @@
       <span class="long-spacer"></span>
       <!-- 作者头像:点击带邮箱的头像可追加 email: 查询词 -->
       <div class="avatars">
-        <el-tooltip v-for="view in avatarViews" :key="view.key" :content="view.label" placement="top">
-          <span
-            class="avatar"
-            :class="{ placeholder: !view.src }"
-            :data-initial="view.initial"
-            @click.stop.prevent="view.user.email && $emit('query', 'email:' + view.user.email)"
+        <span
+          v-for="view in avatarViews"
+          :key="view.key"
+          class="avatar"
+          :class="{ placeholder: !view.src }"
+          :data-initial="view.initial"
+          :title="view.label"
+          @click.stop.prevent="view.user.email && $emit('query', 'email:' + view.user.email)"
+        >
+          <img
+            v-if="view.src"
+            :key="view.src"
+            :src="view.src"
+            loading="lazy"
+            decoding="async"
+            @error="handleAvatarRenderError(view)"
+            @load="handleAvatarRenderLoad(view)"
           >
-            <img
-              v-if="view.src"
-              :key="view.src"
-              :src="view.src"
-              loading="lazy"
-              decoding="async"
-              @error="handleAvatarRenderError(view)"
-              @load="handleAvatarRenderLoad(view)"
-            >
-          </span>
-        </el-tooltip>
+        </span>
       </div>
     </div>
   </a>
@@ -86,6 +88,10 @@
  * 模块职责:渲染一张插件卡片——类目图标、短名、徽章、活跃度"心跳"
  * 指示(按更新时间新鲜度渐变)、版本/体积/下载量、作者头像组;点击
  * 徽章/头像向父级发出 query 事件追加查询词。
+ *
+ * 性能约定:卡片在虚拟滚动窗口内高频挂载/卸载,描述用纯文本插值、
+ * 提示用原生 title 属性,禁止在此组件内引入 markdown 渲染器与
+ * el-tooltip/popper 等重组件。
  *
  * 关键设计:
  * - 头像多源回退:src 直接绑候选 URL,浏览器 <img> onerror 时记失败、
@@ -125,6 +131,9 @@ let avatarHydrationTask = 0
 
 /** manifest 描述的 i18n 文本翻译器。 */
 const tt = useI18nText()
+
+/** 描述文案(纯文本渲染:虚拟滚动下每卡挂载一个 markdown 解析器会拖慢滚动)。 */
+const descriptionText = computed(() => tt(props.data.manifest?.description) ?? '')
 
 /** 整卡跳转地址:homepage 优先,否则用 repository(去掉 git+ 前缀与 .git 后缀)。 */
 const homepage = computed(() => {

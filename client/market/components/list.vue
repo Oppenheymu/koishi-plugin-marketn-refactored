@@ -51,7 +51,7 @@
  * - 对 props.data 跑前端过滤管线(getVisible → getFiltered →
  *  getSortedPrepared),结果写入 shallowRef(all/packages);
  * - 自实现虚拟滚动:按列数/行高计算可视窗口,窗口外用 spacer 占位,
- *  只渲染窗口内(含 overscan 3 行)的卡片;触底或点击"加载更多"时
+ *  只渲染窗口内(含 overscan 4 行)的卡片;触底或点击"加载更多"时
  *  按 batchSize 扩大已加载数量;
  * - debug 模式下统计过滤/排序/虚拟化耗时,经 debug 事件上报给页面。
  *
@@ -337,7 +337,7 @@ function scheduleVirtual() {
 }
 
 /**
- * 虚拟滚动核心:由滚动偏移算出可视行区间(上下各 overscan 3 行),
+ * 虚拟滚动核心:由滚动偏移算出可视行区间(上下各 overscan 4 行),
  * 写入渲染索引与 spacer 高度;接近底部(不足 4 行)时顺带预加载下一批。
  */
 function updateVirtual() {
@@ -348,7 +348,7 @@ function updateVirtual() {
   const viewportHeight = scrollParent instanceof Window ? window.innerHeight : scrollParent.clientHeight
   const offset = Math.max(0, scrollTop - listTop)
   const totalRows = Math.ceil(loadedPackages.value.length / columns.value)
-  const overscan = 3
+  const overscan = 4
   const startRow = Math.max(0, Math.floor(offset / rowHeight.value) - overscan)
   const visibleRows = Math.ceil(viewportHeight / rowHeight.value) + overscan * 2
   const endRow = Math.min(totalRows, startRow + visibleRows)

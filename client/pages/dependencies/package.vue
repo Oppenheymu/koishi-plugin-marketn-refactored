@@ -29,7 +29,7 @@
         <el-button
           v-if="showInlineIgnoreUpdate"
           size="small"
-          @click="ignoreDialog?.open()"
+          @click="$emit('open-ignore', name)"
         >
           {{ t('dependencyCard.actions.ignore') }}
         </el-button>
@@ -85,13 +85,16 @@
         size="small"
         class="market-version-select"
         :class="{ pending }"
+        @visible-change="onVersionSelectVisible"
       >
         <el-option v-if="dep" :value="removeValue">{{ t('dependencyCard.actions.remove') }}</el-option>
-        <el-option v-for="({ result }, itemVersion) in data" :key="itemVersion" :value="itemVersion">
-          {{ itemVersion }}
-          <template v-if="itemVersion === dep?.resolved">{{ t('dependencyCard.actions.current') }}</template>
-          <span :class="[result, 'theme-color', 'dot-hint']"></span>
-        </el-option>
+        <template v-if="versionOptionsReady">
+          <el-option v-for="({ result }, itemVersion) in data" :key="itemVersion" :value="itemVersion">
+            {{ itemVersion }}
+            <template v-if="itemVersion === dep?.resolved">{{ t('dependencyCard.actions.current') }}</template>
+            <span :class="[result, 'theme-color', 'dot-hint']"></span>
+          </el-option>
+        </template>
       </el-select>
       <span v-else-if="showVersionControl" class="dep-muted">{{ compactStatusText }}</span>
 
@@ -124,8 +127,7 @@
           v-if="showBindLocal"
           size="small"
           type="primary"
-
-          @click="bindingDialog?.open()"
+          @click="$emit('open-binding', name)"
         >
           {{ t('dependencyCard.actions.bindLocal') }}
         </el-button>
@@ -141,26 +143,6 @@
       </div>
     </div>
   </article>
-
-  <ignore-update-dialog
-    ref="ignoreDialog"
-    :display-name="displayName"
-    :latest-version="latestVersion"
-    :target="ignoreTarget"
-    :config="config"
-  ></ignore-update-dialog>
-
-  <local-binding-dialog
-    ref="bindingDialog"
-    :name="props.name"
-    :display-name="displayName"
-  ></local-binding-dialog>
-
-  <bundle-uninstall
-    v-model="showBundleUninstallDialog"
-    :package-name="name"
-    :record="bundleRecord"
-  ></bundle-uninstall>
 </template>
 
 <script lang="ts" setup>
@@ -171,11 +153,8 @@ import type { SearchObject } from '@koishijs/registry'
 import { getPendingOverrides } from '../../shared/plugin-config'
 import { activeBundle, ensureInstalledConfig, expandedDependency, pendingBundleUninstalls } from '../../shared/operations'
 import MarketIcon from '../../market/icons'
-import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import { useMarketNextI18n } from '../../shared/i18n'
-import IgnoreUpdateDialog from './ignore-update-dialog.vue'
-import LocalBindingDialog from './local-binding-dialog.vue'
-import { useIgnoreUpdate, type IgnoreUpdateTarget } from './use-ignore-update'
+import { restoreIgnoreUpdate, type IgnoreUpdateTarget } from './use-ignore-update'
 import { usePackageCardMeta } from './use-package-card-meta'
 import { usePackageCardState } from './use-package-card-state'
 import { usePackageCardStatus } from './use-package-card-status'
@@ -183,9 +162,23 @@ import { usePackageVisibility } from './use-package-visibility'
 
 type ItemKind = 'pending' | 'bundle' | 'unconfigured' | 'updatable' | 'ignored' | 'check-disabled' | 'invalid' | 'error' | 'local' | 'manual' | 'installed'
 
+/**
+ * 性能约定:本组件在依赖页卡片墙中被全量实例化(数百张),任何新增的
+ * 子组件/对话框/下拉选项都会乘以卡片总数——对话框与重下拉选项一律
+ * 由页面级单例或懒渲染(el-select visible-change)承载。
+ */
 const props = defineProps<{
   name: string
   kind?: ItemKind
+}>()
+
+const emit = defineEmits<{
+  /** 请求打开"忽略此更新"对话框(页面级单例,payload 为目标包名)。 */
+  (event: 'open-ignore', name: string): void
+  /** 请求打开"本地依赖绑定"对话框(页面级单例,payload 为目标包名)。 */
+  (event: 'open-binding', name: string): void
+  /** 请求打开"合包卸载"对话框(页面级单例,payload 为目标包名)。 */
+  (event: 'open-bundle-uninstall', name: string): void
 }>()
 
 const removeValue = '__market_next_remove__'
@@ -193,7 +186,8 @@ const config = useConfig()
 const ctx = useContext()
 const { t, locale } = useMarketNextI18n()
 const configuring = ref(false)
-const showBundleUninstallDialog = ref(false)
+/** 版本下拉是否已打开过(打开前不渲染版本 el-option,避免数百选项常驻)。 */
+const versionOptionsReady = ref(false)
 const editing = computed({
   get: () => expandedDependency.value === props.name,
   set: (value: boolean) => expandedDependency.value = value ? props.name : '',
@@ -213,16 +207,6 @@ const visibility = usePackageVisibility({
   detailText: status.detailText,
   editing,
 })
-/** 忽略更新:对话框子组件内部自持状态,这里只保留"恢复更新"动作。 */
-const ignoreTarget = computed<IgnoreUpdateTarget>(() => ({
-  name: props.name,
-  getUpdatePolicy: state.getUpdatePolicy,
-  getUpdateIgnored: state.getUpdateIgnored,
-}))
-const { restoreUpdate } = useIgnoreUpdate(ignoreTarget.value, config, t)
-/** 对话框子组件引用(open 由 defineExpose 暴露)。 */
-const ignoreDialog = ref<{ open: () => void }>()
-const bindingDialog = ref<{ open: () => void }>()
 
 // 模板按名消费,此处平铺解构(script setup 的绑定要求)
 const {
@@ -262,6 +246,21 @@ const selectedVersion = computed({
     state.setOverride(override)
   },
 })
+
+/** 版本下拉首次展开后才渲染全部版本选项(此前只显示当前值文本)。 */
+function onVersionSelectVisible(visible: boolean) {
+  if (visible) versionOptionsReady.value = true
+}
+
+/** "恢复更新":清忽略规则与禁检名单并双写持久化。 */
+function restoreUpdate() {
+  const target: IgnoreUpdateTarget = {
+    name: props.name,
+    getUpdatePolicy: state.getUpdatePolicy,
+    getUpdateIgnored: state.getUpdateIgnored,
+  }
+  void restoreIgnoreUpdate(target, config, t)
+}
 
 function toggleCardActions() {
   if (!canExpandCard.value) return
@@ -309,7 +308,7 @@ function clearOverride() {
 
 function removeDependency() {
   if (bundleRecord.value) {
-    showBundleUninstallDialog.value = true
+    emit('open-bundle-uninstall', props.name)
     return
   }
   selectedVersion.value = removeValue

@@ -84,7 +84,13 @@ async function loadMissingMemberRegistries(parsed: PluginBundleManifest) {
     const names = parsed.members.map(member => member.package).filter(name => !store.registry?.[name])
     if (!names.length) return
     const result = await (send('market/registry', names) ?? Promise.resolve(undefined)).catch(() => undefined)
-    if (result) store.registry = { ...store.registry, ...result }
+    // 原地逐 key 合并:只有被补拉包的依赖卡片重算,不整表替换
+    if (result) {
+        store.registry = store.registry ?? {}
+        for (const name in result) {
+            store.registry[name] = result[name]
+        }
+    }
 }
 
 export function useBundleMembers(t: (key: string, args?: any) => string) {

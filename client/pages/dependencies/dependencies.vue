@@ -74,6 +74,9 @@
                 :key="item.name"
                 :name="item.name"
                 :kind="item.kind"
+                @open-ignore="openIgnore"
+                @open-binding="openBinding"
+                @open-bundle-uninstall="openBundleUninstall"
               ></package-view>
             </div>
           </section>
@@ -97,6 +100,29 @@
 
   <!-- 手动添加依赖对话框(本地包上传 / registry 查询两个页签) -->
   <manual-install/>
+
+  <!-- 页面级单例对话框:数百张卡片共享一份实例,目标包状态由 use-dependency-dialogs 持有 -->
+  <ignore-update-dialog
+    v-if="ignoreTarget"
+    ref="ignoreDialog"
+    :display-name="ignoreDisplayName"
+    :latest-version="ignoreLatestVersion"
+    :target="ignoreTarget"
+    :config="config"
+  ></ignore-update-dialog>
+
+  <local-binding-dialog
+    v-if="bindingTargetName"
+    ref="bindingDialog"
+    :name="bindingTargetName"
+    :display-name="bindingDisplayName"
+  ></local-binding-dialog>
+
+  <bundle-uninstall
+    v-model="showBundleUninstall"
+    :package-name="bundleUninstallTargetName"
+    :record="bundleUninstallRecord"
+  ></bundle-uninstall>
 </template>
 
 <script lang="ts" setup>
@@ -119,11 +145,15 @@ import { getLatestVersion, getMarketNextConfig, getPendingOverrides, getWritable
 import { showConfirm } from '../../shared/operations'
 import ManualInstall from './manual.vue'
 import PackageView from './package.vue'
+import IgnoreUpdateDialog from './ignore-update-dialog.vue'
+import LocalBindingDialog from './local-binding-dialog.vue'
+import BundleUninstall from '../../dialogs/bundle-uninstall/index.vue'
 import MarketIcon from '../../market/icons'
 import { getUpdatePolicy } from './dependency-helpers'
 import { useDependencyNames } from './use-dependency-names'
 import { useDependencyClassify } from './use-dependency-classify'
 import { useDependencyGroups, type FilterKey } from './use-dependency-groups'
+import { useDependencyDialogs } from './use-dependency-dialogs'
 
 const config = useConfig()
 const ctx = useContext()
@@ -136,6 +166,12 @@ const searchInput = ref<{ focus?: () => void }>()
 const { names, disposeNamesWatcher } = useDependencyNames(ctx, config)
 const { items, updates, prereleaseBlocked, summary, refreshing } = useDependencyClassify(ctx, config, names)
 const { filterOptions, toggleGroup, visibleGroups } = useDependencyGroups(items, summary, keyword, filter, t)
+const {
+  ignoreDialog, ignoreTarget, ignoreDisplayName, ignoreLatestVersion,
+  bindingDialog, bindingTargetName, bindingDisplayName,
+  showBundleUninstall, bundleUninstallTargetName, bundleUninstallRecord,
+  openIgnore, openBinding, openBundleUninstall,
+} = useDependencyDialogs(config)
 
 /** 注册/注销全局 Ctrl+K 搜索快捷键。 */
 onMounted(() => {
