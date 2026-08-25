@@ -3,8 +3,8 @@
  *
  * 读取策略双轨：优先读取随日志一并落盘的结构化元数据（.log.json，
  * InstallHistoryMetadata）；缺失时回退解析 .log 文本头部字段与完成标记
- * （legacy 格式，兼容旧版本产生的日志）。大文件按「头段 + 尾段」截断读取，
- * 避免把数十 MB 的日志整体载入内存。
+ * （legacy 格式，兼容旧版本产生的日志，解析实现出仓至 legacy.ts）。
+ * 大文件按「头段 + 尾段」截断读取，避免把数十 MB 的日志整体载入内存。
  *
  * 协作关系：由 src/node 适配层在 RPC（market/install-history 等）中调用；
  * deps.activeFile/waitForWrite 来自 InstallLogStore，用于识别并等待正在写入的
@@ -19,6 +19,7 @@ import type {
     InstallLogDetail,
     InstallLogger,
 } from "../types.js";
+import { parseLegacyInstallLog } from "./legacy.js";
 import {
     getInstallLogDir,
     getInstallLogPath,
@@ -98,66 +99,6 @@ async function readInstallLog(file: string, limit: number, headLimit: number, ta
     } finally {
         await handle.close();
     }
-}
-
-/** 无元数据时从 .log 文本解析出一条历史记录（legacy 兼容路径）。 */
-function parseLegacyInstallLog(
-    id: string,
-    content: string,
-    size: number,
-    activeFile?: string,
-): InstallHistoryEntry {
-    const fields = parseLegacyFields(content);
-    const active = basename(activeFile || "") === id;
-    const status = resolveLegacyStatus(content, active);
-    const finishedAt = getLegacyFinishedAt(content, status);
-    return {
-        id,
-        startedAt: fields.startedAt,
-        finishedAt,
-        duration:
-            fields.startedAt && finishedAt ? Math.max(0, finishedAt - fields.startedAt) : undefined,
-        status,
-        deps: fields.deps,
-        forced: fields.forced,
-        installEndpoint:
-            fields.endpoint && fields.endpoint !== "(default)" ? fields.endpoint : undefined,
-        size,
-        changes: [],
-    };
-}
-
-/** 提取 legacy 日志头部字段（startedAt/deps/forced/installEndpoint）。 */
-function parseLegacyFields(content: string) {
-    const field = (name: string) =>
-        content.match(new RegExp(`^${name}:\\s*(.*)$`, "m"))?.[1]?.trim();
-    return {
-        startedAt: Date.parse(field("startedAt") || "") || 0,
-        deps: field("deps") || "(unknown)",
-        forced: field("forced") === "true",
-        endpoint: field("installEndpoint"),
-    };
-}
-
-/** 从 legacy 文本推断状态：活跃中 → running；有 code 0 收尾 → success；失败标记 → error；否则 unknown。 */
-function resolveLegacyStatus(content: string, active: boolean): InstallHistoryStatus {
-    if (active) return "running";
-    if (/dependency operation finished with code 0\s*$/m.test(content)) return "success";
-    if (
-        /dependency operation (?:failed|finished with code|ended without)|package manager (?:terminated|failed to start)/m.test(
-            content,
-        )
-    ) {
-        return "error";
-    }
-    return "unknown";
-}
-
-/** 取 legacy 文本中最后一个时间戳行作为结束时间（运行中则无）。 */
-function getLegacyFinishedAt(content: string, status: InstallHistoryStatus) {
-    if (status === "running") return undefined;
-    const timestamps = [...content.matchAll(/^\[([^\]]+)\]/gm)];
-    return Date.parse(timestamps[timestamps.length - 1]?.[1] || "") || undefined;
 }
 
 /** 由元数据组装历史条目：元数据标记 running 但会话已不在活跃列表 → 视为残留，降级为 unknown。 */

@@ -68,6 +68,13 @@ export interface InstallLogStoreDeps {
     resolveAfter: (name: string) => string | undefined;
 }
 
+/** finish 的收尾结果（由 InstallExecutor 的 runInstallLocked 在 finally 传入）。 */
+interface InstallLogFinishResult {
+    code?: number | null;
+    failed?: boolean;
+    reason?: string;
+}
+
 /** 单次安装会话的日志写盘 + 广播 + 元数据维护。 */
 export class InstallLogStore {
     /** 当前会话的日志文件路径；undefined 表示无进行中的会话。 */
@@ -183,8 +190,17 @@ export class InstallLogStore {
      * 定稿元数据（status/finishedAt，成功时回填各依赖的 afterResolved）、
      * 最后清空会话状态。失败详情由调用方的 catch 路径提前 emit，此处不重复。
      */
-    async finish(result?: { code?: number | null; failed?: boolean; reason?: string }) {
+    async finish(result?: InstallLogFinishResult) {
         if (!this.file) return;
+        this.writeFinishMarker(result);
+        await this.writeTask;
+        await this.finalizeMetadata(result);
+        this.deps.log.info(`dependency install log saved: ${this.file}`);
+        this.resetSession();
+    }
+
+    /** 补写结束标记（失败详情已由 catch 路径 emit，仅区分三态收尾）。 */
+    private writeFinishMarker(result: InstallLogFinishResult | undefined) {
         if (result?.failed) {
             // 失败详情已由 catch 路径 emit，这里仅收尾。
         } else if (result?.code == null) {
@@ -195,25 +211,30 @@ export class InstallLogStore {
         } else {
             this.write("stdout", "dependency operation finished with code 0");
         }
-        await this.writeTask;
-        if (this.metadata) {
-            const success = !result?.failed && result?.code === 0;
-            this.metadata.status = success ? "success" : "error";
-            this.metadata.finishedAt = Date.now();
-            if (success) {
-                // 安装成功后从依赖缓存取最新 resolved，补齐历史「变更」的 after 一侧
-                this.metadata.changes = this.metadata.changes.map((change) => ({
-                    ...change,
-                    afterResolved: this.deps.resolveAfter(change.name) ?? null,
-                }));
-            }
-            await this.writeMetadata().catch((error) => {
-                this.deps.log.debug(
-                    `failed to finish install log metadata ${this.metadataFile}: ${error instanceof Error ? error.message : error}`,
-                );
-            });
+    }
+
+    /** 定稿元数据：status/finishedAt，成功时回填各依赖的 afterResolved；写失败只记 debug。 */
+    private async finalizeMetadata(result: InstallLogFinishResult | undefined) {
+        if (!this.metadata) return;
+        const success = !result?.failed && result?.code === 0;
+        this.metadata.status = success ? "success" : "error";
+        this.metadata.finishedAt = Date.now();
+        if (success) {
+            // 安装成功后从依赖缓存取最新 resolved，补齐历史「变更」的 after 一侧
+            this.metadata.changes = this.metadata.changes.map((change) => ({
+                ...change,
+                afterResolved: this.deps.resolveAfter(change.name) ?? null,
+            }));
         }
-        this.deps.log.info(`dependency install log saved: ${this.file}`);
+        await this.writeMetadata().catch((error) => {
+            this.deps.log.debug(
+                `failed to finish install log metadata ${this.metadataFile}: ${error instanceof Error ? error.message : error}`,
+            );
+        });
+    }
+
+    /** 清空会话状态（finish 的最后一步）。 */
+    private resetSession() {
         this.file = undefined;
         this.metadataFile = undefined;
         this.metadata = undefined;

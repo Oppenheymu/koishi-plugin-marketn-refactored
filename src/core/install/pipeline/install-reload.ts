@@ -36,24 +36,39 @@ export function detectFullReload(
 ) {
     let shouldReload = false;
     for (const name in localDeps) {
-        const resolved = localDeps[name]?.resolved;
-        // 只关心仍在依赖表里的本地包:已被移除的没有"换版本"可言
-        if (!newDeps[name]) continue;
-        const changed = hasLocalDependencyChanged(
-            name,
-            resolved,
-            newDeps[name],
-            previousRequests,
-            requests,
-        );
-        if (!changed) continue;
-        // 只有"已被 require 缓存"的包才必须重启:未加载的包下次加载自然是新版本
-        if (deps.isPackageLoaded(name)) shouldReload = true;
-        deps.log.debug(
-            `dependency changed may require full reload: ${name}, previous=${resolved ?? "-"}, current=${newDeps[name]?.resolved ?? "-"}`,
-        );
+        if (
+            isReloadRequired(deps, name, localDeps[name], newDeps[name], previousRequests, requests)
+        ) {
+            shouldReload = true;
+        }
     }
     return shouldReload;
+}
+
+/** 判定单个本地依赖是否触发整帧重载（detectFullReload 循环体提炼）；发生变化时记录调试日志。 */
+function isReloadRequired(
+    deps: InstallFinalizerDeps,
+    name: string,
+    previous: Dependency | undefined,
+    current: Dependency | undefined,
+    previousRequests: Dict<string>,
+    requests: Dict<string>,
+): boolean {
+    // 只关心仍在依赖表里的本地包:已被移除的没有"换版本"可言
+    if (!current) return false;
+    const changed = hasLocalDependencyChanged(
+        name,
+        previous?.resolved,
+        current,
+        previousRequests,
+        requests,
+    );
+    if (!changed) return false;
+    deps.log.debug(
+        `dependency changed may require full reload: ${name}, previous=${previous?.resolved ?? "-"}, current=${current?.resolved ?? "-"}`,
+    );
+    // 只有"已被 require 缓存"的包才必须重启:未加载的包下次加载自然是新版本
+    return deps.isPackageLoaded(name);
 }
 
 /**
